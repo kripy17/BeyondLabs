@@ -1,0 +1,52 @@
+:root, html.dark {
+  color-scheme: dark;
+  --neo-bg: #070a11;
+  --neo-bg-2: #0b111b;
+  --neo-paper: #111822;
+  --neo-paper-2: #151f2d;
+  --neo-paper-3: #1d2a3b;
+  --neo-ink: #fff4e4;
+  --neo-muted: #d8c9b6;
+  --neo-subtle: #a89b8a;
+  --neo-faint: #756c5e;
+  --neo-line: #f3e6d0;
+  --neo-line-soft: rgba(243, 230, 208, .20);
+  --neo-invert: #f3e6d0;
+  --neo-invert-text: #070a11;
+  --neo-shadow: 5px 5px 0 rgba(243, 230, 208, .82);
+  --neo-shadow-lg: 9px 9px 0 rgba(243, 230, 208, .74);
+  --neo-grid: rgba(243, 230, 208, .075);
+  --neo-cyan: #22d3ee;
+  --neo-violet: #a78bfa;
+  --neo-rose: #fb7185;
+  --neo-emerald: #34d399;
+  --neo-amber: #fbbf24;
+  --neo-blue: #60a5fa;
+  --ba-radius: 0;
+}
+
+html.light {
+  color-scheme: light;
+  --neo-bg: #eef3f8;
+  --neo-bg-2: #e2eaf2;
+  --neo-paper: #ffffff;
+  --neo-paper-2: #f6f9fc;
+  --neo-paper-3: #eaf1f8;
+  --neo-ink: #07111f;
+  --neo-muted: #344154;
+  --neo-subtle: #607086;
+  --neo-faint: #91a0b1;
+  --neo-line: #07111f;
+  --neo-line-soft: rgba(7, 17, 31, .16);
+  --neo-invert: #07111f;
+  --neo-invert-text: #ffffff;
+  --neo-shadow: 5px 5px 0 rgba(7, 17, 31, .84);
+  --neo-shadow-lg: 9px 9px 0 rgba(7, 17, 31, .76);
+  --neo-grid: rgba(7, 17, 31, .07);
+  --neo-cyan: #0891b2;
+  --neo-violet: #7c3aed;
+  --neo-rose: #e11d48;
+  --neo-emerald: #059669;
+  --neo-amber: #d97706;
+  --neo-blue: #2563eb;
+}

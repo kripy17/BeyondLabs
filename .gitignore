@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+build/
+.next/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# editor
+.vscode/
+.idea/
+
+# cache
+.cache/
+__pycache__/
+
+# virtualenv
+.venv/
+
+# archives
+*.zip
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# graphify (knowledge graph)
+graphify-out/
+
+# opencode
+.opencode/
+.openclaude-profile.json
