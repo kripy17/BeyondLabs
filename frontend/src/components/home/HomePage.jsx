@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowRight,
@@ -22,15 +22,11 @@ import {
   ShieldAlert,
   ShieldCheck,
   TerminalSquare,
-  X,
   Zap,
 } from "lucide-react"
 import { useInvestigation } from "../../context/InvestigationContext"
 import { getJson } from "../../lib/apiClient"
-import { getPendingArtifactInfo } from "../../lib/getPendingArtifact"
-import { getRecentPages } from "../../lib/navigationTracker"
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+import { navigateToPage } from "../../lib/navigation"
 
 const QUICK_TOOLS = [
   { label: "Artifact Intake",   page: "smart-parser",       icon: FileSearch,    tone: "rose"    },
@@ -126,7 +122,6 @@ const ANALYST_NOTES = [
   },
 ]
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function countState(state) {
   return {
@@ -168,7 +163,6 @@ function storageLabelFromMode(mode) {
   return "session-only"
 }
 
-// ── Scroll reveal hook ────────────────────────────────────────────────────────
 
 function useNeoReveal() {
   useEffect(() => {
@@ -188,7 +182,6 @@ function useNeoReveal() {
   }, [])
 }
 
-// ── Animated counter ──────────────────────────────────────────────────────────
 
 function AnimatedCount({ value, className }) {
   const [display, setDisplay] = useState(0)
@@ -212,68 +205,8 @@ function AnimatedCount({ value, className }) {
   return <span className={className}>{display}</span>
 }
 
-// ── Pending artifact banner ─────────────────────────────────────
 
-function PendingArtifactBanner({ dismiss }) {
-  const pending = useMemo(() => getPendingArtifactInfo(), [])
-  const navigate = useNavigate()
-  if (!pending) return null
-  const targetLabel = pending.target || "smart-parser"
-  return (
-    <aside className="neo-pending-banner" role="alert">
-      <div>
-        <span className="neo-pending-pulse" aria-hidden="true" />
-        <span>
-          Pending artifact from <strong>{pending.source}</strong> &mdash;&nbsp;
-          <code title={pending.value}>{pending.value.slice(0, 80)}{pending.value.length > 80 ? "…" : ""}</code>
-        </span>
-      </div>
-      <div>
-        <button type="button" className="neo-btn is-primary is-small" onClick={() => navigate(ROUTE_MAP[targetLabel] || "/smart-parser")}>
-          Open <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" className="neo-btn is-small" onClick={dismiss} aria-label="Dismiss pending artifact">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </aside>
-  )
-}
-
-// ── Recent pages strip ──────────────────────────────────────────
-
-function RecentPagesStrip({ setPage }) {
-  const [pages] = useState(() => getRecentPages(3))
-  if (!pages.length) return null
-  return (
-    <nav className="neo-recent-strip neo-reveal" data-neo-reveal aria-label="Recently visited pages">
-      <span className="neo-recent-label">Continue</span>
-      <div className="neo-recent-track">
-        {pages.map((item, i) => {
-          const workspace = ALL_WORKSPACES.find((w) => w.page === item.page)
-          const Icon = workspace?.icon || ArrowRight
-          return (
-            <button
-              key={item.page}
-              type="button"
-              className="neo-recent-btn"
-              style={{ "--neo-delay": `${i * 50}ms` }}
-              onClick={() => setPage(item.page)}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{item.label}</span>
-              <small>{relativeTime(item.time)}</small>
-            </button>
-          )
-        })}
-      </div>
-    </nav>
-  )
-}
-
-// ── Quick launch strip ────────────────────────────────────────────────────────
-
-function QuickLaunchStrip({ setPage }) {
+function QuickLaunchStrip({ navigate }) {
   return (
     <nav className="neo-quick-launch neo-reveal" data-neo-reveal aria-label="Quick launch tools">
       <span className="neo-ql-label">Quick launch</span>
@@ -287,7 +220,7 @@ function QuickLaunchStrip({ setPage }) {
               className="neo-ql-btn"
               data-tone={tool.tone}
               style={{ "--neo-delay": `${i * 55}ms` }}
-              onClick={() => setPage(tool.page)}
+              onClick={() => navigateToPage(navigate, tool.page)}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
               {tool.label}
@@ -299,9 +232,8 @@ function QuickLaunchStrip({ setPage }) {
   )
 }
 
-// ── Hero ──────────────────────────────────────────────────────────────────────
 
-function HeroSection({ setPage, counts, updatedAt }) {
+function HeroSection({ navigate, counts, updatedAt }) {
   const hasActiveCase = counts.artifacts > 0 || counts.timeline > 0
   const lastSeen = relativeTime(updatedAt)
 
@@ -309,11 +241,9 @@ function HeroSection({ setPage, counts, updatedAt }) {
     <section id="home-hero" className="neo-hero neo-reveal" data-neo-reveal aria-labelledby="neo-hero-title">
       <div className="neo-hero-card">
 
-        {/* Corner brackets */}
         <span className="neo-corner neo-corner-tl" aria-hidden="true" />
         <span className="neo-corner neo-corner-br" aria-hidden="true" />
 
-        {/* Utility pill strip */}
         <div className="neo-hero-utility" aria-hidden="true">
           <span>local://intake</span>
           <span>static-first</span>
@@ -337,7 +267,6 @@ function HeroSection({ setPage, counts, updatedAt }) {
             engineering, and report export into one local SOC workbench.
           </p>
 
-          {/* Feature pills */}
           <div className="neo-hero-pills" aria-label="Feature coverage">
             {["Email Headers", "DNS Lookup", "IOC Pivot", "MITRE Map", "Log Parser", "Case Report"].map((tag, i) => (
               <span key={tag} style={{ "--neo-delay": `${i * 70}ms` }}>{tag}</span>
@@ -345,16 +274,15 @@ function HeroSection({ setPage, counts, updatedAt }) {
           </div>
 
           <div className="neo-actions">
-            <button type="button" className="neo-btn is-primary" onClick={() => setPage("smart-parser")}>
+            <button type="button" className="neo-btn is-primary" onClick={() => navigateToPage(navigate, "smart-parser")}>
               Start with Artifact Intake <ArrowRight className="h-4 w-4" />
             </button>
-            <button type="button" className="neo-btn" onClick={() => setPage("case-timeline")}>
+            <button type="button" className="neo-btn" onClick={() => navigateToPage(navigate, "case-timeline")}>
               Open Case & Report <GitBranch className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Signal strip */}
         <div className="neo-hero-signal" aria-label="Investigation path">
           <article><strong>01</strong><span>Extract artifacts</span></article>
           <i aria-hidden="true" />
@@ -363,7 +291,6 @@ function HeroSection({ setPage, counts, updatedAt }) {
           <article><strong>03</strong><span>Package evidence</span></article>
         </div>
 
-        {/* Resume banner — only when active case */}
         {hasActiveCase && (
           <div className="neo-resume-banner" role="status">
             <span className="neo-resume-dot" aria-hidden="true" />
@@ -374,7 +301,7 @@ function HeroSection({ setPage, counts, updatedAt }) {
               <strong>{counts.findings}</strong> finding{counts.findings !== 1 ? "s" : ""}
               {lastSeen ? <em> · {lastSeen}</em> : null}
             </span>
-            <button type="button" onClick={() => setPage("case-timeline")}>
+            <button type="button" onClick={() => navigateToPage(navigate, "case-timeline")}>
               Resume <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -384,9 +311,8 @@ function HeroSection({ setPage, counts, updatedAt }) {
   )
 }
 
-// ── Case scope panel ──────────────────────────────────────────────────────────
 
-function CaseScopePanel({ counts, storageLabel, backendStatus, setPage, updatedAt }) {
+function CaseScopePanel({ navigate, counts, storageLabel, backendStatus, updatedAt }) {
   const hasData = counts.artifacts + counts.timeline + counts.notes + counts.findings > 0
   const [activeNote, setActiveNote] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
@@ -413,7 +339,6 @@ function CaseScopePanel({ counts, storageLabel, backendStatus, setPage, updatedA
   return (
     <section className="neo-case-scope neo-reveal" data-neo-reveal aria-label="Case scope and workspace status">
 
-      {/* Terminal panel */}
       <article className="neo-case-terminal">
         <header>
           <span><i /><i /><i /></span>
@@ -450,16 +375,15 @@ function CaseScopePanel({ counts, storageLabel, backendStatus, setPage, updatedA
             )}
 
             <div className="neo-terminal-actions">
-              <button type="button" onClick={() => setPage("case-timeline")} className="neo-term-btn is-primary">
+              <button type="button" onClick={() => navigateToPage(navigate, "case-timeline")} className="neo-term-btn is-primary">
                 <FileText className="h-4 w-4" /> Resume case
               </button>
-              <button type="button" onClick={() => setPage("smart-parser")} className="neo-term-btn">
+              <button type="button" onClick={() => navigateToPage(navigate, "smart-parser")} className="neo-term-btn">
                 <FileSearch className="h-4 w-4" /> Add evidence
               </button>
             </div>
           </div>
         ) : (
-          /* Empty state */
           <div className="neo-terminal-lines neo-terminal-empty">
             <p><b>$</b> workspace.load() <span className="neo-blink">_</span></p>
             <p><span>→</span> no active investigation found</p>
@@ -468,14 +392,13 @@ function CaseScopePanel({ counts, storageLabel, backendStatus, setPage, updatedA
               <Zap className="h-4 w-4" aria-hidden="true" />
               <span>Start by pasting any suspicious artifact below.</span>
             </div>
-            <button type="button" onClick={() => setPage("smart-parser")} className="neo-term-btn is-primary">
+            <button type="button" onClick={() => navigateToPage(navigate, "smart-parser")} className="neo-term-btn is-primary">
               <FileSearch className="h-4 w-4" /> Start with Artifact Intake
             </button>
           </div>
         )}
       </article>
 
-      {/* Analyst carousel */}
       <article
         className="neo-analyst-carousel"
         data-tone={note.tone}
@@ -512,9 +435,8 @@ function CaseScopePanel({ counts, storageLabel, backendStatus, setPage, updatedA
   )
 }
 
-// ── Investigation pipeline ────────────────────────────────────────────────────
 
-function InvestigationPipeline({ setPage, counts }) {
+function InvestigationPipeline({ navigate, counts }) {
   const activeStep = getActiveStep(counts)
 
   return (
@@ -537,7 +459,7 @@ function InvestigationPipeline({ setPage, counts }) {
               className={`neo-pipeline-step${isDone ? " is-done" : ""}${isActive ? " is-active" : ""}`}
               data-tone={step.tone}
               style={{ "--neo-delay": `${i * 60}ms` }}
-              onClick={() => setPage(step.page)}
+              onClick={() => navigateToPage(navigate, step.page)}
               role="listitem"
               aria-label={`${step.title}${isDone ? " — complete" : isActive ? " — recommended next" : ""}`}
             >
@@ -554,15 +476,13 @@ function InvestigationPipeline({ setPage, counts }) {
         })}
       </div>
 
-      {/* Connecting rail */}
       <div className="neo-pipeline-rail" aria-hidden="true" />
     </section>
   )
 }
 
-// ── Workspace library ─────────────────────────────────────────────────────────
 
-function WorkspaceLibrary({ setPage }) {
+function WorkspaceLibrary({ navigate }) {
   const [activeIdx, setActiveIdx] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
@@ -575,6 +495,7 @@ function WorkspaceLibrary({ setPage }) {
   const group = WORKSPACE_GROUPS[activeIdx]
   const primary   = group.tools[0]
   const secondary = group.tools[1]
+
   return (
     <section id="home-library" className="neo-section neo-library neo-reveal" data-neo-reveal aria-labelledby="neo-library-title">
       <div className="neo-section-heading">
@@ -592,12 +513,10 @@ function WorkspaceLibrary({ setPage }) {
         onFocus={() => setIsPaused(true)}
         onBlur={() => setIsPaused(false)}
       >
-        {/* Progress bar */}
         <div className="neo-workspace-progress" aria-hidden="true">
           <span key={group.id} />
         </div>
 
-        {/* Category tabs */}
         <nav className="neo-workspace-tabs" aria-label="Workspace categories">
           {WORKSPACE_GROUPS.map((g, i) => (
             <button
@@ -614,14 +533,12 @@ function WorkspaceLibrary({ setPage }) {
           ))}
         </nav>
 
-        {/* Cards display */}
         <div className="neo-workspace-display" key={group.id}>
 
-          {/* Primary card */}
           <article className="neo-workspace-card is-primary">
             <div className="neo-card-kicker">
               <span>{group.label}</span>
-              <button type="button" onClick={() => setPage(primary.page)} aria-label={`Open ${primary.label}`}>
+              <button type="button" onClick={() => navigateToPage(navigate, primary.page)} aria-label={`Open ${primary.label}`}>
                 <ArrowRight className="h-5 w-5" />
               </button>
             </div>
@@ -637,9 +554,8 @@ function WorkspaceLibrary({ setPage }) {
             </div>
           </article>
 
-          {/* Secondary card */}
           {secondary && (
-            <button type="button" className="neo-workspace-card is-side" onClick={() => setPage(secondary.page)}>
+            <button type="button" className="neo-workspace-card is-side" onClick={() => navigateToPage(navigate, secondary.page)}>
               {(() => { const Icon = secondary.icon; return <Icon className="h-5 w-5" /> })()}
               <h3>{secondary.label}</h3>
               <p>{group.tools.length > 1 ? "Continue the investigation with this linked workspace." : group.description}</p>
@@ -649,12 +565,11 @@ function WorkspaceLibrary({ setPage }) {
             </button>
           )}
 
-          {/* Mini tool grid (replaces fake wireframe) */}
           <div className="neo-tool-grid" aria-label={`All ${group.label} tools`}>
             {group.tools.map((tool) => {
               const Icon = tool.icon
               return (
-                <button key={tool.page} type="button" className="neo-tool-mini" onClick={() => setPage(tool.page)}>
+                <button key={tool.page} type="button" className="neo-tool-mini" onClick={() => navigateToPage(navigate, tool.page)}>
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   <strong>{tool.label}</strong>
                   <div className="neo-card-tags">
@@ -671,7 +586,6 @@ function WorkspaceLibrary({ setPage }) {
   )
 }
 
-// ── Live case preview ─────────────────────────────────────────────────────────
 
 const EXAMPLE_ARTIFACTS = [
   { type: "url",    value: "hxxps://secure-login-update[.]com/auth/v2/", source: "Phishing Triage"  },
@@ -692,7 +606,8 @@ function SeverityDot({ severity }) {
   return <span className={`neo-sev-dot sev-${severity}`} aria-label={severity} />
 }
 
-function LiveCasePreview({ setPage, state, counts }) {
+
+function LiveCasePreview({ navigate, state, counts }) {
   const hasRealData = counts.artifacts + counts.findings + counts.timeline > 0
   const artifacts = hasRealData ? state.artifacts.slice(0, 3) : EXAMPLE_ARTIFACTS
   const findings  = hasRealData ? state.findings.slice(0, 2)  : EXAMPLE_FINDINGS
@@ -714,7 +629,6 @@ function LiveCasePreview({ setPage, state, counts }) {
 
       <div className={`neo-case-console${!hasRealData ? " is-example" : ""}`}>
 
-        {/* Console header */}
         <header className="neo-case-console-head">
           <div className="neo-output-dots" aria-hidden="true"><span /><span /><span /></div>
           <strong>{hasRealData ? "case_report.live.json" : "case_report.example.json"}</strong>
@@ -722,7 +636,6 @@ function LiveCasePreview({ setPage, state, counts }) {
           {hasRealData  && <span className="neo-live-badge"><span className="neo-live-dot" />LIVE</span>}
         </header>
 
-        {/* Risk / verdict strip */}
         <div className="neo-case-risk-strip">
           <div className="neo-risk-left">
             <span className="neo-risk-badge">{hasRealData ? "ACTIVE CASE" : "PROBABLE PHISHING"}</span>
@@ -741,7 +654,6 @@ function LiveCasePreview({ setPage, state, counts }) {
           </div>
         </div>
 
-        {/* Three columns: artifacts, timeline, findings */}
         <div className="neo-case-body">
 
           <section className="neo-case-col">
@@ -764,7 +676,7 @@ function LiveCasePreview({ setPage, state, counts }) {
                 <div key={i} className={`neo-case-item type-${t.type || "evidence"}`}>
                   <em>{t.type || "evidence"}</em>
                   <strong title={t.title}>{truncate(t.title, 38)}</strong>
-                  <small>{t.source}{t.time ? ` · ${relativeTime(t.time)}` : ""}</small>
+                  <small>{t.source}</small>
                 </div>
               ))}
             </div>
@@ -793,13 +705,12 @@ function LiveCasePreview({ setPage, state, counts }) {
 
         </div>
 
-        {/* CTA */}
         <div className="neo-case-cta">
-          <button type="button" className="neo-evidence-action" onClick={() => setPage("case-timeline")}>
+          <button type="button" className="neo-evidence-action" onClick={() => navigateToPage(navigate, "case-timeline")}>
             {hasRealData ? "Open Case & Report" : "Start an Investigation"} <ArrowRight className="h-4 w-4" />
           </button>
           {hasRealData && (
-            <button type="button" className="neo-evidence-action is-secondary" onClick={() => setPage("smart-parser")}>
+            <button type="button" className="neo-evidence-action is-secondary" onClick={() => navigateToPage(navigate, "smart-parser")}>
               Add more evidence
             </button>
           )}
@@ -810,9 +721,8 @@ function LiveCasePreview({ setPage, state, counts }) {
   )
 }
 
-// ── Local-first feature rows ──────────────────────────────────────────────────
 
-function LocalFirstBanner({ setPage }) {
+function LocalFirstBanner({ navigate }) {
   return (
     <section id="home-local" className="neo-section neo-assurance neo-reveal" data-neo-reveal aria-labelledby="neo-assurance-title">
       <div className="neo-section-heading" style={{ textAlign: "left", margin: "0 0 1.45rem" }}>
@@ -847,7 +757,7 @@ function LocalFirstBanner({ setPage }) {
             <span className="neo-mini-label is-cyan"><FileText className="h-4 w-4" /> Seamless Export</span>
             <h3>From analysis to report in seconds.</h3>
             <p>Compile findings, timeline events, notes, hypotheses, and artifact details into Markdown or HTML for stakeholder review.</p>
-            <button type="button" onClick={() => setPage("case-timeline")}>
+            <button type="button" onClick={() => navigateToPage(navigate, "case-timeline")}>
               Open Case & Report <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -857,35 +767,34 @@ function LocalFirstBanner({ setPage }) {
   )
 }
 
-// ── Footer ────────────────────────────────────────────────────────────────────
 
-function Footer({ setPage }) {
+function Footer({ navigate }) {
   const year = new Date().getFullYear()
 
   const cols = [
     {
       title: "Workspaces",
       items: [
-        { label: "Artifact Intake",   action: () => setPage("smart-parser")      },
-        { label: "Phishing Triage",   action: () => setPage("phishing-triage")   },
-        { label: "URL Analyzer",      action: () => setPage("safe-url-analyzer") },
-        { label: "Recon & Exposure",  action: () => setPage("recon-exposure")    },
+        { label: "Artifact Intake",   action: "smart-parser"      },
+        { label: "Phishing Triage",   action: "phishing-triage"   },
+        { label: "URL Analyzer",      action: "safe-url-analyzer" },
+        { label: "Recon & Exposure",  action: "recon-exposure"    },
       ],
     },
     {
       title: "Detection",
       items: [
-        { label: "SIEM Workspace",    action: () => setPage("siem")              },
-        { label: "Detection & MITRE", action: () => setPage("detection-mitre")   },
-        { label: "SOC Guide",         action: () => setPage("soc-guide")         },
-        { label: "IDS Builder",       action: () => setPage("ids-builder")       },
+        { label: "SIEM Workspace",    action: "siem"              },
+        { label: "Detection & MITRE", action: "detection-mitre"   },
+        { label: "SOC Guide",         action: "soc-guide"         },
+        { label: "IDS Builder",       action: "ids-builder"       },
       ],
     },
     {
       title: "Case",
       items: [
-        { label: "Case & Report",     action: () => setPage("case-timeline")     },
-        { label: "Settings",          action: () => setPage("settings")          },
+        { label: "Case & Report",     action: "case-timeline"     },
+        { label: "Settings",          action: "settings"          },
         { label: "GitHub",            href:   "https://github.com/kripy17"       },
       ],
     },
@@ -910,7 +819,7 @@ function Footer({ setPage }) {
                 item.href ? (
                   <a key={item.label} href={item.href} target="_blank" rel="noreferrer">{item.label}</a>
                 ) : (
-                  <button key={item.label} type="button" onClick={item.action}>{item.label}</button>
+                  <button key={item.label} type="button" onClick={() => navigateToPage(navigate, item.action)}>{item.label}</button>
                 )
               )}
             </nav>
@@ -937,20 +846,14 @@ function Footer({ setPage }) {
   )
 }
 
-// ── Root ──────────────────────────────────────────────────────────────────────
-
-import { ROUTE_MAP } from "../../lib/navigation"
-import { ALL_WORKSPACES } from "../../lib/navigation"
 
 export default function HomePage() {
+  const navigate = useNavigate()
   useNeoReveal()
   const { state, storageMode } = useInvestigation()
-  const navigate = useNavigate()
-  const setPage = (page) => navigate(ROUTE_MAP[page] || "/")
   const counts       = countState(state)
   const storageLabel = storageLabelFromMode(storageMode)
   const [backendStatus, setBackendStatus] = useState("checking")
-  const [pendingDismissed, setPendingDismissed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -970,16 +873,14 @@ export default function HomePage() {
 
   return (
     <main className="ba-command-deck neo-command-deck" aria-label="BeyondArch homepage">
-      {!pendingDismissed && <PendingArtifactBanner dismiss={() => setPendingDismissed(true)} />}
-      <HeroSection     setPage={setPage} counts={counts} updatedAt={state.updatedAt} />
-      <RecentPagesStrip setPage={setPage} />
-      <QuickLaunchStrip setPage={setPage} />
-      <CaseScopePanel  setPage={setPage} counts={counts} storageLabel={storageLabel} backendStatus={backendStatus} updatedAt={state.updatedAt} />
-      <InvestigationPipeline setPage={setPage} counts={counts} />
-      <WorkspaceLibrary setPage={setPage} />
-      <LiveCasePreview  setPage={setPage} state={state} counts={counts} />
-      <LocalFirstBanner setPage={setPage} />
-      <Footer           setPage={setPage} />
+      <HeroSection          navigate={navigate} counts={counts} updatedAt={state.updatedAt} />
+      <QuickLaunchStrip     navigate={navigate} />
+      <CaseScopePanel       navigate={navigate} counts={counts} storageLabel={storageLabel} backendStatus={backendStatus} updatedAt={state.updatedAt} />
+      <InvestigationPipeline navigate={navigate} counts={counts} />
+      <WorkspaceLibrary     navigate={navigate} />
+      <LiveCasePreview      navigate={navigate} state={state} counts={counts} />
+      <LocalFirstBanner     navigate={navigate} />
+      <Footer               navigate={navigate} />
     </main>
   )
 }
