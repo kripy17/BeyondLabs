@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import {
-  AlertTriangle, CheckCircle2, Copy, Download, FileText, Play, RefreshCcw, Route, ShieldCheck, TerminalSquare,
+  AlertTriangle, CheckCircle2, Copy, Download, FileText, Play, Radar, RefreshCcw, Route, ShieldCheck, TerminalSquare,
 } from "lucide-react"
 import { runReconNmapCustom, runReconNmapScan } from "../../api/backend"
 import { WorkbenchHeader, WorkbenchPage, WorkbenchPanel } from "../../components/layout/WorkbenchShell"
@@ -299,7 +299,7 @@ export default function NmapRunnerPage({ setPage }) {
       />
       <WorkbenchPanel className="space-y-4">
         {samplesOpen ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-3">
+          <div className="rounded-xl border border-white/10 bg-black/40 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-zinc-50">Workflow sample</p>
@@ -337,7 +337,7 @@ export default function NmapRunnerPage({ setPage }) {
           </div>
 
           <aside className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
-            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}>Run controls</p><h2 className="ba-output-section-title">Bounded backend scan</h2><p className="mt-1 text-sm leading-6 text-zinc-300">Active scanning is limited to safe Nmap profiles and bounded custom commands. Use only on authorized targets.</p></div>
+            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}><TerminalSquare size={14} className="inline mr-1" />Run controls</p><h2 className="ba-output-section-title">Bounded backend scan</h2><p className="mt-1 text-sm leading-6 text-zinc-300">Active scanning is limited to safe Nmap profiles and bounded custom commands. Use only on authorized targets.</p></div>
             <label className="flex gap-3 rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-zinc-200">
               <input type="checkbox" className="mt-1" checked={allowPrivate} onChange={(event) => setAllowPrivate(event.target.checked)} />
               <span>Allow private/local lab targets.</span>
@@ -381,7 +381,7 @@ export default function NmapRunnerPage({ setPage }) {
           <section className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-3 ba-output-section-head">
               <div>
-                <p className="ba-output-section-eyebrow">Parsed output</p>
+                <p className="ba-output-section-eyebrow"><Radar size={14} className="inline mr-1" />Parsed output</p>
                 <h3 className="ba-output-section-title">Open ports, services, versions</h3>
               </div>
               {ports.length ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-black text-cyan-100">{ports.length} open</span> : null}

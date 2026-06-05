@@ -347,6 +347,7 @@ else
 fi
 spin_run "Upgrading backend pip" "$BACKEND_DIR/.venv/bin/python" -m pip install --upgrade pip
 spin_run "Installing backend requirements" "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements.txt"
+spin_run "Installing dev requirements" "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements-dev.txt"
 if [[ -f "$FRONTEND_DIR/package-lock.json" ]]; then
   spin_run "Installing frontend npm dependencies" bash -c "cd '$FRONTEND_DIR' && npm ci --include=dev"
 else

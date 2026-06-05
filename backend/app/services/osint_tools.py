@@ -1,8 +1,8 @@
 import re
-import dns.resolver
-import httpx
 from urllib.parse import urlparse
 
+import dns.resolver
+import httpx
 
 USERNAME_PLATFORMS = {
     "github": "https://github.com/{username}",
@@ -177,9 +177,9 @@ def social_links_finder(website: str) -> dict:
         "total_links_found": sum(len(v) for v in found.values()),
     }
 
-import shutil
-import subprocess
-from shlex import quote
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+from shlex import quote  # noqa: E402
 
 LOCAL_OSINT_TOOLS = {
     "curl": ["curl"],

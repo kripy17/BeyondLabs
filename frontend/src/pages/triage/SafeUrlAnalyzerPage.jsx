@@ -9,13 +9,16 @@ import {
   ExternalLink,
   FileJson,
   GitBranch,
+  Globe,
   Globe2,
   Link2,
   Loader2,
   LockKeyhole,
   Radar,
   RefreshCcw,
+  Search,
   SearchCheck,
+  Shield,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -276,11 +279,11 @@ function SampleAndHelpers({ sampleType, setSampleType, onLoadSample, onDefang, o
         <option value="redirect">Redirect chain</option>
         <option value="benign">Benign login URL</option>
       </select>
-      <button type="button" onClick={onLoadSample}>Load sample</button>
-      <button type="button" onClick={onDefang}>Defang</button>
-      <button type="button" onClick={onRefang}>Refang</button>
-      <button type="button" onClick={onDecode}>Decode</button>
-      <button type="button" onClick={onClear}>Clear</button>
+      <button type="button" onClick={onLoadSample}><Search className="h-4 w-4" /> Load sample</button>
+      <button type="button" onClick={onDefang}><Shield className="h-4 w-4" /> Defang</button>
+      <button type="button" onClick={onRefang}><Shield className="h-4 w-4" /> Refang</button>
+      <button type="button" onClick={onDecode}><Code2 className="h-4 w-4" /> Decode</button>
+      <button type="button" onClick={onClear}><XCircle className="h-4 w-4" /> Clear</button>
     </div>
   )
 }
@@ -291,11 +294,11 @@ function UrlInputDesk({ url, setUrl, mode, setMode, sampleType, setSampleType, o
       <div className="url-card-label">URL_REVIEW_DESK.md</div>
       <div className="url-input-head">
         <div>
-          <p className="url-kicker"><Link2 size={14} /> Safe link review</p>
+          <p className="url-kicker"><Link2 size={14} className="inline mr-1" /> Safe link review</p>
           <h1>Safe URL Analyzer</h1>
           <span>Inspect suspicious links, redirects, host signals, and URL structure before routing evidence into a case.</span>
         </div>
-        <div className="url-local-note"><LockKeyhole size={15} /> local/session-first</div>
+        <div className="url-local-note"><LockKeyhole size={15} className="inline mr-1" /> local/session-first</div>
       </div>
       <textarea
         value={url}
@@ -318,9 +321,9 @@ function UrlInputDesk({ url, setUrl, mode, setMode, sampleType, setSampleType, o
           {loading ? "Analyzing…" : "Analyze URL"}
         </button>
       </div>
-      {incomingSource && <p className="url-inline-notice"><Sparkles size={14} /> Loaded from {incomingSource}</p>}
-      {notice && <p className="url-inline-notice"><CheckCircle2 size={14} /> {notice}</p>}
-      {error && <p className="url-inline-error"><AlertTriangle size={14} /> {error}</p>}
+      {incomingSource && <p className="url-inline-notice"><Sparkles size={14} className="inline mr-1" /> Loaded from {incomingSource}</p>}
+      {notice && <p className="url-inline-notice"><CheckCircle2 size={14} className="inline mr-1" /> {notice}</p>}
+      {error && <p className="url-inline-error"><AlertTriangle size={14} className="inline mr-1" /> {error}</p>}
       <ModeSelector mode={mode} setMode={setMode} />
     </section>
   )
@@ -396,6 +399,7 @@ function EmptyPreview() {
   ]
   return (
     <section className="url-empty-preview">
+      <Globe className="h-10 w-10 text-zinc-500 mx-auto mb-4" />
       {cards.map(([title, detail], index) => (
         <article key={title} style={{ "--delay": `${index * 60}ms` }}>
           <span>{String(index + 1).padStart(2, "0")}</span>
@@ -440,7 +444,7 @@ function ResultHeader({ result, mode, onAnalyze, onClear, loading }) {
   return (
     <section className="url-result-hero url-paper-card">
       <div className="url-result-title">
-        <p className="url-kicker"><Link2 size={14} /> {modeLabel(mode)}</p>
+        <p className="url-kicker"><Link2 size={14} className="inline mr-1" /> {modeLabel(mode)}</p>
         <h1>{staticResult.host || "URL Review"}</h1>
         <span>ID: BARCH-URL-{String(result?.checked_at || "LOCAL").replace(/\D/g, "").slice(-8) || "LOCAL"}</span>
       </div>
@@ -544,7 +548,7 @@ function RedirectReview({ result }) {
   return (
     <section className="url-paper-card">
       <SectionHeader eyebrow="Destination" title="Redirect and metadata review" subtitle="Header/redirect metadata only. No browser rendering or JavaScript execution." icon={GitBranch} compact />
-      {live.blocked_reason && <p className="url-warning-box"><AlertTriangle size={15} /> {live.blocked_reason}</p>}
+      {live.blocked_reason && <p className="url-warning-box"><AlertTriangle size={15} className="inline mr-1" /> {live.blocked_reason}</p>}
       {chain.length ? (
         <div className="url-redirect-chain">
           {chain.map((hop, index) => (

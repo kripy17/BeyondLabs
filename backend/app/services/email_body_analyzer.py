@@ -1,6 +1,6 @@
 import re
-from app.services.ioc_extractor import extract_iocs, defang_text, refang_text
 
+from app.services.ioc_extractor import defang_text, extract_iocs, refang_text
 
 URGENCY_KEYWORDS = [
     "urgent", "immediately", "action required", "verify now", "expires today",

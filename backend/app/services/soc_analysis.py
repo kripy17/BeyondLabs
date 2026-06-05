@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 
-
 IPV4_RE = re.compile(
     r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'
     r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b'

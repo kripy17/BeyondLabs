@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 
 from app.services.mini_siem import analyze_logs_siem
 
-
 router = APIRouter()
 
 MAX_LOG_UPLOAD_SIZE = 5 * 1024 * 1024

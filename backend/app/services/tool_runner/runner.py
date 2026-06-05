@@ -9,11 +9,11 @@ from app.services.tool_runner.registry import get_tool
 from app.services.tool_runner.safety import authorization_error, hostname_from_target, validate_target_text
 from app.services.tool_runner.schemas import ToolRunRequest
 from app.services.tool_runner.tools.local_labs import (
+    run_controlled_workflow,
     run_pattern_lab,
     run_secretfinder,
     run_web_crawler,
     run_wordlist_lab,
-    run_controlled_workflow,
 )
 
 

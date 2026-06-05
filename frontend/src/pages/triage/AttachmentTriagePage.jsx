@@ -2,9 +2,13 @@ import { useMemo, useRef, useState } from "react"
 import {
   ChefHat,
   Clipboard,
+  Database,
   Download,
   ExternalLink,
+  FileSearch,
   FileText,
+  ShieldAlert,
+  ShieldCheck,
   Upload,
 } from "lucide-react"
 import SendToActions from "../../components/investigation/SendToActions"
@@ -692,7 +696,7 @@ export default function AttachmentTriagePage({ setPage }) {
 
                 <aside className="space-y-3 rounded-xl border border-white/10 bg-black/40 p-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Controls</p>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400"><ShieldCheck size={13} className="inline mr-1" />Controls</p>
                     <p className="mt-1 text-sm text-zinc-300">Static triage only. Use pivots after review; do not open or execute unknown files.</p>
                   </div>
                   <button className="ba-button-primary w-full rounded-xl px-4 py-2 text-sm font-black" onClick={runAnalysis}>Analyze attachment</button>
@@ -720,7 +724,7 @@ export default function AttachmentTriagePage({ setPage }) {
             <section className="rounded-2xl border border-white/10 bg-black/40 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-300">Attachment verdict</p>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-300"><ShieldAlert size={13} className="inline mr-1" />Attachment verdict</p>
                   <h2 className="mt-1 text-2xl font-black text-zinc-100">{verdict}</h2>
                   <p className="mt-2 max-w-5xl text-sm leading-6 text-zinc-200">{summary}</p>
                 </div>
@@ -736,7 +740,7 @@ export default function AttachmentTriagePage({ setPage }) {
 
               {!!attachmentIdentityFields.length && (
                 <details className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3">
-                  <summary className="cursor-pointer text-sm font-bold text-zinc-100">Attachment identity and local metadata</summary>
+                  <summary className="cursor-pointer text-sm font-bold text-zinc-100"><FileSearch size={14} className="inline mr-1" />Attachment identity and local metadata</summary>
                   <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
                     <table className="w-full text-left text-sm">
                       <tbody className="divide-y divide-white/10">
@@ -813,16 +817,16 @@ export default function AttachmentTriagePage({ setPage }) {
 
           <WorkbenchPanel className="space-y-3">
             <div className="ba-output-section-head">
-              <div><p className="ba-output-section-eyebrow">Key evidence</p><h2 className="ba-output-section-title">Signals that matter first</h2></div>
+              <div><p className="ba-output-section-eyebrow"><FileSearch size={14} className="inline mr-1" />Key evidence</p><h2 className="ba-output-section-title">Signals that matter first</h2></div>
               <span className={`ba-chip ${severityClass(risk.level)}`}>{findings.length} static findings</span>
             </div>
-            {topFindings.length ? <div className="ba-output-grid ba-output-grid-2">{topFindings.map((item, index) => <FindingCard key={`${item.title}-${index}`} item={item} />)}</div> : <p className="ba-empty-state">No security-relevant local findings identified for this input.</p>}
+            {topFindings.length ? <div className="ba-output-grid ba-output-grid-2">{topFindings.map((item, index) => <FindingCard key={`${item.title}-${index}`} item={item} />)}</div> : <p className="ba-empty-state"><FileSearch size={16} className="inline mr-1 text-zinc-400" />No security-relevant local findings identified for this input.</p>}
             {findings.length > topFindings.length && <details className="rounded-xl border border-white/10 bg-black/40 p-3"><summary className="cursor-pointer text-sm font-bold text-zinc-100">Show all findings ({findings.length})</summary><div className="mt-3 ba-output-grid ba-output-grid-2">{findings.map((item, index) => <FindingCard key={`${item.title}-all-${index}`} item={item} />)}</div></details>}
           </WorkbenchPanel>
 
           {!!activeIocGroups.length && (
             <WorkbenchPanel className="space-y-3">
-              <div className="ba-output-section-head"><div><p className="ba-output-section-eyebrow">Extracted IOCs</p><h2 className="ba-output-section-title">Routeable indicators and relations</h2></div><button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => copy(iocText, "All IOCs")}>Copy all</button></div>
+              <div className="ba-output-section-head"><div><p className="ba-output-section-eyebrow"><Database size={14} className="inline mr-1" />Extracted IOCs</p><h2 className="ba-output-section-title">Routeable indicators and relations</h2></div><button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => copy(iocText, "All IOCs")}>Copy all</button></div>
               <div className="grid gap-3 md:grid-cols-2">
                 {activeIocGroups.map(([title, values]) => {
                   const lower = title.toLowerCase()
@@ -835,7 +839,7 @@ export default function AttachmentTriagePage({ setPage }) {
 
           <WorkbenchPanel className="space-y-3">
             <details className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <summary className="cursor-pointer text-sm font-bold text-zinc-100">Manual hash pivots{allHashes.length ? ` (${allHashes.length})` : ""}</summary>
+              <summary className="cursor-pointer text-sm font-bold text-zinc-100"><Database size={14} className="inline mr-1" />Manual hash pivots{allHashes.length ? ` (${allHashes.length})` : ""}</summary>
               <p className="mt-2 text-sm text-zinc-400">These are shortcut links only. BeyondArch did not perform reputation API checks or upload the artifact.</p>
               {allHashes.length > 0 ? (
                 <div className="mt-3 overflow-auto rounded-xl border border-white/10">
@@ -851,7 +855,7 @@ export default function AttachmentTriagePage({ setPage }) {
 
             {!!visibleStringGroups.length && (
               <details className="rounded-xl border border-white/10 bg-black/40 p-3">
-                <summary className="cursor-pointer text-sm font-bold text-zinc-100">String review and extracted text groups</summary>
+                <summary className="cursor-pointer text-sm font-bold text-zinc-100"><FileText size={14} className="inline mr-1" />String review and extracted text groups</summary>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {["Priority", "All", "URLs", "Secrets", "Credentials", "Brand terms", "Scripts"].map((filter) => <button key={filter} className={`ba-tab-button ${stringFilter === filter ? "is-active" : ""}`} onClick={() => setStringFilter(filter)}>{filter}</button>)}
                   <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => sendToCyberChef(stringsText, ["extract-iocs"])}><ChefHat className="mr-2 inline h-4 w-4" />CyberChef</button>
@@ -874,7 +878,7 @@ export default function AttachmentTriagePage({ setPage }) {
             </section>
 
             <details className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <summary className="cursor-pointer text-sm font-bold text-zinc-100">Report and export</summary>
+              <summary className="cursor-pointer text-sm font-bold text-zinc-100"><Download size={14} className="inline mr-1" />Report and export</summary>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => copy(markdown, "Markdown report")}><Clipboard className="mr-2 inline h-4 w-4" />Copy Markdown</button>
                 <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => copy(JSON.stringify(reportState, null, 2), "JSON report")}><Clipboard className="mr-2 inline h-4 w-4" />Copy JSON</button>

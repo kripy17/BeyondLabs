@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useMemo, useEffect, useState } from "react"
-import { AlertTriangle, Home, Keyboard, Loader2, RefreshCcw, ShieldCheck, X } from "lucide-react"
+import { AlertTriangle, Home, Keyboard, Loader2, RefreshCcw, X } from "lucide-react"
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom"
 import "./index.css"
 import HomePage from "./components/home/HomePage"
@@ -41,10 +41,10 @@ function BootScreen({ visible }) {
   return (
     <section className="ba-boot-screen" aria-label="BeyondArch boot screen">
       <div className="ba-boot-panel">
-        <span className="ba-boot-mark"><ShieldCheck className="h-5 w-5" /></span>
+        <div className="ba-boot-spinner" />
         <div>
           <p>BeyondArch</p>
-          <span>local SOC workbench</span>
+          <span>loading …</span>
         </div>
       </div>
     </section>
@@ -142,7 +142,7 @@ function AppRoutes() {
 
   useEffect(() => {
     const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
-    const id = window.setTimeout(() => setBootVisible(false), prefersReduced ? 80 : 420)
+    const id = window.setTimeout(() => setBootVisible(false), prefersReduced ? 50 : 320)
     return () => window.clearTimeout(id)
   }, [])
 
@@ -172,7 +172,6 @@ function AppRoutes() {
     { key: "/", action: () => {
       window.dispatchEvent(new CustomEvent("beyondarch:open-command-palette"))
     }},
-    { key: "?", action: () => setHelpOpen((v) => !v) },
     { key: "Escape", action: () => setHelpOpen(false) },
   ], [navigate])
   useShortcuts(shortcuts)
@@ -222,19 +221,17 @@ function AppRoutes() {
     <div className={`ba-app ${isHomePage ? "ba-app-home" : ""} ${pageClass}`} data-theme={theme}>
       <BootScreen visible={bootVisible} />
       <BaBackendBanner />
-      <Topbar page={page} groups={WORKSPACES} options={ALL_WORKSPACES} />
+      <Topbar page={page} groups={WORKSPACES} options={ALL_WORKSPACES} onOpenHelp={() => setHelpOpen(true)} />
       {helpOpen && (
         <div className="ba-shortcut-overlay" role="dialog" aria-label="Keyboard shortcuts">
-          <button className="ba-command-backdrop" type="button" aria-label="Close shortcuts" onClick={() => setHelpOpen(false)} />
+          <button className="ba-shortcut-backdrop" type="button" aria-label="Close shortcuts" onClick={() => setHelpOpen(false)} />
           <section className="ba-shortcut-panel">
             <div className="ba-shortcut-head">
-              <Keyboard className="h-4 w-4" />
-              <strong>Keyboard Shortcuts</strong>
+              <strong><Keyboard className="h-4 w-4" />Keyboard Shortcuts</strong>
               <button type="button" onClick={() => setHelpOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
             </div>
             <div className="ba-shortcut-list">
               {[
-                ["Ctrl K", "Open command palette"],
                 ["g h", "Go to Home"],
                 ["g a", "Go to Artifact Intake"],
                 ["g p", "Go to Phishing Triage"],
@@ -254,6 +251,10 @@ function AppRoutes() {
                   <span>{desc}</span>
                 </div>
               ))}
+            </div>
+            <div className="ba-shortcut-footer">
+              <span>Navigate with <kbd>g</kbd> + <kbd>key</kbd></span>
+              <span>Press <kbd>?</kbd> to toggle</span>
             </div>
           </section>
         </div>

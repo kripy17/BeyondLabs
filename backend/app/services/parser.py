@@ -1,6 +1,7 @@
-from urllib.parse import urlparse
 import ipaddress
 import socket
+from urllib.parse import urlparse
+
 import tldextract
 
 TLD_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=False)

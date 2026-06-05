@@ -1,7 +1,6 @@
 import hashlib
 import re
 
-
 HEX_RE = re.compile(r"^[a-fA-F0-9]+$")
 
 

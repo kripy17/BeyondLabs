@@ -1,8 +1,7 @@
-from pydantic import BaseModel, Field
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.services.report_builder import build_markdown_report
-
 
 router = APIRouter()
 

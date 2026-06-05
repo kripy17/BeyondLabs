@@ -2,7 +2,6 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.services.network_traffic import analyze_pcap
 
-
 router = APIRouter()
 
 MAX_PCAP_SIZE = 25 * 1024 * 1024

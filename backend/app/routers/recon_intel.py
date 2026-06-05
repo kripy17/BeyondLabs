@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from app.services.parser import normalize_target
 
-
 router = APIRouter()
 
 

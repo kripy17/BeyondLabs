@@ -2,12 +2,11 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.services.reputation import (
-    analyze_ip_reputation,
     analyze_domain_reputation,
+    analyze_ip_reputation,
     analyze_url_reputation,
     enrich_indicator_reputation,
 )
-
 
 router = APIRouter()
 

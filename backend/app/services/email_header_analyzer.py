@@ -1,7 +1,6 @@
+import re
 from email.parser import Parser
 from email.utils import parseaddr
-import re
-
 
 RECEIVED_IP_RE = re.compile(
     r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'

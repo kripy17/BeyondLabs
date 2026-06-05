@@ -90,7 +90,7 @@ export function QueryCards({ queries = [], onCopy }) {
   return (
     <div className="grid gap-2 md:grid-cols-2">
       {queries.map((item) => (
-        <article key={item.label} className="rounded-xl border border-white/10 bg-black/40 p-3">
+        <article key={item.label} className="ba-ds-panel p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{item.label}</p>
             <button className="text-xs font-bold text-cyan-100 hover:text-cyan-50" onClick={() => onCopy?.(item.query, item.label)}><Clipboard className="mr-1 inline h-3.5 w-3.5" />Copy</button>

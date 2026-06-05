@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.email_header_analyzer import analyze_email_headers
-from app.services.email_body_analyzer import analyze_email_body
-from app.services.phishing_combined_analyzer import analyze_full_email
 from app.services.attachment_analyzer import analyze_attachments
-
+from app.services.email_body_analyzer import analyze_email_body
+from app.services.email_header_analyzer import analyze_email_headers
+from app.services.phishing_combined_analyzer import analyze_full_email
 
 router = APIRouter()
 

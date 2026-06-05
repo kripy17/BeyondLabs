@@ -1,7 +1,6 @@
 import re
 from datetime import datetime, timezone
 
-
 VALID_ACTIONS = {"alert", "log", "pass", "drop", "reject", "sdrop"}
 VALID_PROTOCOLS = {"tcp", "udp", "icmp", "ip", "http", "tls", "dns"}
 VALID_DIRECTIONS = {"->", "<>"}

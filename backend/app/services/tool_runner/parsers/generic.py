@@ -1,6 +1,5 @@
 import re
 
-
 PORT_LINE = re.compile(r"(?P<port>\d+)/(tcp|udp)\s+(?P<state>open|closed|filtered)\s+(?P<service>\S+)?")
 URL_LINE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 PATH_LINE = re.compile(r"(/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{2,})")

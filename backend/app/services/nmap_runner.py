@@ -1,11 +1,10 @@
 import ipaddress
-import shutil
-import socket
 import re
 import shlex
+import shutil
+import socket
 import subprocess
 from shlex import quote
-
 
 ALLOWED_SCAN_MODES = {
     "aggressive_inventory": {
@@ -16,19 +15,11 @@ ALLOWED_SCAN_MODES = {
         "label": "Quick TCP Triage",
         "args": ["-Pn", "-T3", "--top-ports", "100"],
     },
-    "top100": {
-        "label": "Quick TCP Triage",
-        "args": ["-Pn", "-T3", "--top-ports", "100"],
-    },
     "full_tcp": {
         "label": "Full TCP Port Scan",
         "args": ["-Pn", "-T3", "-p-"],
     },
     "service_version": {
-        "label": "Service & Version Detection",
-        "args": ["-Pn", "-T3", "-sV"],
-    },
-    "service": {
         "label": "Service & Version Detection",
         "args": ["-Pn", "-T3", "-sV"],
     },

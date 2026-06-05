@@ -3,13 +3,12 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.parser import normalize_target
-from app.services.nmap_runner import run_custom_nmap_command, run_nmap_scan
-from app.services.web_exposure import run_web_exposure_review
 from app.services.dns_lookup import lookup_dns, lookup_reverse_dns
 from app.services.http_probe import probe_http
+from app.services.nmap_runner import run_custom_nmap_command, run_nmap_scan
+from app.services.parser import normalize_target
 from app.services.ssl_lookup import get_ssl_certificate
-
+from app.services.web_exposure import run_web_exposure_review
 
 router = APIRouter()
 

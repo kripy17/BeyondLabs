@@ -3,7 +3,6 @@ import re
 import socket
 from urllib.parse import urlparse
 
-
 ACTIVE_GROUPS = {"Recon & Enumeration", "Web Testing", "Password & Credential Lab", "Network / Forensics", "Controlled Workflows"}
 PRIVATE_HOSTS = {"localhost", "ip6-localhost"}
 TARGET_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.:/?#&=%@+\-]{0,499}$")

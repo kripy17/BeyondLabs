@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-
 MITRE_LOCAL_MAP = [
     {
         "keywords": ["phishing", "credential", "email", "attachment", "link"],

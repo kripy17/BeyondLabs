@@ -2,11 +2,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.checklist_playbooks import (
-    list_checklists,
-    get_checklist,
     build_checklist_report,
+    get_checklist,
+    list_checklists,
 )
-
 
 router = APIRouter()
 

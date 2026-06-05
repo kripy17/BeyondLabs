@@ -1,11 +1,10 @@
 import ipaddress
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from typing import Any
 
 import dns.exception
-import dns.reversename
 import dns.resolver
-
+import dns.reversename
 
 DNS_RECORD_TYPES = ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "CAA"]
 PUBLIC_FALLBACK_NAMESERVERS = ["1.1.1.1", "8.8.8.8"]

@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 
 from app.services.ioc_extractor import defang_text, refang_text
 
-
 SUSPICIOUS_TLDS = {
     "zip", "mov", "top", "xyz", "click", "work", "support", "country",
     "gq", "tk", "ml", "cf"

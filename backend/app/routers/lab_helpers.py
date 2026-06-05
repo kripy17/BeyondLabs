@@ -2,8 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.services.powershell_decoder import analyze_powershell
-from app.services.windows_event_helper import lookup_event, list_events, analyze_event_text
-
+from app.services.windows_event_helper import analyze_event_text, list_events, lookup_event
 
 router = APIRouter()
 

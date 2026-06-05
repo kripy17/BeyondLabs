@@ -23,6 +23,7 @@ export default function useShortcuts(shortcuts) {
       }
 
       if (key.length > 1) return
+      if (event.key === "/" && event.shiftKey) return
 
       buffers[id] += key
       const seq = buffers[id]

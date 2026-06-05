@@ -2,7 +2,6 @@ import base64
 import re
 from urllib.parse import unquote
 
-
 SUSPICIOUS_TOKENS = [
     "invoke-expression", "iex", "downloadstring", "downloadfile",
     "frombase64string", "new-object", "net.webclient",

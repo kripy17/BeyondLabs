@@ -1,11 +1,10 @@
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 import socket
 import ssl
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 
 import httpx
-
 
 SECURITY_HEADERS = {
     "content-security-policy": ("Medium", "Content-Security-Policy header missing", "Add a CSP tuned to the application to reduce script-injection impact."),

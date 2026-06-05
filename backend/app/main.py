@@ -1,8 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import recon, soc, phishing, utils, osint, checklists, reports, reputation, malware, siem, lab_helpers, log_analysis, detection, network, recon_intel, url
-
+from app.routers import (
+    checklists,
+    detection,
+    lab_helpers,
+    log_analysis,
+    malware,
+    network,
+    osint,
+    phishing,
+    recon,
+    recon_intel,
+    reports,
+    reputation,
+    siem,
+    soc,
+    url,
+    utils,
+)
 
 app = FastAPI(
     title="BeyondArch API",

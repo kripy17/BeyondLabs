@@ -58,7 +58,7 @@ export default function IdsRuleBuilderForm({ value, onChange, onGenerate, onRese
         </div>
       </BuilderSection>
 
-      <details className="rounded-2xl border border-white/10 bg-black/40 p-4">
+      <details className="ba-ds-panel p-4">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-zinc-100">
           <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-cyan-300" />Advanced rule metadata</span>
           <ChevronDown className="h-4 w-4 text-zinc-400" />
@@ -95,7 +95,7 @@ export default function IdsRuleBuilderForm({ value, onChange, onGenerate, onRese
 
 function BuilderSection({ title, description, children }) {
   return (
-    <section className="ba-ids-builder-section rounded-2xl border border-white/10 bg-black/40 p-4">
+    <section className="ba-ids-builder-section ba-ds-panel p-4">
       <div className="ba-ids-section-copy">
         <p className="text-sm font-black text-zinc-100">{title}</p>
         <p className="mt-1 text-xs leading-5 text-zinc-400">{description}</p>
@@ -134,7 +134,7 @@ function SelectField({ label, value, onChange, options, allowCustom = false }) {
 
 function CheckField({ label, checked, onChange }) {
   return (
-    <label className="ba-check-row rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-zinc-200">
+    <label className="ba-check-row ba-ds-panel px-3 py-2 text-sm text-zinc-200">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       {label}
     </label>

@@ -92,7 +92,7 @@ export default function IdsRuleOutput({ rule, result, review, mode, setNotice, s
       <IdsRuleExplanation result={result} review={review} />
       <IdsRuleWarnings review={review} />
 
-      <details className="rounded-2xl border border-white/10 bg-black/40 p-4">
+      <details className="ba-ds-panel p-4">
         <summary className="cursor-pointer text-sm font-bold text-zinc-100">Advanced / raw details</summary>
         <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-3 text-xs text-zinc-300">{JSON.stringify({ result, review }, null, 2)}</pre>
       </details>

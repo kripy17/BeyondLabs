@@ -58,7 +58,7 @@ export const WORKSPACES = [
     icon: Wrench,
     description: "Analyst transforms, helper utilities, and rule drafting.",
     items: [
-      { label: "CyberChef / Utilities", page: "cyberchef", icon: ChefHat, description: "Decode, encode, hash, defang, refang, inspect JWTs, timestamps, and transform artifacts.", tags: ["decode", "hash", "utility", "codec"] },
+      { label: "CyberChef", page: "cyberchef", icon: ChefHat, description: "Decode, encode, hash, defang, refang, inspect JWTs, timestamps, and transform artifacts.", tags: ["decode", "hash", "utility", "codec"] },
       { label: "Detection Workspace", page: "ids-builder", icon: ShieldCheck, description: "Draft detection rules, build log queries, and hand off rule evidence.", tags: ["ids", "rules", "query", "detection"] },
     ],
   },

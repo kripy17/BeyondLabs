@@ -1,5 +1,5 @@
-from app.services.email_header_analyzer import analyze_email_headers
 from app.services.email_body_analyzer import analyze_email_body
+from app.services.email_header_analyzer import analyze_email_headers
 
 
 def finding_with_source(source: str, finding: dict) -> dict:

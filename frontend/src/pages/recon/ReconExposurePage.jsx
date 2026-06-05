@@ -4,10 +4,13 @@ import {
   Copy,
   Download,
   FileText,
+  Globe,
   Network,
   Radar,
   Route,
   Search,
+  Shield,
+  ShieldAlert,
   ShieldCheck,
   TerminalSquare,
 } from "lucide-react"
@@ -180,7 +183,7 @@ function MetadataCheckPanel({ timeout, setTimeoutValue, dnsLoading, httpLoading,
     <WorkbenchPanel className="space-y-4">
       <div className="ba-output-section-head">
         <div>
-          <p className="ba-output-section-eyebrow">Authorized metadata checks</p>
+          <p className="ba-output-section-eyebrow"><Shield className="mr-1.5 inline h-3.5 w-3.5" />Authorized metadata checks</p>
           <h2 className="ba-output-section-title">Run backend DNS / HTTP / TLS only when needed</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-300">Static parsing is local. These buttons call the local backend to observe resolver, HTTP, redirect, TLS, and header metadata for authorized targets.</p>
         </div>
@@ -411,7 +414,7 @@ export default function ReconExposurePage({ setPage }) {
           <WorkbenchPanel className="space-y-4 ba-readable-panel">
             <div className="ba-output-section-head">
               <div>
-                <p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}>Infrastructure brief</p>
+                <p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}><Globe className="mr-1.5 inline h-3.5 w-3.5" />Infrastructure brief</p>
                 <h2 className="ba-output-section-title">{summary.decision}</h2>
                 <p className="mt-1 max-w-4xl text-sm leading-6 text-zinc-200">{summary.concern}</p>
               </div>
@@ -442,7 +445,7 @@ export default function ReconExposurePage({ setPage }) {
           <WorkbenchPanel className="space-y-4">
             <div className="ba-output-section-head">
               <div>
-                <p className="ba-output-section-eyebrow">Target snapshot</p>
+                <p className="ba-output-section-eyebrow"><Search className="mr-1.5 inline h-3.5 w-3.5" />Target snapshot</p>
                 <h2 className="ba-output-section-title">Normalized infrastructure view</h2>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -481,7 +484,7 @@ export default function ReconExposurePage({ setPage }) {
             <WorkbenchPanel className="space-y-4">
               <div className="ba-output-section-head">
                 <div>
-                  <p className="ba-output-section-eyebrow">Evidence & findings</p>
+                  <p className="ba-output-section-eyebrow"><ShieldAlert className="mr-1.5 inline h-3.5 w-3.5" />Evidence & findings</p>
                   <h2 className="ba-output-section-title">What actually matters</h2>
                 </div>
                 <span className="ba-chip ba-status-info">{findings.length} item(s)</span>
@@ -490,8 +493,8 @@ export default function ReconExposurePage({ setPage }) {
             </WorkbenchPanel>
           ) : null}
 
-          {dnsResult ? <WorkbenchPanel className="space-y-3"><div className="ba-output-section-head"><p className="ba-output-section-eyebrow">DNS / PTR result</p><h2 className="ba-output-section-title">Resolved records</h2></div><DnsResults result={dnsResult} /></WorkbenchPanel> : null}
-          {webExposure ? <WorkbenchPanel className="space-y-3"><div className="ba-output-section-head"><p className="ba-output-section-eyebrow">HTTP / TLS result</p><h2 className="ba-output-section-title">Observed web metadata</h2></div><WebResults result={webExposure} /></WorkbenchPanel> : null}
+          {dnsResult ? <WorkbenchPanel className="space-y-3"><div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><TerminalSquare className="mr-1.5 inline h-3.5 w-3.5" />DNS / PTR result</p><h2 className="ba-output-section-title">Resolved records</h2></div><DnsResults result={dnsResult} /></WorkbenchPanel> : null}
+          {webExposure ? <WorkbenchPanel className="space-y-3"><div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><Globe className="mr-1.5 inline h-3.5 w-3.5" />HTTP / TLS result</p><h2 className="ba-output-section-title">Observed web metadata</h2></div><WebResults result={webExposure} /></WorkbenchPanel> : null}
 
           <details className="ba-final-details ba-workbench-panel">
             <summary>SOC hunt pivots · starter queries</summary>

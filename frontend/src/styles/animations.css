@@ -152,7 +152,7 @@
   .ba-shimmer,
   .ba-glow-dot,
   .ba-hover-lift,
-  .ba-hover-glow { animation: none !important; transition: none !important; }
+  .ba-hover-glow { animation: none; transition: none; }
   .ba-hover-lift:hover,
-  .ba-hover-glow:hover { transform: none !important; }
+  .ba-hover-glow:hover { transform: none; }
 }

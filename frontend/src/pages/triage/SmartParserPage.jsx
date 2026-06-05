@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clipboard,
   Copy,
+  Cpu,
   Database,
   Download,
   Eraser,
@@ -17,8 +18,10 @@ import {
   Mail,
   RefreshCcw,
   Route,
+  Scan,
   Search,
   ShieldCheck,
+  Tags,
   TerminalSquare,
   Upload,
   Zap,
@@ -1025,7 +1028,8 @@ function EmptyIntakeDesk({ input, setInput, fileRef, handleFile, loadSample, par
   return (
     <div className="ai-empty-workspace">
       <section className="ai-intake-desk">
-        <div className="ai-desk-label">INTAKE_DESK.md</div>
+        <FileSearch className="h-10 w-10 text-zinc-500 mx-auto" />
+        <div className="ai-desk-label"><Tags className="h-4 w-4 text-cyan-400" /> INTAKE_DESK.md</div>
         <textarea
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -1147,7 +1151,7 @@ function ParserOutputQuality({ result }) {
   const limitation = result.parsedMeta?.limitations || "Pattern-based classification. Analyst review is required before taking action."
   return (
     <section className="ai-output-quality">
-      <header className="ai-subsection-title"><FileSearch className="h-5 w-5" />Parser output quality</header>
+      <header className="ai-subsection-title"><Cpu className="h-5 w-5" /><FileSearch className="h-5 w-5" />Parser output quality</header>
       <div className="ai-quality-grid">
         <article>
           <span>Detected family</span>
@@ -1268,7 +1272,7 @@ function ParserSignalsPanel({ result }) {
   if (!signals.length && !result.warnings?.length) return null
   return (
     <section className="ai-signals-panel">
-      <header className="ai-subsection-title"><AlertTriangle className="h-5 w-5" />Signals, warnings, and guidance</header>
+      <header className="ai-subsection-title"><Scan className="h-5 w-5" /><AlertTriangle className="h-5 w-5" />Signals, warnings, and guidance</header>
       <div className="ai-signals-grid">
         {signals.slice(0, 10).map((signal, index) => (
           <article key={`${signal.title}-${index}`} data-level={signal.level || "Info"}>

@@ -37,6 +37,11 @@ Thumbs.db
 # graphify (knowledge graph)
 graphify-out/
 
+# test artifacts
+.pytest_cache/
+test-results/
+__pycache__/
+
 # opencode
 .opencode/
 .openclaude-profile.json

@@ -1,7 +1,6 @@
 import re
 from urllib.parse import urlparse
 
-
 URL_RE = re.compile(r'\bhttps?://[^\s<>"\']+', re.IGNORECASE)
 
 EMAIL_RE = re.compile(

@@ -47,7 +47,7 @@ export default function IdsRuleExplanation({ result, review }) {
 
 function InfoList({ title, items = [], empty = "No notes yet." }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+    <div className="ba-ds-panel p-4">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">{title}</p>
       <div className="mt-3 space-y-2">
         {items.length ? items.map((item) => <p key={item} className="text-sm leading-6 text-zinc-300">• {item}</p>) : <p className="text-sm text-zinc-500">{empty}</p>}

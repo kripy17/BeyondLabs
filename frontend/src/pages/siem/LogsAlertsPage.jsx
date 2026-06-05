@@ -1,9 +1,17 @@
 import { useMemo, useRef, useState } from "react"
 import {
+  AlertTriangle,
+  BarChart3,
   Clipboard,
+  Clock,
+  Database,
   Download,
+  FileSearch,
   FileText,
+  Filter,
   Route,
+  Search,
+  Shield,
   Upload,
 } from "lucide-react"
 import SendToActions from "../../components/investigation/SendToActions"
@@ -957,7 +965,7 @@ function LogEventExplainerPanel({ explanation, copy }) {
     <WorkbenchPanel className="ba-log-explainer-panel">
       <div className="ba-log-explainer-head">
         <div>
-          <p className="ba-eyebrow">Log Event Explainer</p>
+          <p className="ba-eyebrow"><Search size={14} className="inline mr-1" />Log Event Explainer</p>
           <h2>{explanation.title}</h2>
           <p>{explanation.whatHappened}</p>
         </div>
@@ -965,19 +973,19 @@ function LogEventExplainerPanel({ explanation, copy }) {
       </div>
       <div className="ba-log-explainer-grid">
         <section>
-          <h3>Important fields</h3>
+          <h3><BarChart3 size={14} className="inline mr-1" />Important fields</h3>
           <dl>{explanation.fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
         </section>
         <section>
-          <h3>Why it matters</h3>
+          <h3><AlertTriangle size={14} className="inline mr-1" />Why it matters</h3>
           <ul>{explanation.whyItMatters.map((item) => <li key={item}>{item}</li>)}</ul>
         </section>
         <section>
-          <h3>Suggested pivots</h3>
+          <h3><Route size={14} className="inline mr-1" />Suggested pivots</h3>
           <ul>{explanation.pivots.map((item) => <li key={item}>{item}</li>)}</ul>
         </section>
         <section>
-          <h3>False-positive notes</h3>
+          <h3><Shield size={14} className="inline mr-1" />False-positive notes</h3>
           <ul>{explanation.falsePositiveNotes.map((item) => <li key={item}>{item}</li>)}</ul>
         </section>
       </div>
@@ -1016,7 +1024,7 @@ function LogQueryBuilder({ copy, setNotice }) {
     <WorkbenchPanel className="ba-log-query-builder">
       <div className="ba-query-builder-head">
         <div>
-          <p className="ba-eyebrow">Query Builder</p>
+          <p className="ba-eyebrow"><Filter size={14} className="inline mr-1" />Query Builder</p>
           <h2>Build log-type-aware queries</h2>
           <p>{spec.description}</p>
         </div>
@@ -1125,13 +1133,13 @@ export default function LogsAlertsPage({ setPage }) {
       />
       <WorkbenchPanel className="ba-log-intake">
         <div className="ba-log-input-card">
-          <div className="ba-log-input-title"><p className="ba-eyebrow">Intake</p><h2>Alert or short log block</h2><span>{text.split(/\n/).filter(Boolean).length} line(s)</span></div>
+          <div className="ba-log-input-title"><FileSearch size={16} className="text-cyan-400" /><p className="ba-eyebrow">Intake</p><h2>Alert or short log block</h2><span>{text.split(/\n/).filter(Boolean).length} line(s)</span></div>
           <textarea value={text} onChange={(event) => { setText(event.target.value); setPrefillSource("") }} placeholder="Paste one focused alert, EDR record, firewall alert, Suricata event, Windows event, Linux auth line, or short related log block." />
         </div>
         <aside className="ba-log-controls">
-          <div><p className="ba-eyebrow">Controls</p><h3>Local parser</h3><p>Use this for focused alert triage. Large datasets should go to SIEM Workspace.</p></div>
+          <div><p className="ba-eyebrow">Controls</p><h3><Search size={14} className="inline mr-1" />Local parser</h3><p>Use this for focused alert triage. Large datasets should go to SIEM Workspace.</p></div>
           <div className="ba-log-control-buttons">
-            <button className="ba-primary-action" onClick={run}>Analyze alert</button>
+            <button className="ba-primary-action" onClick={run}><Search size={15} className="mr-1" /> Analyze alert</button>
             <button onClick={() => fileRef.current?.click()}><Upload size={15} /> Load file</button>
             <input ref={fileRef} type="file" className="hidden" onChange={loadFile} />
             <button onClick={clearAll}>Clear</button>
@@ -1154,7 +1162,7 @@ export default function LogsAlertsPage({ setPage }) {
       ) : (
         <>
           <section className="ba-log-decision">
-            <div><p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}>Triage summary</p><h2>{incidentSummary(result)}</h2><p>{result.classification.reasons[0] || "Local parser identified event structure and extracted useful fields."}</p></div>
+            <div><p className="ba-output-section-eyebrow" style={{ color: "var(--neo-cyan)" }}><AlertTriangle size={14} className="inline mr-1" />Triage summary</p><h2>{incidentSummary(result)}</h2><p>{result.classification.reasons[0] || "Local parser identified event structure and extracted useful fields."}</p></div>
             <span className={`ba-chip ${severityClass(maxSeverity(result.signals))}`}>{maxSeverity(result.signals)}</span>
           </section>
 
@@ -1179,22 +1187,22 @@ export default function LogsAlertsPage({ setPage }) {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <WorkbenchPanel>
-              <div className="ba-output-section-head"><p className="ba-output-section-eyebrow">Parsed details</p><h2 className="ba-output-section-title">Important fields</h2></div>
+              <div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><BarChart3 size={14} className="inline mr-1" />Parsed details</p><h2 className="ba-output-section-title">Important fields</h2></div>
               <TriageFieldTable rows={brief} />
             </WorkbenchPanel>
             <WorkbenchPanel>
-              <div className="ba-output-section-head"><p className="ba-output-section-eyebrow">Detection explanation</p><h2 className="ba-output-section-title">Why it matters</h2></div>
+              <div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><Shield size={14} className="inline mr-1" />Detection explanation</p><h2 className="ba-output-section-title">Why it matters</h2></div>
               <DetectionList detections={detections} />
             </WorkbenchPanel>
           </div>
 
           <WorkbenchPanel>
-            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow">Related entities</p><h2 className="ba-output-section-title">Extracted pivots</h2></div>
+            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><Database size={14} className="inline mr-1" />Related entities</p><h2 className="ba-output-section-title">Extracted pivots</h2></div>
             <div className="ba-log-entities-grid">{entityGroups.map(([title, values, onOpen]) => <EntityGroup key={title} title={title} values={values} onOpen={onOpen} />)}</div>
           </WorkbenchPanel>
 
           <WorkbenchPanel>
-            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow">Events</p><h2 className="ba-output-section-title">Normalized event view</h2></div>
+            <div className="ba-output-section-head"><p className="ba-output-section-eyebrow"><Clock size={14} className="inline mr-1" />Events</p><h2 className="ba-output-section-title">Normalized event view</h2></div>
             <EventMiniTable events={result.events} setPage={setPage} />
           </WorkbenchPanel>
 

@@ -3,10 +3,9 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.services.ioc_extractor import extract_iocs, defang_text, refang_text
-from app.services.hash_analyzer import identify_hash, generate_hashes, compare_hash
+from app.services.hash_analyzer import compare_hash, generate_hashes, identify_hash
+from app.services.ioc_extractor import defang_text, extract_iocs, refang_text
 from app.services.soc_analysis import parse_logs, parse_user_agent, triage_alert
-
 
 router = APIRouter()
 

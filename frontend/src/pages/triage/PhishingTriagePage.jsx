@@ -1,11 +1,12 @@
 import { useRef, useState } from "react"
 import {
   AlertTriangle,
+  CheckCircle2,
   Copy,
+  Link2,
   Database,
   Download,
   Eraser,
-  ExternalLink,
   FileText,
   Loader2,
   MailWarning,
@@ -70,6 +71,7 @@ function stripProtocol(host = "") {
 function safeValue(value, fallback = "N/A") {
   if (value === 0) return "0"
   if (value === false) return "false"
+  if (typeof value === "object" && value !== null) return value
   if (Array.isArray(value)) return value.length ? value.join(", ") : fallback
   const text = String(value ?? "").trim()
   return text || fallback
@@ -170,11 +172,11 @@ function MetricCard({ label, value, tone = "neutral", helper }) {
   )
 }
 
-function SectionHeader({ eyebrow, title, children, align = "left" }) {
+function SectionHeader({ eyebrow, title, children, align = "left", icon: Icon }) {
   return (
     <header className={`pt-section-header pt-section-header-${align}`}>
-      {eyebrow ? <span className="pt-eyebrow">{eyebrow}</span> : null}
-      <h2>{title}</h2>
+      {eyebrow ? <span className="pt-eyebrow">{Icon ? <Icon className="h-4 w-4 text-cyan-400" /> : null}{eyebrow}</span> : null}
+      <h2>{Icon ? <Icon className="h-4 w-4 text-cyan-400" /> : null}{title}</h2>
       {children ? <p>{children}</p> : null}
     </header>
   )
@@ -200,6 +202,7 @@ function EmptyPreview() {
   ]
   return (
     <section className="pt-expected">
+      <MailWarning className="h-10 w-10 text-zinc-500 mx-auto mb-2" />
       <SectionHeader eyebrow="Awaiting input" title="Expected Findings" align="center">
         Analysis output appears here after a raw email, header block, body, or URL list is reviewed.
       </SectionHeader>
@@ -221,7 +224,7 @@ function EmptyTriageState({ rawEmail, setRawEmail, mode, setMode, sampleKey, set
   return (
     <>
       <section className="pt-page-intro">
-        <SectionHeader eyebrow="Pipeline · Stage 02" title="Phishing Triage" align="left">
+        <SectionHeader eyebrow="Pipeline · Stage 02" title="Phishing Triage" align="left" icon={Radar}>
           Review suspicious emails, headers, URLs, sender clues, attachments, and lure language before routing evidence into a case.
         </SectionHeader>
       </section>
@@ -331,7 +334,7 @@ function ResultMetrics({ result, mode }) {
       <MetricCard label="Confidence" value={result.risk.confidence || `${result.risk.confidence_score}%`} tone="info" />
       <MetricCard label="Sender risk" value={result.sender_alignment.mismatches.length ? "Mismatch" : "Aligned"} tone={result.sender_alignment.mismatches.length ? "bad" : "good"} />
       <MetricCard label="URL risk" value={`${result.urls.length} URL(s)`} tone={result.urls.length ? "warn" : "neutral"} />
-      <MetricCard label="Report ready" value="Yes" tone="good" />
+      <MetricCard label="Report ready" value={<span><CheckCircle2 className="h-4 w-4 inline-block mr-1" />Yes</span>} tone="good" />
     </section>
   )
 }
@@ -413,7 +416,7 @@ function UrlMetadataReview({ result, onSendArtifact }) {
   const mismatches = result.body?.mismatched_links || []
   return (
     <article className="pt-panel pt-url-metadata-panel">
-      <div className="pt-panel-title"><ExternalLink className="h-4 w-4" />URL and destination review</div>
+      <div className="pt-panel-title"><Link2 className="h-4 w-4" />URL and destination review</div>
       <div className="pt-url-review-grid">
         <section>
           <span className="pt-mini-title">Extracted URL inventory</span>
@@ -937,7 +940,7 @@ export default function PhishingTriagePage({ setPage }) {
   const onCopy = (content, label) => copyText(content, label, setNotice)
 
   return (
-    <WorkbenchPage>
+    <WorkbenchPage className="ba-phishing-triage-page">
       <WorkbenchHeader
         eyebrow="Phishing triage"
         title="Phishing Triage"

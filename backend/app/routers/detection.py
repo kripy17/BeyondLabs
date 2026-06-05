@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from app.services.detection_engineering import build_sigma_rule, map_to_mitre
 from app.services.ids_rule_builder import build_ids_rule, explain_ids_rule, ids_rule_templates
 
-
 router = APIRouter()
 
 

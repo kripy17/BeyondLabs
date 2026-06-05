@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 
 def _load_scapy():
     try:
-        from scapy.all import DNS, DNSQR, IP, IPv6, TCP, UDP, rdpcap, Raw  # type: ignore
+        from scapy.all import DNS, DNSQR, IP, TCP, UDP, IPv6, Raw, rdpcap  # type: ignore
 
         return {
             "DNS": DNS,

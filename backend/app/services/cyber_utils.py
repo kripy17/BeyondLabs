@@ -1,7 +1,7 @@
 import base64
 import json
 from datetime import datetime, timezone
-from urllib.parse import quote, unquote, urlparse, parse_qs
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 
 def base64_encode(text: str) -> dict:

@@ -62,7 +62,10 @@ command -v pacman >/dev/null 2>&1 && info "pacman detected"        || info "pacm
 ba_section "03" "Backend environment"
 if [[ -x "$BACKEND_DIR/.venv/bin/python" ]]; then
   ok "backend/.venv"
-  (cd "$BACKEND_DIR" && "$BACKEND_DIR/.venv/bin/python" -m compileall -q app) && ok "Backend compiles" || err "Backend compile failed"
+  VENV_PY="$BACKEND_DIR/.venv/bin/python"
+  (cd "$BACKEND_DIR" && "$VENV_PY" -m compileall -q app) && ok "Backend compiles" || err "Backend compile failed"
+  "$VENV_PY" -c "import pytest" 2>/dev/null && ok "pytest installed" || warn "pytest missing — run: pip install -r requirements-dev.txt"
+  "$VENV_PY" -c "import ruff" 2>/dev/null && ok "ruff installed" || warn "ruff missing — run: pip install -r requirements-dev.txt"
 else
   warn "backend/.venv missing — run ./install.sh"
 fi

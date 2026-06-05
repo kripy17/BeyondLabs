@@ -6,7 +6,6 @@ from collections import Counter
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-
 ENDPOINT_RE = re.compile(r"(?:(?:https?:)?//[^\s\"'<>]+|/[A-Za-z0-9._~!$&'()*+,;=:@%/-]{2,})")
 SECRET_RE = re.compile(
     r"(?P<label>api[_-]?key|secret|token|bearer|password|client[_-]?secret)\s*[:=]\s*[\"']?(?P<value>[A-Za-z0-9_\-./+=]{8,})",

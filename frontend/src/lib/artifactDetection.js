@@ -15,7 +15,7 @@ const ROUTE_BY_TYPE = {
   domain: "recon-exposure",
   ip: "recon-exposure",
   hash: "attachment-triage",
-  jwt: "cyber-utilities",
+  jwt: "cyberchef",
   base64: "cyberchef",
   email: "phishing-triage",
   email_address: "phishing-triage",

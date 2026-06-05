@@ -1,8 +1,16 @@
+import asyncio
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.services.osint_tools import username_osint, email_osint, social_links_finder, local_osint_tool_status, run_local_osint_tool, run_theharvester
-
+from app.services.osint_tools import (
+    email_osint,
+    local_osint_tool_status,
+    run_local_osint_tool,
+    run_theharvester,
+    social_links_finder,
+    username_osint,
+)
 
 router = APIRouter()
 
@@ -32,9 +40,6 @@ class LocalOsintToolRequest(BaseModel):
     source: str = Field(default="duckduckgo", min_length=2, max_length=40)
     limit: int = Field(default=50, ge=10, le=200)
     confirm_permission: bool = False
-
-
-import asyncio
 
 
 @router.post("/username")

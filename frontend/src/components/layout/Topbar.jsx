@@ -13,6 +13,7 @@ import {
   Database,
   FileText,
   GitBranch,
+  Keyboard,
   Lightbulb,
   NotebookPen,
   Search,
@@ -187,7 +188,9 @@ function StatusPopover({ open, backendStatus, toolStatus, onRefresh, onSettings 
   )
 }
 
-export default function Topbar({ page, groups = [], options = [] }) {
+export default function Topbar({ page, groups = [], options = [], onOpenHelp }) {
+  const helpRef = useRef(onOpenHelp)
+  useEffect(() => { helpRef.current = onOpenHelp }, [onOpenHelp])
   const [openGroup, setOpenGroup] = useState(null)
   const [anchor, setAnchor] = useState(null)
   const [commandOpen, setCommandOpen] = useState(false)
@@ -286,6 +289,10 @@ export default function Topbar({ page, groups = [], options = [] }) {
         event.preventDefault()
         setCommandOpen(true)
       }
+      if (event.key === "?" || (event.shiftKey && event.key === "/")) {
+        event.preventDefault()
+        helpRef.current?.()
+      }
       if (event.key === "Escape") {
         setOpenGroup(null)
         setAnchor(null)
@@ -344,6 +351,7 @@ export default function Topbar({ page, groups = [], options = [] }) {
           <Search className="h-4 w-4" />
           <span>Search logs, IPs, hashes...</span>
           <kbd>Ctrl K</kbd>
+          <span className="ba-shortcut-hint">Press <kbd>?</kbd> for shortcuts</span>
         </button>
 
         <nav className="ba-topbar-nav" aria-label="Workspace groups">
@@ -370,6 +378,7 @@ export default function Topbar({ page, groups = [], options = [] }) {
         </nav>
 
         <div className="ba-topbar-actions">
+          {onOpenHelp && <button type="button" className="ba-icon-button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (? keys)" onClick={onOpenHelp}><Keyboard className="h-4 w-4" /></button>}
           <StatusChip backendStatus={backendStatus} toolStatus={toolStatus} onOpen={() => setStatusOpen((value) => !value)} />
           <button
             type="button"

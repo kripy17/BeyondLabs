@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-
 CHECKLISTS = {
     "phishing-investigation": {
         "title": "Phishing Investigation Checklist",

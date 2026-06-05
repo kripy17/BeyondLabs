@@ -10,11 +10,13 @@ import {
   HardDrive,
   Import,
   Info,
+  Monitor,
   MonitorCog,
   Palette,
   RefreshCw,
   RotateCcw,
   Save,
+  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
@@ -44,11 +46,11 @@ const CYBERCHEF_LAST_RECIPE_KEY = "beyondarch_cyberchef_last_recipe_v1"
 const CYBERCHEF_FAVORITES_KEY = "beyondarch_cyberchef_favourites_v1"
 
 const SECTIONS = [
-  { id: "workspace", label: "Workspace" },
-  { id: "privacy", label: "Privacy & Safety" },
-  { id: "storage", label: "Storage & Backup" },
-  { id: "diagnostics", label: "Diagnostics" },
-  { id: "reset", label: "Reset" },
+  { id: "workspace", label: "Workspace", icon: Settings },
+  { id: "privacy", label: "Privacy & Safety", icon: ShieldCheck },
+  { id: "storage", label: "Storage & Backup", icon: Database },
+  { id: "diagnostics", label: "Diagnostics", icon: Monitor },
+  { id: "reset", label: "Reset", icon: RotateCcw },
 ]
 
 const DEFAULT_SETTINGS = {
@@ -610,7 +612,7 @@ export default function SettingsPage() {
       <div className="flex flex-wrap gap-2">
         {SECTIONS.map((section) => (
           <SectionNavButton key={section.id} active={activeSection === section.id} onClick={() => setActiveSection(section.id)}>
-            {section.label}
+            {section.icon && <section.icon className="mr-1.5 inline h-4 w-4" />}{section.label}
           </SectionNavButton>
         ))}
       </div>
@@ -621,8 +623,8 @@ export default function SettingsPage() {
             <SectionTitle title="Appearance" subtitle="These controls affect the local browser UI only." icon={Palette} />
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField label="Theme" value={draft.appearance.theme} options={[
-                { label: THEMES.light.label, value: "light", description: THEMES.light.description },
-                { label: THEMES.dark.label, value: "dark", description: THEMES.dark.description },
+                { label: `☀️ ${THEMES.light.label}`, value: "light", description: THEMES.light.description },
+                { label: `🌙 ${THEMES.dark.label}`, value: "dark", description: THEMES.dark.description },
               ]} onChange={(value) => updateDraft("appearance", "theme", value)} />
               <SelectField label="Accent" value={draft.appearance.accent} options={[
                 { label: "Cyan primary", value: "cyan", description: "Default BeyondArch SOC accent." },
@@ -744,7 +746,7 @@ export default function SettingsPage() {
                   <code className="text-xs text-cyan-100">{row.key}</code>
                   <p className="mt-1 text-xs text-zinc-400">{row.size}</p>
                 </div>
-              )) : <p className="text-sm text-zinc-400">No BeyondArch keys found.</p>}
+              )) : <div className="flex flex-col items-center gap-2 py-4 text-center"><Database className="h-6 w-6 text-zinc-500" /><p className="text-sm text-zinc-400">No BeyondArch keys found.</p></div>}
             </div>
           </details>
         </div>
@@ -758,7 +760,7 @@ export default function SettingsPage() {
               <span className="text-sm font-bold text-zinc-100">Backend API URL</span>
               <input className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400" value={draft.backend.apiUrl} onChange={(event) => updateDraft("backend", "apiUrl", event.target.value)} placeholder="http://127.0.0.1:8000" />
             </label>
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">Health status</p>
@@ -799,17 +801,17 @@ export default function SettingsPage() {
           <WorkbenchPanel className="space-y-4">
             <SectionTitle title="Reset and clear data" subtitle="Destructive actions are separated here. Every action asks for confirmation." icon={AlertTriangle} />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                 <h3 className="font-black text-zinc-100">Reset settings</h3>
                 <p className="mt-1 text-xs leading-5 text-zinc-400">Restore default preferences, theme, density, and backend URL.</p>
                 <div className="mt-4"><Button icon={RotateCcw} onClick={resetSettings}>Reset defaults</Button></div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                 <h3 className="font-black text-zinc-100">Clear CyberChef</h3>
                 <p className="mt-1 text-xs leading-5 text-zinc-400">Remove saved recipes, favorites, and previous recipe state.</p>
                 <div className="mt-4"><Button icon={Trash2} onClick={clearCyberChef}>Clear CyberChef</Button></div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                 <h3 className="font-black text-zinc-100">Clear workspace</h3>
                 <p className="mt-1 text-xs leading-5 text-zinc-400">Remove local case metadata, saved outputs, and pending handoffs.</p>
                 <div className="mt-4"><Button icon={Trash2} onClick={clearWorkspace}>Clear workspace</Button></div>
