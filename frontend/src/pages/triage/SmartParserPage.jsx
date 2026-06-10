@@ -1,28 +1,19 @@
 import { useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
-  BookOpen,
-  Braces,
+  ArrowUpRight,
   CheckCircle2,
   Clipboard,
   Copy,
-  Cpu,
   Database,
   Download,
   Eraser,
-  FileInput,
   FileSearch,
   FileText,
-  FolderOpen,
+  Flag,
   Info,
-  Mail,
   RefreshCcw,
-  Route,
   Scan,
-  Search,
-  ShieldCheck,
-  Tags,
-  TerminalSquare,
   Upload,
   Zap,
 } from "lucide-react"
@@ -857,17 +848,6 @@ function flattenIocGroups(iocs) {
   }
 }
 
-const PRIMARY_IOC_TITLES = ["URLs", "Domains", "IPv4", "IPv6", "CIDR", "Emails", "MD5", "SHA1", "SHA256", "CVEs", "ATT&CK", "Windows Event IDs"]
-
-function nonEmptyIocEntries(groups = {}, allowed = PRIMARY_IOC_TITLES) {
-  return Object.entries(groups).filter(([title, items]) => allowed.includes(title) && Array.isArray(items) && items.length > 0)
-}
-
-function iocGroupSummary(entries = []) {
-  if (!entries.length) return "No indicators extracted"
-  return entries.map(([title, items]) => `${items.length} ${title}`).join(" · ")
-}
-
 function analystSummary(result) {
   if (!result) return ""
   const count = countIocs(result.extracted)
@@ -936,49 +916,11 @@ function compact(value = "", limit = 110) {
   return `${text.slice(0, Math.floor(limit / 2))}…${text.slice(-Math.floor(limit / 2))}`
 }
 
-function artifactCounts(result) {
-  if (!result) return []
-  const groups = flattenIocGroups(result.extracted)
-  return Object.entries(groups)
-    .filter(([, items]) => Array.isArray(items) && items.length)
-    .map(([label, items]) => ({ label, count: items.length }))
-}
 
-function pickRouteValue(route, result, input) {
-  if (!result) return { type: "text", value: input }
-  const iocs = result.extracted
-  if (route.page === "phishing-triage") return { type: "email", value: input }
-  if (route.page === "safe-url-analyzer") return { type: "url", value: displayValue(iocs.urls[0]) }
-  if (route.page === "recon-exposure") {
-    const value = displayValue(iocs.domains[0]) || displayValue(iocs.ipv4[0]) || displayValue(iocs.ipv6[0]) || displayValue(iocs.urls[0])
-    return { type: iocs.domains[0] ? "domain" : iocs.ipv4[0] || iocs.ipv6[0] ? "ip" : "url", value }
-  }
-  if (route.page === "attachment-triage") {
-    const value = displayValue(iocs.hashes.sha256[0]) || displayValue(iocs.hashes.sha1[0]) || displayValue(iocs.hashes.md5[0]) || input
-    return { type: "hash", value }
-  }
-  if (route.page === "detection-mitre") return { type: "detection_text", value: input }
-  if (route.page === "logs-alerts") return { type: "log_text", value: input }
-  if (route.page === "cyberchef") {
-    const encoded = result.fields.command_line?.base64Blobs?.[0]?.normalized || result.extracted.urls?.[0]?.normalized || input
-    return { type: "text", value: encoded }
-  }
-  return { type: "text", value: input }
-}
+/* ── Stitch-inspired rendering components ────────────────────── */
 
-function routeReason(route, result) {
-  const family = result?.artifactFamily || "artifact"
-  const reasons = {
-    "phishing-triage": "Email headers/body detected; run sender, auth, URL, and lure analysis.",
-    "safe-url-analyzer": "URL artifacts found; inspect destination behavior and guarded metadata.",
-    "recon-exposure": "Domain/IP/URL targets found; pivot into DNS, HTTP, TLS, and exposure checks.",
-    "logs-alerts": "Log or alert-like text found; parse entities, timeline, and detection signals.",
-    "attachment-triage": "Hash or file indicator found; triage as a possible attachment/file artifact.",
-    "detection-mitre": "Rule, ATT&CK, or detection text found; map and validate detection logic.",
-    cyberchef: "Encoded, defanged, or transformable text found; decode safely without execution.",
-  }
-  return reasons[route.page] || `Route this ${family} into ${route.label}.`
-}
+
+/* ── Input page ──────────────────────────────────────────────── */
 
 function SmartParserSamples({ onLoadSample }) {
   const sampleGroups = [
@@ -992,13 +934,12 @@ function SmartParserSamples({ onLoadSample }) {
     ["secrets", "Secrets"],
   ]
   const [sampleKey, setSampleKey] = useState("phishing")
-
   return (
-    <div className="ai-sample-picker" aria-label="Sample artifact loader">
-      <button type="button" onClick={() => onLoadSample(sampleKey)}>
-        <FileText className="h-4 w-4" />Load sample
+    <div className="s-sample-row">
+      <button type="button" className="s-btn" onClick={() => onLoadSample(sampleKey)}>
+        <FileText />Load sample
       </button>
-      <select value={sampleKey} onChange={(event) => setSampleKey(event.target.value)} aria-label="Choose sample artifact">
+      <select value={sampleKey} onChange={(event) => setSampleKey(event.target.value)}>
         {sampleGroups.map(([key, label]) => (
           <option key={key} value={key}>{label}</option>
         ))}
@@ -1007,438 +948,459 @@ function SmartParserSamples({ onLoadSample }) {
   )
 }
 
-function UploadDropzone({ fileRef, onFile }) {
+function SInput({ input, setInput, fileRef, handleFile, loadSample, parseError, notice, runParse, copyText, setNotice, clearInput }) {
   return (
-    <section className="ai-upload-card">
-      <header>
-        <Upload className="h-4 w-4" />
-        <strong>Direct Import</strong>
-      </header>
-      <button type="button" className="ai-dropzone" onClick={() => fileRef.current?.click()}>
-        <Upload className="h-8 w-8" />
-        <strong>Drop file or click to browse</strong>
-        <span>EML, MSG, TXT, LOG, JSON, CSV</span>
-      </button>
-      <input ref={fileRef} type="file" className="hidden" onChange={onFile} />
-    </section>
-  )
-}
+    <div className="s-input-wrap">
+      {notice ? <div className="s-notice"><Info />{notice}</div> : null}
+      {parseError ? <div className="s-notice" data-tone="error"><AlertTriangle />{parseError}</div> : null}
 
-function EmptyIntakeDesk({ input, setInput, fileRef, handleFile, loadSample, parseError, notice, runParse, copyText, setNotice, clearInput }) {
-  return (
-    <div className="ai-empty-workspace">
-      <section className="ai-intake-desk">
-        <FileSearch className="h-10 w-10 text-zinc-500 mx-auto" />
-        <div className="ai-desk-label"><Tags className="h-4 w-4 text-cyan-400" /> INTAKE_DESK.md</div>
-        <textarea
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Paste an email, URL, IOC list, log snippet, Sigma rule, Suricata EVE JSON, command line, or analyst notes..."
-          aria-label="Artifact input"
-        />
-        <div className="ai-intake-actions-row ai-intake-main-actions">
-          <button type="button" className="ai-primary-action" onClick={() => runParse()}>
-            Parse Artifact <Zap className="h-5 w-5" />
-          </button>
-          <SmartParserSamples onLoadSample={loadSample} />
-          <button type="button" onClick={() => copyText(input, setNotice, "Input")}><Clipboard className="h-4 w-4" />Copy input</button>
-          <button type="button" onClick={clearInput}><Eraser className="h-4 w-4" />Clear</button>
-          <span><ShieldCheck className="h-4 w-4" />local_session_only</span>
+      <div className="s-intake s-card">
+        <div className="s-intake-hd">
+          <div className="s-intake-hd-left">
+            <FileSearch />Intake Console
+          </div>
+          <div className="s-intake-hd-acts">
+            <button type="button" onClick={() => copyText(input, setNotice, "Input")}>
+              <Clipboard />Copy
+            </button>
+            <button type="button" onClick={clearInput}>
+              <Eraser />Clear
+            </button>
+          </div>
         </div>
-      </section>
-
-      <aside className="ai-intake-side">
-        <UploadDropzone fileRef={fileRef} onFile={handleFile} />
-        <p className="ai-privacy-note"><ShieldCheck className="h-4 w-4" /> Privacy mode enabled. Parsing happens locally in the browser session.</p>
-        <section className="ai-intake-guide-card">
-          <header><Info className="h-4 w-4" /><strong>What happens next</strong></header>
-          <ul>
-            <li>Normalize pasted evidence without external calls.</li>
-            <li>Group URLs, domains, IPs, hashes, headers, commands, and notes.</li>
-            <li>Prepare send-to actions for triage, recon, detection, and case reporting.</li>
-          </ul>
-        </section>
-      </aside>
-
-      {notice ? <p className="ai-inline-notice"><Info className="h-4 w-4" />{notice}</p> : null}
-      {parseError ? <p className="ai-inline-error"><AlertTriangle className="h-4 w-4" />{parseError}</p> : null}
+        <div className="s-intake-body">
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="[WAITING FOR INPUT]... Paste raw email headers, SIEM log exports, suspect URLs, or file hashes here for immediate analysis."
+          />
+        </div>
+        <div className="s-intake-ft">
+          <SmartParserSamples onLoadSample={loadSample} />
+          <button type="button" className="s-btn" onClick={() => fileRef.current?.click()}>
+            <Upload />Import
+          </button>
+          <input ref={fileRef} type="file" className="hidden" onChange={handleFile} />
+          <div style={{ flex: 1 }} />
+          <button type="button" className="s-btn" data-accent onClick={() => runParse()}>
+            <Zap />Parse Artifact
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
 
-function SourcePreviewHeader({ result, input, onReparse, onClear }) {
-  const counts = artifactCounts(result)
+/* ── Results components ─────────────────────────────────────── */
+
+function SBanner({ result }) {
+  const total = countIocs(result.extracted)
+  const reasons = result.reasons || []
   return (
-    <section className="ai-current-artifact">
-      <div className="ai-artifact-icon"><FileInput className="h-6 w-6" /></div>
-      <div>
-        <p className="ai-eyebrow">Current Artifact</p>
-        <h2>{result.primaryType}</h2>
-        <p>Source: Manual Intake · Size: {Math.max(1, Math.round(input.length / 1024))}kb · {iocGroupSummary(counts.map((item) => [item.label, Array(item.count)]))}</p>
-      </div>
-      <div className="ai-current-actions">
-        <button type="button" onClick={onReparse}><RefreshCcw className="h-4 w-4" />Re-parse</button>
-        <button type="button" onClick={onClear}><Eraser className="h-4 w-4" />Clear</button>
-      </div>
-    </section>
-  )
-}
-
-function ExtractionSummary({ result }) {
-  const groups = flattenIocGroups(result.extracted)
-  const tiles = [
-    { label: "Total Artifacts", count: countIocs(result.extracted), tone: "neutral" },
-    { label: "URLs", count: groups.URLs.length, tone: "rose" },
-    { label: "Domains", count: groups.Domains.length, tone: "cyan" },
-    { label: "IPs", count: groups.IPv4.length + groups.IPv6.length + groups.CIDR.length, tone: "amber" },
-    { label: "Hashes", count: groups.MD5.length + groups.SHA1.length + groups.SHA256.length, tone: "emerald" },
-  ]
-
-  return (
-    <section className="ai-summary-grid" aria-label="Extraction summary">
-      {tiles.map((tile) => (
-        <article key={tile.label} data-tone={tile.tone}>
-          <span>{tile.label}</span>
-          <strong>{String(tile.count).padStart(2, "0")}</strong>
-        </article>
-      ))}
-    </section>
-  )
-}
-
-function confidenceForType(title, result) {
-  if (title === "URLs") return result.signals.some((signal) => /url/i.test(signal.title)) ? 94 : 86
-  if (title === "Domains") return 88
-  if (title.includes("IPv") || title === "CIDR") return 100
-  if (title.includes("SHA") || title === "MD5") return 100
-  if (title === "Emails") return 92
-  return Math.max(70, Math.min(98, result.secondaryTypes?.[0]?.score || 84))
-}
-
-function toneForTitle(title) {
-  const lower = title.toLowerCase()
-  if (lower.includes("url")) return "rose"
-  if (lower.includes("domain")) return "cyan"
-  if (lower.includes("ipv") || lower.includes("cidr")) return "amber"
-  if (lower.includes("md5") || lower.includes("sha")) return "emerald"
-  if (lower.includes("email")) return "violet"
-  if (lower.includes("attack") || lower.includes("event")) return "violet"
-  return "neutral"
-}
-
-function routeIconForTitle(title) {
-  const target = artifactRouteForTitle(title)
-  const icons = {
-    "safe-url-analyzer": ShieldCheck,
-    "recon-exposure": Search,
-    "attachment-triage": FileSearch,
-    "detection-mitre": TerminalSquare,
-    "phishing-triage": Mail,
-    "soc-guide": BookOpen,
-    cyberchef: Braces,
-  }
-  return icons[target.page] || Route
-}
-
-
-function ParserOutputQuality({ result }) {
-  const groups = flattenIocGroups(result.extracted)
-  const evidenceUsed = [
-    ...result.reasons,
-    ...(result.secondaryTypes || []).flatMap((item) => item.reasons || []),
-  ].slice(0, 7)
-  const recommended = result.guidance?.l1?.slice(0, 5) || []
-  const limitation = result.parsedMeta?.limitations || "Pattern-based classification. Analyst review is required before taking action."
-  return (
-    <section className="ai-output-quality">
-      <header className="ai-subsection-title"><Cpu className="h-5 w-5" /><FileSearch className="h-5 w-5" />Parser output quality</header>
-      <div className="ai-quality-grid">
-        <article>
-          <span>Detected family</span>
-          <strong>{result.artifactFamily}</strong>
-          <p>{result.primaryType}</p>
-        </article>
-        <article>
-          <span>Evidence count</span>
-          <strong>{countIocs(result.extracted)}</strong>
-          <p>{nonEmptyIocEntries(groups).length} artifact group(s)</p>
-        </article>
-        <article>
-          <span>Confidence basis</span>
-          <strong>{result.reasons?.length || 1} signal(s)</strong>
-          <p>{result.parsedMeta.source} · external lookup: no</p>
-        </article>
-        <article>
-          <span>Limitations</span>
-          <strong>Analyst review</strong>
-          <p>{limitation}</p>
-        </article>
-      </div>
-      <div className="ai-quality-columns">
-        <div>
-          <h3>Evidence used</h3>
-          <ul>{evidenceUsed.length ? evidenceUsed.map((item) => <li key={item}>{item}</li>) : <li>No high-confidence evidence explanation was generated.</li>}</ul>
+    <div className="s-banner">
+      <div className="s-banner-left">
+        <div className="s-banner-eyebrow">
+          <span className="s-badge" data-accent>ARTIFACT_INTAKE</span>
+          <span className="s-banner-id">ID: BA-{result.primaryType.slice(0, 2).toUpperCase()}{result.parsedMeta?.line_count || 0}</span>
         </div>
-        <div>
-          <h3>Recommended next actions</h3>
-          <ul>{recommended.length ? recommended.map((item) => <li key={item}>{item}</li>) : <li>Review the source artifact and add analyst context before routing.</li>}</ul>
+        <h1>{result.primaryType} Analysis</h1>
+        {reasons.length ? (
+          <div className="s-banner-reasons">
+            {reasons.slice(0, 2).map((reason) => (
+              <span key={reason} className="s-banner-reason"><Info />{reason}</span>
+            ))}
+            {reasons.length > 2 ? <span className="s-banner-reason">+{reasons.length - 2} more</span> : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="s-banner-right">
+        <div className="s-metric" data-accent>
+          <div className="s-metric-label">Family</div>
+          <div className="s-metric-value">{result.artifactFamily || result.primaryType}</div>
+        </div>
+        <div className="s-metric" data-rose>
+          <div className="s-metric-label">IOCs</div>
+          <div className="s-metric-value">{total}</div>
+        </div>
+        <div className="s-metric">
+          <div className="s-metric-label">Signals</div>
+          <div className="s-metric-value">{result.signals?.length || 0}</div>
+        </div>
+        <div className="s-metric">
+          <div className="s-metric-label">Lines</div>
+          <div className="s-metric-value">{result.parsedMeta?.line_count || 0}</div>
         </div>
       </div>
-    </section>
+    </div>
   )
 }
 
-function ImportantFieldsPanel({ result }) {
+function SKeyFields({ result }) {
   const email = result.fields?.email || {}
   const logs = result.fields?.logs || {}
   const command = result.fields?.command_line || {}
   const rule = result.fields?.rule || {}
-  const kvRaw = result.fields?.key_values || []
-  const kv = Array.isArray(kvRaw)
-    ? kvRaw
-    : Object.entries(kvRaw || {}).map(([key, value]) => ({ key, value }))
-  const rows = [
-    ["Primary type", result.primaryType],
-    ["Artifact family", result.artifactFamily],
-    ["Subject", email.subject],
-    ["From", email.sender],
-    ["To", email.recipient],
-    ["Reply-To", email.reply_to],
-    ["Return-Path", email.return_path],
-    ["Authentication", [...(email.authentication || []), ...(email.received_spf || [])].join(" | ")],
-    ["Log source", logs.source || logs.sourcetype || logs.event_type],
-    ["Command", command.commands?.[0]],
-    ["Rule title", rule.title],
-    ["Key-values", kv.slice(0, 5).map((item) => `${item.key}=${item.value}`).join(" · ")],
-  ].filter(([, value]) => Array.isArray(value) ? value.length : Boolean(value))
-  if (!rows.length) return null
+  const hasEmail = email.sender || email.subject
+  const hasAuth = email.authentication?.length || email.received_spf?.length
+  const hasCommand = command.commands?.length
+  const hasLogs = Object.keys(logs).length
+  const hasRule = rule.title
+
+  if (!hasEmail && !hasAuth && !hasCommand && !hasLogs && !hasRule) return null
+
   return (
-    <section className="ai-important-fields">
-      <header className="ai-subsection-title"><Clipboard className="h-5 w-5" />Important fields</header>
-      <div className="ai-fields-table">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong>{Array.isArray(value) ? value.join(", ") : String(value)}</strong>
-          </div>
-        ))}
+    <div className="s-panel">
+      <div className="s-panel-hd">
+        <div className="s-panel-hd-left"><Clipboard />Key Fields</div>
       </div>
-    </section>
+      <div className="s-kf-grid">
+        {hasEmail || hasAuth ? (
+          <div className="s-kf-col">
+            {email.sender ? (
+              <div className="s-kf-row">
+                <span className="s-kf-label">From</span>
+                <div className="s-kf-value">{email.sender}</div>
+              </div>
+            ) : null}
+            {email.subject ? (
+              <div className="s-kf-row">
+                <span className="s-kf-label">Subject</span>
+                <div className="s-kf-value">{email.subject}</div>
+              </div>
+            ) : null}
+            {email.recipient ? (
+              <div className="s-kf-row">
+                <span className="s-kf-label">To</span>
+                <div className="s-kf-value">{email.recipient}</div>
+              </div>
+            ) : null}
+            {email.reply_to ? (
+              <div className="s-kf-row">
+                <span className="s-kf-label">Reply-To</span>
+                <div className="s-kf-value" data-rose>{email.reply_to}</div>
+              </div>
+            ) : null}
+            {email.return_path ? (
+              <div className="s-kf-row">
+                <span className="s-kf-label">Return-Path</span>
+                <div className="s-kf-value" data-rose>{email.return_path}</div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="s-kf-col">
+          {hasAuth ? (
+            <div className="s-kf-row">
+              <span className="s-kf-label">Auth Results</span>
+              {email.authentication?.slice(0, 3).map((item) => {
+                const isFail = /fail|none/i.test(item)
+                return (
+                  <div key={item} className="s-auth-item" data-fail={isFail || undefined}>
+                    <span>{item}</span>
+                    {isFail ? <AlertTriangle /> : <CheckCircle2 />}
+                  </div>
+                )
+              })}
+              {email.received_spf?.map((item) => (
+                <div key={item} className="s-auth-item" data-fail={/fail/i.test(item) || undefined}>
+                  <span>{item}</span>
+                  {/fail/i.test(item) ? <AlertTriangle /> : <CheckCircle2 />}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {hasRule ? (
+            <div className="s-kf-row">
+              <span className="s-kf-label">Rule</span>
+              <div className="s-kf-value">{rule.title}</div>
+            </div>
+          ) : null}
+          {hasLogs ? (
+            <div className="s-kf-row">
+              <span className="s-kf-label">Log Source</span>
+              <div className="s-kf-value">{logs.source || logs.sourcetype || logs.event_type || "detected"}</div>
+            </div>
+          ) : null}
+          {hasCommand ? (
+            <div className="s-kf-row">
+              <span className="s-kf-label">Command</span>
+              <div className="s-kf-value">{command.commands[0]?.normalized}</div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }
 
-function GroupedArtifactInventory({ result, setPage, onCopy }) {
-  const groups = nonEmptyIocEntries(flattenIocGroups(result.extracted))
-  if (!groups.length) return null
+function SIocList({ items, groupTitle, onCopy, onSendArtifact }) {
+  if (!items.length) return null
+  return (
+    <div className="s-ioc-sec">
+      <h3>{groupTitle} <span>{items.length}</span></h3>
+      <div className="s-ioc-list">
+        {items.slice(0, 20).map((item) => {
+          const value = displayValue(item)
+          const isHighRisk = /malicious|c2|payload|exe|\.bin/i.test(value)
+          return (
+            <div key={value} className="s-ioc-item" data-risk={isHighRisk || undefined}>
+              <code>{compact(value, 200)}</code>
+              <div className="s-ioc-acts">
+                <button type="button" onClick={() => onCopy(value, groupTitle)} title="Copy"><Clipboard /></button>
+                <button type="button" onClick={() => onSendArtifact(groupTitle, value)} title="Send"><FileSearch /></button>
+              </div>
+            </div>
+          )
+        })}
+        {items.length > 20 ? <div className="s-ioc-more">+{items.length - 20} more</div> : null}
+      </div>
+    </div>
+  )
+}
+
+function SHashTable({ items, groupTitle, onCopy }) {
+  if (!items.length) return null
+  return (
+    <div className="s-hash-wrap">
+      <h3><Clipboard />{groupTitle} <span>{items.length}</span></h3>
+      <table className="s-hash-table">
+        <thead>
+          <tr>
+            <th>Value</th>
+            <th style={{ width: 55 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {items.slice(0, 10).map((item) => {
+            const value = displayValue(item)
+            return (
+              <tr key={value}>
+                <td>{compact(value, 80)}</td>
+                <td><button type="button" onClick={() => onCopy(value, groupTitle)}>Copy</button></td>
+              </tr>
+            )
+          })}
+          {items.length > 10 ? <tr><td colSpan="2" className="s-ioc-more">+{items.length - 10} more</td></tr> : null}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SIocGrid({ result, setPage, onCopy }) {
+  const groups = flattenIocGroups(result.extracted)
+  const urlItems = groups.URLs || []
+  const domainItems = groups.Domains || []
+  const ipItems = [...(groups.IPv4 || []), ...(groups.IPv6 || []), ...(groups.CIDR || [])]
+  const md5 = groups.MD5 || []
+  const sha1 = groups.SHA1 || []
+  const sha256 = groups.SHA256 || []
+  const hashItems = [...md5, ...sha1, ...sha256]
+  const hasIocs = urlItems.length || domainItems.length || ipItems.length || hashItems.length
+  if (!hasIocs) return null
+
   function sendArtifact(title, value) {
     const target = artifactRouteForTitle(title)
-    storePendingArtifact({ target: target.page, page: target.page, type: target.type, value, source: "artifact-intake", detected_type: result.primaryType, normalized_artifacts: result.normalizedArtifacts })
+    storePendingArtifact({
+      target: target.page, page: target.page, type: target.type, value,
+      source: "artifact-intake", detected_type: result.primaryType,
+      normalized_artifacts: result.normalizedArtifacts,
+    })
     setPage?.(target.page)
   }
+
+  const leftGroup = domainItems.length
+    ? { title: "Domains", items: domainItems }
+    : urlItems.length ? { title: "URLs", items: urlItems } : null
+  const rightGroup = ipItems.length
+    ? { title: "IPs", items: ipItems }
+    : urlItems.length && leftGroup?.title !== "URLs"
+      ? { title: "URLs", items: urlItems } : null
+
   return (
-    <section className="ai-grouped-inventory">
-      <header className="ai-subsection-title"><Database className="h-5 w-5" />Extracted artifact inventory</header>
-      <div className="ai-inventory-grid">
-        {groups.map(([title, items]) => (
-            <article key={title} data-tone={toneForTitle(title)}>
-              <div className="ai-inventory-head">
-                <strong>{title}</strong>
-                <span>{items.length}</span>
-              </div>
-              <div className="ai-inventory-list">
-                {items.slice(0, 10).map((item) => {
-                  const value = displayValue(item)
-                  return (
-                    <div key={value}>
-                      <code>{compact(value, 180)}</code>
-                      <div>
-                        <button type="button" onClick={() => onCopy(value, title)}>Copy</button>
-                        <button type="button" onClick={() => sendArtifact(title, value)}>Send</button>
-                      </div>
-                    </div>
-                  )
-                })}
-                {items.length > 10 ? <em>+{items.length - 10} more extracted value(s)</em> : null}
-              </div>
-            </article>
-        ))}
+    <div className="s-panel">
+      <div className="s-panel-hd">
+        <div className="s-panel-hd-left"><FileSearch />Extracted IOCs</div>
+        <span className="s-panel-count">{countIocs(result.extracted)} indicators</span>
       </div>
-    </section>
+      {(leftGroup || rightGroup) ? (
+        <div className="s-ioc-grid">
+          {leftGroup ? <SIocList items={leftGroup.items} groupTitle={leftGroup.title} onCopy={onCopy} onSendArtifact={sendArtifact} /> : null}
+          {rightGroup ? <SIocList items={rightGroup.items} groupTitle={rightGroup.title} onCopy={onCopy} onSendArtifact={sendArtifact} /> : null}
+          {!rightGroup && <SIocList items={urlItems} groupTitle="URLs" onCopy={onCopy} onSendArtifact={sendArtifact} />}
+          {leftGroup?.title !== "URLs" && rightGroup?.title !== "URLs" && urlItems.length ? (
+            <div style={{ gridColumn: '1 / -1' }}><SIocList items={urlItems} groupTitle="URLs" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
+          ) : null}
+        </div>
+      ) : null}
+      {hashItems.length ? <SHashTable items={hashItems} groupTitle="Hashes" onCopy={onCopy} /> : null}
+    </div>
   )
 }
 
-function ParserSignalsPanel({ result }) {
+/* ── Right rail components ──────────────────────────────────── */
+
+function SSignals({ result }) {
   const signals = result.signals || []
   if (!signals.length && !result.warnings?.length) return null
   return (
-    <section className="ai-signals-panel">
-      <header className="ai-subsection-title"><Scan className="h-5 w-5" /><AlertTriangle className="h-5 w-5" />Signals, warnings, and guidance</header>
-      <div className="ai-signals-grid">
+    <div className="s-signals">
+      <div className="s-signals-hd"><Scan />Signals</div>
+      <div className="s-signals-body">
         {signals.slice(0, 10).map((signal, index) => (
-          <article key={`${signal.title}-${index}`} data-level={signal.level || "Info"}>
-            <span>{signal.level || "Signal"}</span>
-            <strong>{signal.title}</strong>
-            <p>{signal.detail}</p>
-          </article>
+          <div key={`${signal.title}-${index}`} className="s-sig-item" data-lvl={signal.level || "Info"}>
+            <span className="s-sig-lvl">{signal.level || "signal"}</span>
+            <strong className="s-sig-title">{signal.title}</strong>
+            {signal.detail ? <p className="s-sig-detail">{signal.detail}</p> : null}
+          </div>
         ))}
         {(result.warnings || []).map((warning) => (
-          <article key={warning} data-level="Needs Review">
-            <span>Warning</span>
+          <div key={warning} className="s-sig-warn">
             <strong>Analyst review required</strong>
-            <p>{warning}</p>
-          </article>
+            {warning}
+          </div>
         ))}
       </div>
-      <div className="ai-guidance-blocks">
-        <div><h3>L1 handling</h3><ul>{result.guidance.l1.map((item) => <li key={item}>{item}</li>)}</ul></div>
-        <div><h3>L2 pivots</h3><ul>{result.guidance.l2.map((item) => <li key={item}>{item}</li>)}</ul></div>
-      </div>
-    </section>
+    </div>
   )
 }
 
-function EvidenceExtractionGrid({ result, setPage, onCopy }) {
-  const groups = flattenIocGroups(result.extracted)
-  const entries = nonEmptyIocEntries(groups)
-  const visibleEntries = entries.flatMap(([title, items]) => items.slice(0, 3).map((item, index) => ({ title, item, index }))).slice(0, 8)
-
-  if (!visibleEntries.length) {
-    return (
-      <section className="ai-evidence-grid-shell">
-        <header className="ai-subsection-title"><Database className="h-5 w-5" />Evidence Extraction Grid</header>
-        <div className="ai-empty-result-card">
-          <AlertTriangle className="h-7 w-7" />
-          <strong>No concrete indicators extracted</strong>
-          <p>The parser classified the text, but did not find URLs, domains, IPs, hashes, emails, CVEs, or ATT&CK IDs. Treat it as analyst notes and review manually.</p>
+function SMetaPanel({ result }) {
+  const meta = result.parsedMeta || {}
+  const warnings = result.warnings || []
+  return (
+    <div className="s-meta">
+      <div className="s-meta-hd"><Database />Parse Info</div>
+      <div className="s-meta-body">
+        <div className="s-meta-row">
+          <span className="s-meta-label">Method</span>
+          <span className="s-meta-value">{meta.method || "—"}</span>
         </div>
-      </section>
-    )
-  }
-
-  function sendArtifact(title, value) {
-    const target = artifactRouteForTitle(title)
-    storePendingArtifact({
-      target: target.page,
-      page: target.page,
-      type: target.type,
-      value,
-      source: "artifact-intake",
-      detected_type: result.primaryType,
-      normalized_artifacts: result.normalizedArtifacts,
-    })
-    setPage?.(target.page)
-  }
-
-  return (
-    <section className="ai-evidence-grid-shell">
-      <header className="ai-subsection-title"><Database className="h-5 w-5" />Evidence Extraction Grid</header>
-      <div className="ai-evidence-grid">
-        {visibleEntries.map(({ title, item, index }) => {
-          const value = displayValue(item)
-          const target = artifactRouteForTitle(title)
-          const ToneIcon = routeIconForTitle(title)
-          return (
-            <article key={`${title}-${value}-${index}`} className="ai-evidence-card" data-tone={toneForTitle(title)}>
-              <div className="ai-evidence-card-top">
-                <span>{title}</span>
-                <div>
-                  <small>Confidence</small>
-                  <strong>{confidenceForType(title, result)}%</strong>
-                </div>
-              </div>
-              <p>{compact(value, 130)}</p>
-              <div className="ai-evidence-meta">
-                <span>source: parsed artifact</span>
-                <span>type: {target.type}</span>
-              </div>
-              <div className="ai-evidence-actions">
-                <button type="button" onClick={() => sendArtifact(title, value)} title={`Send to ${target.label}`}><ToneIcon className="h-4 w-4" /></button>
-                <button type="button" onClick={() => onCopy(value, title)} title="Copy value"><Copy className="h-4 w-4" /></button>
-                <button type="button" onClick={() => sendArtifact(title, value)} title="Open workspace"><Route className="h-4 w-4" /></button>
-                <button type="button" onClick={() => onCopy(`${title}: ${value}`, "Evidence note")} title="Copy note"><FolderOpen className="h-4 w-4" /></button>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
-function CompactInputPanel({ input, setInput, runParse, clearInput }) {
-  return (
-    <details className="ai-compact-input">
-      <summary>Source artifact preview</summary>
-      <textarea value={input} onChange={(event) => setInput(event.target.value)} />
-      <div>
-        <button type="button" onClick={() => runParse()}><RefreshCcw className="h-4 w-4" />Re-parse edited input</button>
-        <button type="button" onClick={clearInput}><Eraser className="h-4 w-4" />Clear and reset</button>
-      </div>
-    </details>
-  )
-}
-
-function ReportReadyPanel({ result, markdown, json, onCopy }) {
-  const summary = analystSummary(result)
-  return (
-    <section className="ai-report-ready">
-      <div>
-        <header>
-          <FileText className="h-5 w-5" />
-          <h2>Report-Ready Findings Summary</h2>
-        </header>
-        <p>{summary} {result.parsedMeta.limitations}</p>
-        <div className="ai-report-badges">
-          <span><CheckCircle2 className="h-4 w-4" />IOCs normalized</span>
-          <span><CheckCircle2 className="h-4 w-4" />Duplicates removed</span>
-          <span><CheckCircle2 className="h-4 w-4" />External lookups disabled</span>
+        <div className="s-meta-row">
+          <span className="s-meta-label">Source</span>
+          <span className="s-meta-value">{meta.source || "—"}</span>
         </div>
+        <div className="s-meta-row">
+          <span className="s-meta-label">Lines</span>
+          <span className="s-meta-value">{meta.line_count || 0}</span>
+        </div>
+        <div className="s-meta-row">
+          <span className="s-meta-label">Chars</span>
+          <span className="s-meta-value">{meta.character_count?.toLocaleString() || 0}</span>
+        </div>
+        <div className="s-meta-row">
+          <span className="s-meta-label">JSON objs</span>
+          <span className="s-meta-value">{meta.json_objects_detected || 0}</span>
+        </div>
+        <div className="s-meta-row">
+          <span className="s-meta-label">Header flds</span>
+          <span className="s-meta-value">{meta.header_fields_detected || 0}</span>
+        </div>
+        {warnings.length ? warnings.map((w) => (
+          <div key={w} className="s-meta-warn"><AlertTriangle /> {w}</div>
+        )) : null}
       </div>
-      <div className="ai-report-actions">
-        <button type="button" onClick={() => onCopy(markdown, "Markdown report")}><Copy className="h-4 w-4" />Copy Markdown</button>
-        <button type="button" onClick={() => onCopy(json, "Parsed JSON")}><Copy className="h-4 w-4" />Copy JSON</button>
-        <button type="button" onClick={() => downloadText("artifact-intake-result.md", markdown, "text/markdown")}><Download className="h-4 w-4" />Download MD</button>
-        <button type="button" onClick={() => downloadText("artifact-intake-result.json", json, "application/json")}><Download className="h-4 w-4" />Download JSON</button>
-      </div>
-    </section>
+    </div>
   )
 }
 
-function RecommendedHandoff({ result, input, setPage }) {
-  const routes = result.suggestedRoutes?.slice(0, 4) || []
+function SRouteCards({ result, setPage }) {
+  const routes = result.suggestedRoutes || []
   if (!routes.length) return null
 
-  function openRoute(route) {
-    const picked = pickRouteValue(route, result, input)
-    storePendingArtifact({
-      ...picked,
-      target: route.page,
-      page: route.page,
+  function handleRoute(route) {
+    const payload = {
+      target: route.page, page: route.page, type: route.page,
+      value: result.primaryType,
       source: "artifact-intake",
-      raw_input: input,
       detected_type: result.primaryType,
       normalized_artifacts: result.normalizedArtifacts,
-    })
+    }
+    storePendingArtifact(payload)
     setPage?.(route.page)
   }
 
   return (
-    <section className="ai-handoff-grid">
-      {routes.map((route, index) => {
-        const picked = pickRouteValue(route, result, input)
-        return (
-          <article key={route.page}>
-            <span>{index === 0 ? "Recommended" : "Route option"}</span>
-            <h3>{route.label}</h3>
-            <p>{routeReason(route, result)}</p>
-            {picked.value ? <code>{compact(picked.value, 80)}</code> : null}
-            <button type="button" onClick={() => openRoute(route)}><Route className="h-4 w-4" />Open with artifact</button>
-          </article>
-        )
-      })}
-    </section>
+    <div className="s-routes">
+      <div className="s-routes-hd"><Flag />Suggested Routes</div>
+      <div className="s-routes-body">
+        {routes.map((route) => (
+          <div key={route.page} className="s-route-item" onClick={() => handleRoute(route)}>
+            <ArrowUpRight />
+            <span className="s-route-lbl">{route.label}</span>
+            <span className="s-route-arrow">→</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
+
+/* ── Main column components ─────────────────────────────────── */
+
+function SGuidance({ result }) {
+  const has = (result.guidance?.l1?.length || result.guidance?.l2?.length)
+  if (!has) return null
+  return (
+    <div className="s-guide">
+      <div className="s-guide-hd"><Info />Analyst Response Guide</div>
+      <div className="s-guide-body">
+        {result.guidance?.l1?.length ? (
+          <div className="s-g-item" data-lvl="l1">
+            <div className="s-g-lvl">L1 — Containment</div>
+            {result.guidance.l1.map((item) => <p key={item}>{item}</p>)}
+          </div>
+        ) : null}
+        {result.guidance?.l2?.length ? (
+          <div className="s-g-item" data-lvl="l2">
+            <div className="s-g-lvl">L2 — Investigation</div>
+            {result.guidance.l2.map((item) => <p key={item}>{item}</p>)}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function SExport({ result, markdown, json, onCopy }) {
+  return (
+    <div className="s-export">
+      <details>
+        <summary>Export</summary>
+        <div className="s-export-body">
+          <p>{analystSummary(result)} {result.parsedMeta?.limitations || ""}</p>
+          <div className="s-export-checks">
+            <span><CheckCircle2 />IOCs normalized</span>
+            <span><CheckCircle2 />Duplicates removed</span>
+            <span><CheckCircle2 />Local only</span>
+          </div>
+          <div className="s-export-acts">
+            <button type="button" className="s-btn" onClick={() => onCopy(markdown, "Markdown report")}><Copy />Copy MD</button>
+            <button type="button" className="s-btn" onClick={() => onCopy(json, "Parsed JSON")}><Copy />Copy JSON</button>
+            <button type="button" className="s-btn" onClick={() => downloadText("artifact-intake-result.md", markdown, "text/markdown")}><Download />Download MD</button>
+            <button type="button" className="s-btn" onClick={() => downloadText("artifact-intake-result.json", json, "application/json")}><Download />Download JSON</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  )
+}
+
+function SFooter({ onReparse, onClear }) {
+  return (
+    <div className="s-footer">
+      <div className="s-footer-left">
+        <span className="s-footer-label">Parse complete</span>
+      </div>
+      <div className="s-footer-acts">
+        <button type="button" className="s-btn" onClick={onReparse}><RefreshCcw />Re-parse</button>
+        <button type="button" className="s-btn" onClick={onClear}><Eraser />Clear</button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main page component ────────────────────────────────────── */
 
 export default function SmartParserPage({ setPage }) {
   const [incomingArtifact] = useState(() => readIncomingArtifact())
@@ -1473,7 +1435,7 @@ export default function SmartParserPage({ setPage }) {
     }
     try {
       setResult(detectArtifact(nextInput))
-      setNotice("Parse complete. Extracted artifacts are ready for review and handoff.")
+      setNotice("")
     } catch (err) {
       setResult(null)
       setParseError(err.message || "Parser failed. The artifact may be malformed or unsupported.")
@@ -1499,7 +1461,7 @@ export default function SmartParserPage({ setPage }) {
     setInput("")
     setResult(null)
     setParseError("")
-    setNotice("Input cleared.")
+    setNotice("")
   }
 
   return (
@@ -1515,51 +1477,31 @@ export default function SmartParserPage({ setPage }) {
           { label: "handoff ready", tone: "success" },
         ]}
       />
-
       {!hasResult ? (
-        <EmptyIntakeDesk
-          input={input}
-          setInput={setInput}
-          fileRef={fileRef}
-          handleFile={handleFile}
-          loadSample={loadSample}
-          parseError={parseError}
-          notice={notice}
-          runParse={runParse}
-          copyText={copyText} setNotice={setNotice}
-          clearInput={clearInput}
+        <SInput
+          input={input} setInput={setInput} fileRef={fileRef} handleFile={handleFile}
+          loadSample={loadSample} parseError={parseError} notice={notice}
+          runParse={runParse} copyText={copyText} setNotice={setNotice} clearInput={clearInput}
         />
       ) : (
-        <div className="ai-results-workspace">
-          <SourcePreviewHeader result={result} input={input} onReparse={() => runParse()} onClear={clearInput} />
-          <ExtractionSummary result={result} />
-          {notice ? <p className="ai-inline-notice"><Info className="h-4 w-4" />{notice}</p> : null}
-          {parseError ? <p className="ai-inline-error"><AlertTriangle className="h-4 w-4" />{parseError}</p> : null}
-
-          <div className="ai-results-main-grid ai-results-main-grid">
-            <section className="ai-results-overview">
-              <ParserOutputQuality result={result} />
-              <ImportantFieldsPanel result={result} />
-            </section>
-
-            <GroupedArtifactInventory result={result} setPage={setPage} onCopy={copyText} />
-
-            <section className="ai-results-review-grid">
-              <div className="ai-results-review-main">
-                <EvidenceExtractionGrid result={result} input={input} setPage={setPage} onCopy={copyText} />
-                <ParserSignalsPanel result={result} />
-              </div>
-              <aside className="ai-results-review-side">
-                <RecommendedHandoff result={result} input={input} setPage={setPage} />
-              </aside>
-            </section>
-
-            <details className="ai-advanced-output">
-              <summary>Advanced source preview and export</summary>
-              <CompactInputPanel input={input} setInput={setInput} runParse={runParse} clearInput={clearInput} />
-              <ReportReadyPanel result={result} markdown={markdown} json={json} onCopy={copyText} />
-            </details>
+        <div className="s-output">
+          {notice ? <div className="s-notice"><Info />{notice}</div> : null}
+          {parseError ? <div className="s-notice" data-tone="error"><AlertTriangle />{parseError}</div> : null}
+          <SBanner result={result} />
+          <div className="s-grid">
+            <div className="s-main">
+              <SKeyFields result={result} />
+              <SIocGrid result={result} setPage={setPage} onCopy={copyText} />
+              <SGuidance result={result} />
+              <SExport result={result} markdown={markdown} json={json} onCopy={copyText} />
+            </div>
+            <div className="s-rail">
+              <SSignals result={result} />
+              <SRouteCards result={result} setPage={setPage} />
+              <SMetaPanel result={result} />
+            </div>
           </div>
+          <SFooter onReparse={() => runParse()} onClear={clearInput} />
         </div>
       )}
     </WorkbenchPage>
