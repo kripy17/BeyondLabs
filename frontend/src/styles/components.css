@@ -86,7 +86,7 @@ summary:focus-visible {
 
 .ba-main-shell {
   min-height: 100vh;
-  padding: 6.2rem 1.2rem 4rem;
+  padding: 1.5rem 1.2rem 2.5rem;
 }
 
 .ba-home-shell,
@@ -290,6 +290,13 @@ summary:focus-visible {
 }
 
 /* Nav dropdown */
+.ba-nav-dropdown,
+.ba-command-panel {
+  background: var(--clr-bg);
+  border: var(--border-w) solid var(--clr-border);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+
 .ba-nav-dropdown {
   position: fixed;
   left: var(--ba-menu-left);
@@ -298,11 +305,7 @@ summary:focus-visible {
   transform: translateX(-50%);
   z-index: 120;
   padding: 0.55rem;
-  border: 1px solid var(--ba-border);
   border-radius: 20px;
-  background: rgba(7, 7, 8, 0.96);
-  box-shadow: var(--ba-shadow);
-  backdrop-filter: blur(22px) saturate(1.18);
   animation: ba-dropdown-in 170ms cubic-bezier(.22, 1, .36, 1) both;
 }
 
@@ -318,14 +321,14 @@ summary:focus-visible {
 
 .ba-nav-dropdown-head strong {
   display: block;
-  color: #fff;
+  color: var(--clr-text);
   font-size: 0.9rem;
 }
 
 .ba-nav-dropdown-head span {
   display: block;
   margin-top: 0.18rem;
-  color: var(--ba-text-muted);
+  color: var(--clr-text-sub);
   font-size: 0.78rem;
   line-height: 1.35;
 }
@@ -345,19 +348,22 @@ summary:focus-visible {
   gap: 0.72rem;
   min-height: 58px;
   padding: 0.62rem 0.66rem;
-  border: 1px solid transparent;
+  border: var(--border-w) solid transparent;
   border-radius: 14px;
-  color: var(--ba-text-soft);
+  color: var(--clr-text-sub);
   background: transparent;
   text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
 .ba-nav-dropdown-list button:hover,
 .ba-nav-dropdown-list button.is-active,
 .ba-command-results button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: var(--ba-border);
-  color: #fff;
+  background: var(--clr-bg-alt);
+  border-color: var(--clr-border);
+  color: var(--clr-text);
 }
 
 .ba-nav-dropdown-list button > span:first-child,
@@ -367,15 +373,15 @@ summary:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 11px;
-  color: var(--ba-cyan);
-  background: rgba(103, 232, 249, 0.07);
-  border: 1px solid rgba(103, 232, 249, 0.12);
+  color: var(--clr-accent);
+  background: var(--clr-bg-alt);
+  border: var(--border-w) solid var(--clr-border-30);
 }
 
 .ba-nav-dropdown-list strong,
 .ba-command-results strong {
   display: block;
-  color: inherit;
+  color: var(--clr-text);
   font-size: 0.85rem;
 }
 
@@ -383,7 +389,7 @@ summary:focus-visible {
 .ba-command-results small {
   display: block;
   margin-top: 0.14rem;
-  color: var(--ba-text-faint);
+  color: var(--clr-text-sub);
   font-size: 0.73rem;
   line-height: 1.3;
 }
@@ -394,8 +400,8 @@ summary:focus-visible {
   inset: 0;
   z-index: 150;
   display: grid;
-  place-items: start center;
-  padding: 7rem 1rem 1rem;
+  place-items: center;
+  padding: 1rem;
 }
 
 .ba-command-backdrop {
@@ -411,10 +417,7 @@ summary:focus-visible {
   z-index: 1;
   width: min(700px, 100%);
   overflow: hidden;
-  border: 1px solid var(--ba-border);
-  border-radius: 24px;
-  background: rgba(8, 8, 9, 0.97);
-  box-shadow: var(--ba-shadow);
+  border-radius: 20px;
   animation: ba-command-in 190ms cubic-bezier(.22, 1, .36, 1) both;
 }
 
@@ -433,29 +436,32 @@ summary:focus-visible {
 }
 
 .ba-command-input-row svg {
-  color: var(--ba-cyan);
+  color: var(--clr-accent);
 }
 
 .ba-command-input-row input {
   width: 100%;
   border: 0;
   outline: 0;
-  color: #fff;
+  color: var(--clr-text);
   background: transparent;
   font-size: 1rem;
+  font-family: inherit;
 }
 
 .ba-command-input-row input::placeholder {
-  color: var(--ba-text-faint);
+  color: var(--clr-text-sub);
 }
 
 .ba-command-input-row button {
   width: 34px;
   height: 34px;
-  border: 1px solid var(--ba-border);
+  border: var(--border-w) solid var(--clr-border);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--ba-text-muted);
+  background: var(--clr-bg-alt);
+  color: var(--clr-text-sub);
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .ba-command-results {
@@ -472,22 +478,22 @@ summary:focus-visible {
   display: flex;
   gap: 0.45rem;
   padding: 0.65rem 0.9rem 0.85rem;
-  border-top: 1px solid var(--ba-border);
-  color: var(--ba-text-faint);
+  border-top: var(--border-w) solid var(--clr-border);
+  color: var(--clr-text-sub);
   font-size: 0.72rem;
 }
 
 .ba-command-footer span {
-  border: 1px solid var(--ba-border);
+  border: var(--border-w) solid var(--clr-border);
   border-radius: 999px;
   padding: 0.18rem 0.55rem;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--clr-bg-alt);
 }
 
 .ba-command-empty {
   margin: 0;
   padding: 1rem;
-  color: var(--ba-text-muted);
+  color: var(--clr-text-sub);
   font-size: 0.9rem;
 }
 
@@ -498,11 +504,10 @@ summary:focus-visible {
   right: 0;
   width: min(360px, calc(100vw - 2rem));
   padding: 0.7rem;
-  border: 1px solid var(--ba-border);
   border-radius: 20px;
-  background: rgba(8, 8, 9, 0.96);
-  box-shadow: var(--ba-shadow);
-  backdrop-filter: blur(18px);
+  background: var(--clr-bg);
+  border: var(--border-w) solid var(--clr-border);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
 }
 
 .ba-status-head {
@@ -519,25 +524,34 @@ summary:focus-visible {
 }
 
 .ba-status-head strong {
-  color: #fff;
+  color: var(--clr-text);
   font-size: 0.88rem;
 }
 
 .ba-status-head span {
   margin-top: 0.14rem;
-  color: var(--ba-text-faint);
+  color: var(--clr-text-sub);
   font-size: 0.76rem;
 }
 
 .ba-status-head button,
 .ba-status-settings {
-  border: 1px solid var(--ba-border);
+  border: var(--border-w) solid var(--clr-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--ba-text-soft);
+  background: var(--clr-bg-alt);
+  color: var(--clr-text-sub);
   padding: 0.42rem 0.65rem;
   font-size: 0.76rem;
   font-weight: 760;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.ba-status-head button:hover,
+.ba-status-settings:hover {
+  color: var(--clr-text);
+  border-color: var(--clr-accent);
 }
 
 .ba-status-grid {
@@ -551,9 +565,22 @@ summary:focus-visible {
   align-items: center;
   gap: 0.7rem;
   padding: 0.7rem;
-  border: 1px solid var(--ba-border);
+  border: var(--border-w) solid var(--clr-border);
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--clr-bg-alt);
+}
+
+.ba-status-grid strong {
+  display: block;
+  color: var(--clr-text);
+  font-size: 0.82rem;
+}
+
+.ba-status-grid small {
+  display: block;
+  margin-top: 0.12rem;
+  color: var(--clr-text-sub);
+  font-size: 0.74rem;
 }
 
 .ba-status-led {
@@ -584,7 +611,7 @@ summary:focus-visible {
   display: block;
 }
 
-.ba-status-grid strong { color: #fff; font-size: 0.82rem; }
+.ba-status-grid strong { font-size: 0.82rem; }
 .ba-status-grid small { color: var(--ba-text-faint); font-size: 0.73rem; margin-top: 0.1rem; }
 
 .ba-status-settings {
@@ -1039,7 +1066,7 @@ td {
 
 @media (max-width: 760px) {
   .ba-main-shell {
-    padding: 9.1rem 0.8rem 2.2rem;
+    padding: 1rem 0.8rem 1.5rem;
   }
 
   .ba-topbar-shell {
@@ -1076,8 +1103,8 @@ td {
   }
 }
 
-.ba-app { background: #000; }
-.ba-main-shell { padding-top: 5.45rem; }
+.ba-app { background: var(--clr-bg); }
+.ba-main-shell { padding-top: 1.5rem; }
 .ba-topbar-shell { padding: 0.78rem 1rem 0; }
 .ba-topbar { min-height: 54px; border-radius: 18px; background: rgba(6, 6, 7, 0.92); }
 .ba-topbar-brand { height: 38px; padding-right: 0.72rem; }
@@ -2175,7 +2202,7 @@ textarea.ba-workbench-field {
   .ba-topbar-actions { width: 100%; }
   .ba-command-trigger { flex: 1; }
   .ba-runtime-chip { display: none; }
-  .ba-main-shell { padding-top: 8rem; }
+  .ba-main-shell { padding-top: 1.5rem; }
   .ba-case-stat-grid { grid-template-columns: 1fr; }
   .ba-case-tabs { border-radius: 20px; }
   .ba-case-tabs button { flex: 1; }
@@ -2543,7 +2570,7 @@ textarea.ba-workbench-field {
   .ba-topbar-actions {
     margin-left: auto;
   }
-  .ba-main-shell { padding-top: 7.6rem; }
+  .ba-main-shell { padding-top: 0; }
 }
 
 .ba-page-shell .rounded-2xl,
@@ -3010,7 +3037,7 @@ textarea.ba-workbench-field {
 
 /* Route-wide layout consistency: use the viewport better, keep route pages horizontal, and reserve the vertical, three-lane layout for CyberChef only. */
 .ba-main-shell {
-  padding: 5.65rem 0.55rem 3rem;
+  padding: 3.75rem 0.55rem 3rem;
 }
 .ba-page-shell,
 .ba-home-shell,
@@ -3335,9 +3362,6 @@ textarea.ba-workbench-field {
 }
 .ba-cyberchef .cyberchef-operations-scroll {
   padding: 0.42rem;
-}
-.ba-cyberchef .cyberchef-operations-scroll .space-y-1 {
-  gap: 0.25rem;
 }
 .ba-cyberchef .cyberchef-io-grid textarea {
   min-height: 260px;
@@ -4157,7 +4181,7 @@ body,
 }
 
 .ba-main-shell {
-  padding: 5.7rem var(--ba-layout-gutter) 3.2rem;
+  padding: 1.5rem var(--ba-layout-gutter) 2.5rem;
 }
 
 .ba-home-shell {

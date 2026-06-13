@@ -3,13 +3,14 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
+  ChevronRight,
   Clipboard,
   Copy,
   Database,
   Download,
   Eraser,
   FileSearch,
-  FileText,
+  Fingerprint,
   Flag,
   Info,
   RefreshCcw,
@@ -17,7 +18,7 @@ import {
   Upload,
   Zap,
 } from "lucide-react"
-import { WorkbenchHeader, WorkbenchPage } from "../../components/layout/WorkbenchShell"
+import { WorkbenchPage } from "../../components/layout/WorkbenchShell"
 import { scanSecrets } from "../../lib/securityTextAnalysis"
 import { copyText, downloadText } from "../../lib/domUtils.js"
 
@@ -922,69 +923,126 @@ function compact(value = "", limit = 110) {
 
 /* ── Input page ──────────────────────────────────────────────── */
 
-function SmartParserSamples({ onLoadSample }) {
-  const sampleGroups = [
-    ["phishing", "Phishing email"],
-    ["headers", "Email headers"],
-    ["iocs", "IOC list"],
-    ["windows", "Windows 4688"],
-    ["suricata", "Suricata EVE"],
-    ["powershell", "PowerShell"],
-    ["sigma", "Sigma rule"],
-    ["secrets", "Secrets"],
-  ]
-  const [sampleKey, setSampleKey] = useState("phishing")
-  return (
-    <div className="s-sample-row">
-      <button type="button" className="s-btn" onClick={() => onLoadSample(sampleKey)}>
-        <FileText />Load sample
-      </button>
-      <select value={sampleKey} onChange={(event) => setSampleKey(event.target.value)}>
-        {sampleGroups.map(([key, label]) => (
-          <option key={key} value={key}>{label}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
+function SInput({ input, setInput, fileRef, handleFile, loadSample, parseError, notice, runParse, copyText, setNotice, clearInput, parsing }) {
+  const textareaRef = useRef(null)
+  const [cursorLine, setCursorLine] = useState(1)
+  const [isFocused, setIsFocused] = useState(false)
+  const lineCount = input ? input.split('\n').length : 1
+  const lineNumbers = Array.from({ length: Math.max(25, lineCount + 5) }, (_, i) => i + 1)
+  const showEmpty = !isFocused && input.length === 0
+  const wordCount = input ? input.trim().split(/\s+/).filter(Boolean).length : 0
+  const charCount = input.length
 
-function SInput({ input, setInput, fileRef, handleFile, loadSample, parseError, notice, runParse, copyText, setNotice, clearInput }) {
-  return (
-    <div className="s-input-wrap">
-      {notice ? <div className="s-notice"><Info />{notice}</div> : null}
-      {parseError ? <div className="s-notice" data-tone="error"><AlertTriangle />{parseError}</div> : null}
+  function updateCursorLine(el) {
+    const line = el.value.substr(0, el.selectionStart).split('\n').length
+    setCursorLine(line)
+  }
 
-      <div className="s-intake s-card">
-        <div className="s-intake-hd">
-          <div className="s-intake-hd-left">
-            <FileSearch />Intake Console
+  function handleChange(event) {
+    setInput(event.target.value)
+    updateCursorLine(event.target)
+  }
+
+  function handleSelect(event) {
+    updateCursorLine(event.target)
+  }
+
+  return (
+    <div className="sp-workbench">
+      {notice ? <div className="sp-notice"><Info size={12} />{notice}</div> : null}
+      {parseError ? <div className="sp-notice sp-notice-error"><AlertTriangle size={12} />{parseError}</div> : null}
+
+      <div className="sp-area">
+        <div className="sp-term">
+          <div className="sp-term-hd">
+            <div className="sp-term-hd-l">
+              <div className="sp-badge sp-badge-grn">
+                <div className="sp-badge-dot sp-dot-grn" />
+                <span>READY</span>
+              </div>
+
+              <span className="sp-term-hd-label">INPUT_TERMINAL</span>
+            </div>
+            <div className="sp-term-hd-r">
+              <button type="button" className="sp-term-btn" onClick={() => copyText(input, setNotice, "Input")}>
+                <Copy size={11} />COPY
+              </button>
+              <button type="button" className="sp-term-btn sp-term-btn-rose" onClick={clearInput}>
+                <Eraser size={11} />CLEAR
+              </button>
+            </div>
           </div>
-          <div className="s-intake-hd-acts">
-            <button type="button" onClick={() => copyText(input, setNotice, "Input")}>
-              <Clipboard />Copy
-            </button>
-            <button type="button" onClick={clearInput}>
-              <Eraser />Clear
-            </button>
+          <div className="sp-term-body">
+            <div className="sp-scanline" />
+            <div className={"sp-radar" + (showEmpty ? "" : " is-hidden")}>
+              <div className="sp-radar-rings">
+                <div className="sp-radar-ring" />
+                <div className="sp-radar-ring" />
+                <div className="sp-radar-ring" />
+                <div className="sp-radar-axis" />
+                <div className="sp-radar-axis-v" />
+                <div className="sp-radar-sweep" />
+                <div className="sp-radar-center">
+                  <div className="sp-radar-center-inner"><Fingerprint size={28} /></div>
+                </div>
+              </div>
+            </div>
+            <div className="sp-lines">
+              {lineNumbers.slice(0, 50).map((n) => (
+                <div key={n} className={n === cursorLine ? "is-active" : ""}>{String(n).padStart(2, '0')}</div>
+              ))}
+            </div>
+            <div className="sp-textarea-wrap">
+              <textarea
+                ref={textareaRef}
+                className="sp-textarea"
+                value={input}
+                onChange={handleChange}
+                onKeyUp={handleSelect}
+                onClick={handleSelect}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="[System Ready] Paste raw artifact data, logs, or execution traces here..."
+              />
+              <span className="sp-blink" />
+            </div>
+          </div>
+          <div className="sp-term-ft">
+            <span>WORDS: {wordCount} &middot; CHARS: {charCount}</span>
           </div>
         </div>
-        <div className="s-intake-body">
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="[WAITING FOR INPUT]... Paste raw email headers, SIEM log exports, suspect URLs, or file hashes here for immediate analysis."
-          />
-        </div>
-        <div className="s-intake-ft">
-          <SmartParserSamples onLoadSample={loadSample} />
-          <button type="button" className="s-btn" onClick={() => fileRef.current?.click()}>
-            <Upload />Import
-          </button>
-          <input ref={fileRef} type="file" className="hidden" onChange={handleFile} />
-          <div style={{ flex: 1 }} />
-          <button type="button" className="s-btn" data-accent onClick={() => runParse()}>
-            <Zap />Parse Artifact
-          </button>
+
+        <div className="sp-sidebar">
+          <div className="sp-sidebar-sec">
+            <h3 className="sp-sidebar-hd"><span className="sp-dot-blue" />CONTEXT LOADER</h3>
+            <div className="sp-select-wrap">
+              <select onChange={(event) => { if (event.target.value) loadSample(event.target.value); event.target.value = "" }} defaultValue="">
+                <option value="" disabled>Select Sample Pipeline...</option>
+                {Object.entries(SAMPLE_INPUTS).map(([key, sample]) => (
+                  <option key={key} value={key}>{sample.label}</option>
+                ))}
+              </select>
+              <span className="sp-select-arrow">v</span>
+            </div>
+          </div>
+          <div className="sp-sidebar-sec">
+            <h3 className="sp-sidebar-hd"><span className="sp-dot-cyan" />EXECUTION CORE</h3>
+            <div className="sp-core-btns">
+              <button type="button" className="sp-parse-btn" onClick={() => runParse()} disabled={parsing}>
+                {parsing ? <RefreshCcw size={16} className="sp-spin" /> : <Zap size={16} />}{parsing ? "PARSING..." : "PARSE ARTIFACT"}
+              </button>
+              <button type="button" className="sp-file-btn" onClick={() => fileRef.current?.click()}>
+                <span><Upload size={13} /> IMPORT FILE</span>
+                <ChevronRight size={13} className="sp-file-btn-arrow" />
+              </button>
+            </div>
+            <input ref={fileRef} type="file" className="hidden" onChange={handleFile} />
+          </div>
+          <div className="sp-sidebar-sec sp-sidebar-sec-last">
+            <div className="sp-integrity-box">
+              <p>Analysis performed locally.<br />No data exfiltration detected.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1409,6 +1467,7 @@ export default function SmartParserPage({ setPage }) {
   const [result, setResult] = useState(() => initialParse.result)
   const [notice, setNotice] = useState(() => incomingArtifact ? `Loaded ${incomingArtifact.type || "artifact"} from ${incomingArtifact.source || "another BeyondArch tool"}.` : "")
   const [parseError, setParseError] = useState(() => initialParse.error)
+  const [parsing, setParsing] = useState(false)
   const fileRef = useRef(null)
 
   const markdown = useMemo(() => toMarkdown(result), [result])
@@ -1433,13 +1492,17 @@ export default function SmartParserPage({ setPage }) {
       setNotice("Paste an artifact or load a sample to parse.")
       return
     }
-    try {
-      setResult(detectArtifact(nextInput))
-      setNotice("")
-    } catch (err) {
-      setResult(null)
-      setParseError(err.message || "Parser failed. The artifact may be malformed or unsupported.")
-    }
+    setParsing(true)
+    setTimeout(() => {
+      try {
+        setResult(detectArtifact(nextInput))
+        setNotice("")
+      } catch (err) {
+        setResult(null)
+        setParseError(err.message || "Parser failed. The artifact may be malformed or unsupported.")
+      }
+      setParsing(false)
+    }, 300)
   }
 
   async function handleFile(event) {
@@ -1465,23 +1528,28 @@ export default function SmartParserPage({ setPage }) {
   }
 
   return (
-    <WorkbenchPage className="ba-artifact-intake-page">
-      <WorkbenchHeader
-        eyebrow="Artifact intake"
-        title="Artifact Intake"
-        subtitle="Detect artifact type, extract useful values, and route evidence into the BeyondArch local analysis pipeline."
-        icon={FileSearch}
-        chips={[
-          { label: "local parser", tone: "local" },
-          { label: "type detection", tone: "info" },
-          { label: "handoff ready", tone: "success" },
-        ]}
-      />
+    <WorkbenchPage className={"sp-page" + (!hasResult ? " sp-page-input" : "")}>
+      <div className="sp-hero">
+        <div className="sp-hero-row">
+          <div className="sp-hero-main">
+            <div className="sp-hero-title-row">
+              <FileSearch className="sp-hero-icon" />
+              <h1 className="sp-hero-title">Smart <span className="sp-hero-accent">INTAKE</span></h1>
+            </div>
+            <p className="sp-hero-sub">Local artifact parser for triage, extraction, and indicator discovery.</p>
+          </div>
+          <div className="sp-hero-badge">
+            <div className="sp-hero-led" />
+            <span>LOCAL-FIRST INTEGRITY ACTIVE</span>
+          </div>
+        </div>
+      </div>
       {!hasResult ? (
         <SInput
           input={input} setInput={setInput} fileRef={fileRef} handleFile={handleFile}
           loadSample={loadSample} parseError={parseError} notice={notice}
           runParse={runParse} copyText={copyText} setNotice={setNotice} clearInput={clearInput}
+          parsing={parsing}
         />
       ) : (
         <div className="s-output">

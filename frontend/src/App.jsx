@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useMemo, useEffect, useState } from "react"
-import { AlertTriangle, Home, Keyboard, Loader2, RefreshCcw, X } from "lucide-react"
+import { AlertTriangle, Home, Loader2, RefreshCcw } from "lucide-react"
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom"
 import "./index.css"
 import HomePage from "./components/home/HomePage"
@@ -53,7 +53,7 @@ function BootScreen({ visible }) {
 
 const PAGE_TITLES = {
   home: "Home",
-  "smart-parser": "Artifact Intake",
+  "smart-parser": "Smart Parser",
   "phishing-triage": "Phishing Triage",
   "safe-url-analyzer": "Safe URL Analyzer",
   "recon-exposure": "Recon & Exposure",
@@ -129,7 +129,6 @@ function AppRoutes() {
 
   const page = ROUTE_TO_PAGE[location.pathname] || "404"
   const isHomePage = page === "home"
-  const [helpOpen, setHelpOpen] = useState(false)
 
   useEffect(() => {
     document.title = `BeyondArch — ${PAGE_TITLES[page] || page}`
@@ -172,7 +171,6 @@ function AppRoutes() {
     { key: "/", action: () => {
       window.dispatchEvent(new CustomEvent("beyondarch:open-command-palette"))
     }},
-    { key: "Escape", action: () => setHelpOpen(false) },
   ], [navigate])
   useShortcuts(shortcuts)
 
@@ -218,47 +216,10 @@ function AppRoutes() {
   const pageClass = `ba-app-page-${String(page).replace(/[^a-z0-9-]/gi, "-").toLowerCase()}`
 
   return (
-    <div className={`ba-app ${isHomePage ? "ba-app-home" : ""} ${pageClass}`} data-theme={theme}>
+    <div className={`ba-app dark ${isHomePage ? "ba-app-home" : ""} ${pageClass}`} data-theme={theme}>
       <BootScreen visible={bootVisible} />
       <BaBackendBanner />
-      <Topbar page={page} groups={WORKSPACES} options={ALL_WORKSPACES} onOpenHelp={() => setHelpOpen(true)} />
-      {helpOpen && (
-        <div className="ba-shortcut-overlay" role="dialog" aria-label="Keyboard shortcuts">
-          <button className="ba-shortcut-backdrop" type="button" aria-label="Close shortcuts" onClick={() => setHelpOpen(false)} />
-          <section className="ba-shortcut-panel">
-            <div className="ba-shortcut-head">
-              <strong><Keyboard className="h-4 w-4" />Keyboard Shortcuts</strong>
-              <button type="button" onClick={() => setHelpOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="ba-shortcut-list">
-              {[
-                ["g h", "Go to Home"],
-                ["g a", "Go to Artifact Intake"],
-                ["g p", "Go to Phishing Triage"],
-                ["g u", "Go to Safe URL Analyzer"],
-                ["g r", "Go to Recon & Exposure"],
-                ["g l", "Go to Logs & Alerts"],
-                ["g d", "Go to Detection & MITRE"],
-                ["g c", "Go to CyberChef"],
-                ["g t", "Go to Case Timeline"],
-                ["g s", "Go to Settings"],
-                ["/", "Open command palette"],
-                ["?", "Toggle this help"],
-                ["Esc", "Close menus / overlays"],
-              ].map(([key, desc]) => (
-                <div key={key}>
-                  <kbd>{key}</kbd>
-                  <span>{desc}</span>
-                </div>
-              ))}
-            </div>
-            <div className="ba-shortcut-footer">
-              <span>Navigate with <kbd>g</kbd> + <kbd>key</kbd></span>
-              <span>Press <kbd>?</kbd> to toggle</span>
-            </div>
-          </section>
-        </div>
-      )}
+      <Topbar page={page} groups={WORKSPACES} options={ALL_WORKSPACES} />
       <main className="ba-main-shell">
         <div key={page} className={isHomePage ? "ba-home-shell" : "ba-page-shell"}>
           <PageErrorBoundary page={page} navigate={navigate}>

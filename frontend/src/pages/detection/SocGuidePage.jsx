@@ -282,7 +282,7 @@ function EventIdentifier({
           <h2><BookOpen size={16} className="inline mr-1" />Event description</h2>
           <span>{lookupResult?.found ? eventLabel(lookupResult) : "lookup required"}</span>
         </div>
-        {lookupResult ? <EventResult result={lookupResult} setPage={setPage} /> : <EmptyState title="No Event ID selected" body="Enter an Event ID above to view the full BeyondArch local reference entry. Use the Command Explainer for commands and Artifact Intake for mixed text or URLs." />}
+        {lookupResult ? <EventResult result={lookupResult} setPage={setPage} /> : <EmptyState title="No Event ID selected" body="Enter an Event ID above to view the full BeyondArch local reference entry. Use the Command Explainer for commands and Smart Parser for mixed text or URLs." />}
       </div>
     </section>
   )
@@ -480,7 +480,7 @@ function CommandExplainer({ commandInput, setCommandInput, result, onExplain, se
           </div>
           <div className="ba-guide-button-row">
             <button type="button" onClick={() => sendArtifact(setPage, "detection-mitre", { type: "command-analysis", content: commandInput })}>Send command to Detection</button>
-            <button type="button" onClick={() => sendArtifact(setPage, "smart-parser", { type: "command-analysis", content: commandInput })}>Send to Artifact Intake</button>
+            <button type="button" onClick={() => sendArtifact(setPage, "smart-parser", { type: "command-analysis", content: commandInput })}>Send to Smart Parser</button>
           </div>
         </div>
       ) : null}

@@ -2570,7 +2570,7 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
                   <summary className={iconButtonClass()} title="Send output to another module">Send to</summary>
                   <div className="cyberchef-send-menu absolute right-0 z-20 mt-2 w-60 rounded-xl border border-white/10 bg-black/40 p-2 shadow-xl">
                     {[
-                      ["smartParser", "Artifact Intake"],
+                      ["smartParser", "Smart Parser"],
                       ["phishing", "Phishing Triage"],
                       ["recon", "Recon & Exposure"],
                       ["logs", "Logs & Alerts"],

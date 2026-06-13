@@ -23,9 +23,9 @@ export const WORKSPACES = [
     id: "triage",
     label: "Triage",
     icon: ShieldCheck,
-    description: "Artifact intake, phishing review, URL checks, and attachment triage.",
+    description: "Smart parser, phishing review, URL checks, and attachment triage.",
     items: [
-      { label: "Artifact Intake", page: "smart-parser", icon: FileSearch, description: "Paste any artifact and route indicators to the right workflow.", tags: ["intake", "ioc"] },
+      { label: "Smart Parser", page: "smart-parser", icon: FileSearch, description: "Paste any artifact and route indicators to the right workflow.", tags: ["intake", "ioc"] },
       { label: "Phishing Triage", page: "phishing-triage", icon: MailWarning, description: "Review sender signals, headers, links, language, and verdicts.", tags: ["email", "headers"] },
       { label: "Safe URL Analyzer", page: "safe-url-analyzer", icon: Link2, description: "Analyze links safely with static-first checks and redirect context.", tags: ["url", "redirect"] },
       { label: "Attachment Triage", page: "attachment-triage", icon: Paperclip, description: "Inspect file names, hashes, strings, extensions, and risky metadata.", tags: ["file", "hash"] },

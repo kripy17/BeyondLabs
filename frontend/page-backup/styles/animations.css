@@ -1,0 +1,158 @@
+/* ── Page transitions ──────────────────────────────────────────── */
+@keyframes ba-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ba-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ba-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ba-slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ba-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes ba-pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(103, 232, 249, 0.15); }
+  50%      { box-shadow: 0 0 20px rgba(103, 232, 249, 0.3); }
+}
+
+@keyframes ba-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes ba-spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ba-command-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ba-boot-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes ba-page-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ba-dropdown-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes ba-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Animation utility classes ─────────────────────────────────── */
+.ba-anim-fade-in    { animation: ba-fade-in 400ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-anim-scale-in   { animation: ba-scale-in 350ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-anim-slide-up   { animation: ba-slide-up 500ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-anim-slide-down { animation: ba-slide-down 300ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-anim-page-in    { animation: ba-page-in 400ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-anim-card-in    { animation: ba-card-in 350ms cubic-bezier(.22, 1, .36, 1) both; }
+
+.ba-anim-delay-1  { animation-delay: 80ms; }
+.ba-anim-delay-2  { animation-delay: 160ms; }
+.ba-anim-delay-3  { animation-delay: 240ms; }
+.ba-anim-delay-4  { animation-delay: 320ms; }
+.ba-anim-delay-5  { animation-delay: 400ms; }
+.ba-anim-delay-6  { animation-delay: 480ms; }
+.ba-anim-delay-7  { animation-delay: 560ms; }
+.ba-anim-delay-8  { animation-delay: 640ms; }
+
+/* Stagger children */
+.ba-stagger > * { animation: ba-card-in 400ms cubic-bezier(.22, 1, .36, 1) both; }
+.ba-stagger > *:nth-child(1)  { animation-delay: 40ms; }
+.ba-stagger > *:nth-child(2)  { animation-delay: 80ms; }
+.ba-stagger > *:nth-child(3)  { animation-delay: 120ms; }
+.ba-stagger > *:nth-child(4)  { animation-delay: 160ms; }
+.ba-stagger > *:nth-child(5)  { animation-delay: 200ms; }
+.ba-stagger > *:nth-child(6)  { animation-delay: 240ms; }
+.ba-stagger > *:nth-child(7)  { animation-delay: 280ms; }
+.ba-stagger > *:nth-child(8)  { animation-delay: 320ms; }
+
+/* ── Hover lift effect ─────────────────────────────────────────── */
+.ba-hover-lift {
+  transition: transform 180ms cubic-bezier(.22, 1, .36, 1),
+              box-shadow 180ms cubic-bezier(.22, 1, .36, 1),
+              border-color 180ms ease;
+}
+.ba-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  border-color: var(--ba-border-strong);
+}
+
+.ba-hover-glow {
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+.ba-hover-glow:hover {
+  box-shadow: 0 0 30px rgba(103, 232, 249, 0.08), 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-color: rgba(103, 232, 249, 0.2);
+}
+
+/* ── Loading shimmer ───────────────────────────────────────────── */
+.ba-shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.02) 0%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: ba-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Glow dot (for status indicators) ──────────────────────────── */
+.ba-glow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ba-green);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
+  animation: ba-pulse-glow 2s ease-in-out infinite;
+}
+
+.ba-glow-dot.is-warning {
+  background: var(--ba-amber);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+}
+
+.ba-glow-dot.is-danger {
+  background: var(--ba-red);
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ba-anim-fade-in,
+  .ba-anim-scale-in,
+  .ba-anim-slide-up,
+  .ba-anim-slide-down,
+  .ba-anim-page-in,
+  .ba-anim-card-in,
+  .ba-stagger > *,
+  .ba-shimmer,
+  .ba-glow-dot,
+  .ba-hover-lift,
+  .ba-hover-glow { animation: none; transition: none; }
+  .ba-hover-lift:hover,
+  .ba-hover-glow:hover { transform: none; }
+}

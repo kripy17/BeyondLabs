@@ -2,7 +2,7 @@ const VISITED_KEY = "beyondarch.visitedPages.v1"
 const MAX_VISITED = 12
 
 const PAGE_LABELS = {
-  "smart-parser": "Artifact Intake",
+  "smart-parser": "Smart Parser",
   "phishing-triage": "Phishing Triage",
   "safe-url-analyzer": "URL Analyzer",
   "attachment-triage": "Attachment Triage",

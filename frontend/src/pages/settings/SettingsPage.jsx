@@ -131,7 +131,7 @@ const ACTIVE_MODULES = [
   "CyberChef",
   "IDS Rule Builder",
   "SOC Analyst Playbook",
-  "Artifact Intake",
+  "Smart Parser",
   "Phishing Triage",
   "Safe URL Analyzer",
   "Recon & Exposure",

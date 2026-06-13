@@ -440,7 +440,7 @@ export default function SiemWorkspacePage({ setPage }) {
                 } setPage?.("logs-alerts") }}>Logs & Alerts</button>
                 <button onClick={() => sendArtifact(setPage, "detection-mitre", { type: "siem_events", content: shownRows.slice(0, 25).map((row) => row.raw || row.message || JSON.stringify(row)).join("\n") })}>Detection & MITRE</button>
                 <button onClick={() => sendArtifact(setPage, "soc-guide", { type: "siem_events", content: shownRows.slice(0, 10).map((row) => row.raw || row.message || JSON.stringify(row)).join("\n") })}>SOC Guide</button>
-                <button onClick={() => sendArtifact(setPage, "smart-parser", { type: "siem_events", content: shownRows.slice(0, 10).map((row) => row.raw || row.message || JSON.stringify(row)).join("\n") })}>Artifact Intake</button>
+                <button onClick={() => sendArtifact(setPage, "smart-parser", { type: "siem_events", content: shownRows.slice(0, 10).map((row) => row.raw || row.message || JSON.stringify(row)).join("\n") })}>Smart Parser</button>
               </div>
             </div>
           </details>
@@ -582,7 +582,7 @@ function SplunkEventExpanded({ event, addFilter, setPage }) {
         <button onClick={(click) => { click.stopPropagation(); sendArtifact(setPage, "logs-alerts", { type: "siem_event", content: event.raw || event.message || JSON.stringify(event, null, 2) }) }}>Logs & Alerts</button>
         <button onClick={(click) => { click.stopPropagation(); sendArtifact(setPage, "detection-mitre", { type: "siem_event", content: event.raw || event.message || JSON.stringify(event, null, 2) }) }}>Detection & MITRE</button>
         <button onClick={(click) => { click.stopPropagation(); sendArtifact(setPage, "soc-guide", { type: "siem_event", content: event.command_line || event.message || event.raw || JSON.stringify(event, null, 2) }) }}>SOC Guide</button>
-        <button onClick={(click) => { click.stopPropagation(); sendArtifact(setPage, "smart-parser", { type: "siem_event", content: event.raw || event.message || JSON.stringify(event, null, 2) }) }}>Artifact Intake</button>
+        <button onClick={(click) => { click.stopPropagation(); sendArtifact(setPage, "smart-parser", { type: "siem_event", content: event.raw || event.message || JSON.stringify(event, null, 2) }) }}>Smart Parser</button>
         <SendToActions
           payload={{ type: "siem_event", title: event.event_type || event.headline || "SIEM event", value: event.raw || event.message || JSON.stringify(event, null, 2), summary: event.headline || event.message || event.raw, severity: event.severity, tags: [event.sourcetype, event.event_type, event.severity].filter(Boolean) }}
           source="SIEM Workspace"
