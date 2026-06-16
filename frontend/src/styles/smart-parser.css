@@ -128,6 +128,9 @@ body:has(.ba-workbench-page.sp-page) {
 }
 .ba-app.ba-app-page-smart-parser {
   height: 100vh;
+  overflow-y: auto;
+}
+.ba-app.ba-app-page-smart-parser:has(.sp-page.sp-page-input) {
   overflow: hidden;
 }
 .ba-app.ba-app-page-smart-parser .ba-topbar-shell {
@@ -144,6 +147,9 @@ body:has(.ba-workbench-page.sp-page) .ba-page-shell,
 body:has(.ba-workbench-page.sp-page) .ba-topbar-shell,
 body:has(.ba-workbench-page.sp-page) .ba-topbar {
   background: var(--sp-bg) !important;
+}
+body:has(.ba-workbench-page.sp-page) .ba-main-shell {
+  min-height: 0;
 }
 
 /* ── Page scaffolding ── */
@@ -262,25 +268,34 @@ body:has(.ba-workbench-page.sp-page) .ba-topbar {
 .sp-page .sp-term {
   display: flex; flex-direction: column;
   background: var(--sp-bg-elevated);
-  border: 2px solid var(--sp-secondary);
-  box-shadow: 3px 3px 0 0 var(--sp-accent);
+  border: 2px solid rgba(var(--sp-secondary-rgb), 0.4);
+  box-shadow:
+    0 0 12px rgba(var(--sp-accent-rgb), 0.06),
+    3px 3px 0 0 var(--sp-accent);
   position: relative;
   overflow: hidden;
   animation: sp-fade-in-up 0.6s ease-out forwards;
 }
 .sp-page .sp-term::before {
   content: ''; position: absolute; top: -2px; left: -2px;
-  width: 10px; height: 10px;
+  width: 24px; height: 24px;
   border-top: 3px solid var(--sp-accent);
   border-left: 3px solid var(--sp-accent);
   z-index: 30; pointer-events: none;
+  box-shadow: -1px -1px 6px rgba(var(--sp-accent-rgb), 0.3);
 }
 .sp-page .sp-term::after {
   content: ''; position: absolute; bottom: -2px; right: -2px;
-  width: 10px; height: 10px;
+  width: 24px; height: 24px;
   border-bottom: 3px solid var(--sp-accent);
   border-right: 3px solid var(--sp-accent);
   z-index: 30; pointer-events: none;
+  box-shadow: 1px 1px 6px rgba(var(--sp-accent-rgb), 0.3);
+}
+.sp-page .sp-term:focus-within::before,
+.sp-page .sp-term:focus-within::after {
+  box-shadow: 0 0 10px rgba(var(--sp-accent-rgb), 0.5);
+  transition: box-shadow 0.3s;
 }
 
 /* ── Terminal header ── */
@@ -458,6 +473,22 @@ body:has(.ba-workbench-page.sp-page) .ba-topbar {
   font: 400 0.65rem/1 "JetBrains Mono", monospace;
   color: rgba(var(--sp-accent-rgb), 0.7);
   letter-spacing: 0.1em;
+}
+
+/* ── Terminal cursor ── */
+.sp-page .sp-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--sp-accent);
+  animation: sp-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  flex-shrink: 0;
+}
+@keyframes sp-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* ── Sidebar ── */

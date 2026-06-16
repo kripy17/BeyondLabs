@@ -941,9 +941,8 @@ html.theme-paper .cyber-header nav button:hover {
   color: #000000 !important;
 }
 
-/* ── Brand accent drop-shadow (black in paper, invisible — remove) ── */
-html.theme-paper .cyber-brand-icon,
-html.theme-paper .cyber-brand-accent {
+/* ── Brand icon: kill drop-shadow in paper theme ── */
+html.theme-paper .cyber-brand-icon {
   filter: none !important;
 }
 

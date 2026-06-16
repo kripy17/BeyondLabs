@@ -15,6 +15,7 @@ import {
   Info,
   RefreshCcw,
   Scan,
+  Shield,
   Upload,
   Zap,
 } from "lucide-react"
@@ -1098,13 +1099,18 @@ function SKeyFields({ result }) {
   const logs = result.fields?.logs || {}
   const command = result.fields?.command_line || {}
   const rule = result.fields?.rule || {}
+  const uas = result.fields?.user_agents || []
+  const kvs = result.fields?.key_values || {}
+  const kvEntries = Object.entries(kvs).filter(([, vals]) => vals.length)
   const hasEmail = email.sender || email.subject
   const hasAuth = email.authentication?.length || email.received_spf?.length
   const hasCommand = command.commands?.length
   const hasLogs = Object.keys(logs).length
   const hasRule = rule.title
+  const hasUas = uas.length
+  const hasKvs = kvEntries.length
 
-  if (!hasEmail && !hasAuth && !hasCommand && !hasLogs && !hasRule) return null
+  if (!hasEmail && !hasAuth && !hasCommand && !hasLogs && !hasRule && !hasUas && !hasKvs) return null
 
   return (
     <div className="s-panel">
@@ -1187,6 +1193,50 @@ function SKeyFields({ result }) {
           ) : null}
         </div>
       </div>
+      {hasUas ? (
+        <div className="s-kf-extra">
+          <div className="s-kf-row">
+            <span className="s-kf-label">User-Agents</span>
+            <div className="s-kf-value">{uas.slice(0, 4).join(" | ")}</div>
+          </div>
+        </div>
+      ) : null}
+      {hasKvs ? (
+        <div className="s-kf-extra">
+          {kvEntries.slice(0, 6).map(([key, vals]) => (
+            <div key={key} className="s-kf-row">
+              <span className="s-kf-label">{key}</span>
+              <div className="s-kf-value">{vals.slice(0, 3).join(", ")}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function SSecrets({ items }) {
+  if (!items?.length) return null
+  return (
+    <div className="s-panel">
+      <div className="s-panel-hd">
+        <div className="s-panel-hd-left"><Shield />Secret Findings</div>
+        <span className="s-panel-count">{items.length} potential</span>
+      </div>
+      <div className="s-sec-list">
+        {items.slice(0, 15).map((item, index) => (
+          <div key={`${item.type}-${index}`} className="s-sec-item" data-conf={item.confidence?.toLowerCase() || "low"}>
+            <div className="s-sec-hdr">
+              <span className="s-sec-type">{item.type}</span>
+              <span className="s-sec-conf" data-conf={item.confidence?.toLowerCase() || "low"}>{item.confidence}</span>
+            </div>
+            <div className="s-sec-preview">{item.preview}</div>
+            <div className="s-sec-line">Line {item.line}</div>
+            {item.remediation ? <div className="s-sec-fix">{item.remediation}</div> : null}
+          </div>
+        ))}
+        {items.length > 15 ? <div className="s-ioc-more">+{items.length - 15} more</div> : null}
+      </div>
     </div>
   )
 }
@@ -1254,7 +1304,12 @@ function SIocGrid({ result, setPage, onCopy }) {
   const sha1 = groups.SHA1 || []
   const sha256 = groups.SHA256 || []
   const hashItems = [...md5, ...sha1, ...sha256]
-  const hasIocs = urlItems.length || domainItems.length || ipItems.length || hashItems.length
+  const emailItems = groups.Emails || []
+  const cveItems = groups.CVEs || []
+  const attackItems = groups["ATT&CK"] || []
+  const eventItems = groups["Windows Event IDs"] || []
+  const intelItems = [...cveItems, ...attackItems, ...eventItems]
+  const hasIocs = urlItems.length || domainItems.length || ipItems.length || hashItems.length || emailItems.length || intelItems.length
   if (!hasIocs) return null
 
   function sendArtifact(title, value) {
@@ -1289,9 +1344,59 @@ function SIocGrid({ result, setPage, onCopy }) {
           {leftGroup?.title !== "URLs" && rightGroup?.title !== "URLs" && urlItems.length ? (
             <div style={{ gridColumn: '1 / -1' }}><SIocList items={urlItems} groupTitle="URLs" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
           ) : null}
+          {emailItems.length ? (
+            <div style={{ gridColumn: '1 / -1' }}><SIocList items={emailItems} groupTitle="Emails" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
+          ) : null}
+        </div>
+      ) : emailItems.length ? (
+        <div className="s-ioc-grid">
+          <div style={{ gridColumn: '1 / -1' }}><SIocList items={emailItems} groupTitle="Emails" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
         </div>
       ) : null}
       {hashItems.length ? <SHashTable items={hashItems} groupTitle="Hashes" onCopy={onCopy} /> : null}
+      {intelItems.length ? (
+        <div className="s-intel-grid">
+          {cveItems.length ? (
+            <div className="s-intel-col">
+              <div className="s-intel-hd">CVEs</div>
+              <div className="s-intel-body">
+                {cveItems.slice(0, 8).map((item) => (
+                  <div key={item.normalized} className="s-intel-chip" data-type="cve" onClick={() => onCopy(item.normalized, "CVE")}>
+                    <span>{item.normalized}</span>
+                  </div>
+                ))}
+                {cveItems.length > 8 ? <div className="s-ioc-more">+{cveItems.length - 8} more</div> : null}
+              </div>
+            </div>
+          ) : null}
+          {attackItems.length ? (
+            <div className="s-intel-col">
+              <div className="s-intel-hd">ATT&CK</div>
+              <div className="s-intel-body">
+                {attackItems.slice(0, 8).map((item) => (
+                  <div key={item.normalized} className="s-intel-chip" data-type="attack" onClick={() => onCopy(item.normalized, "ATT&CK")}>
+                    <span>{item.normalized}</span>
+                  </div>
+                ))}
+                {attackItems.length > 8 ? <div className="s-ioc-more">+{attackItems.length - 8} more</div> : null}
+              </div>
+            </div>
+          ) : null}
+          {eventItems.length ? (
+            <div className="s-intel-col">
+              <div className="s-intel-hd">Event IDs</div>
+              <div className="s-intel-body">
+                {eventItems.slice(0, 8).map((item) => (
+                  <div key={item.normalized} className="s-intel-chip" data-type="event" onClick={() => onCopy(item.normalized, "Event ID")}>
+                    <span>EVENT-{item.normalized}</span>
+                  </div>
+                ))}
+                {eventItems.length > 8 ? <div className="s-ioc-more">+{eventItems.length - 8} more</div> : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1525,6 +1630,7 @@ export default function SmartParserPage({ setPage }) {
     setResult(null)
     setParseError("")
     setNotice("")
+    requestAnimationFrame(() => document.querySelector(".ba-app")?.scrollTo(0, 0))
   }
 
   return (
@@ -1559,6 +1665,7 @@ export default function SmartParserPage({ setPage }) {
           <div className="s-grid">
             <div className="s-main">
               <SKeyFields result={result} />
+              <SSecrets items={result.fields?.secrets} />
               <SIocGrid result={result} setPage={setPage} onCopy={copyText} />
               <SGuidance result={result} />
               <SExport result={result} markdown={markdown} json={json} onCopy={copyText} />
