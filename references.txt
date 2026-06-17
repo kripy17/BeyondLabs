@@ -1,9 +1,909 @@
-# BeyondArch References
+<!DOCTYPE html>
 
-Session references, design inspiration links, and notes.
-Entries persist across sessions — add/edit as needed.
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Artifact Analysis Dossier</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "tertiary": "#000000",
+                "surface-container-low": "#f3f3f3",
+                "on-primary": "#ffffff",
+                "inverse-on-surface": "#f1f1f1",
+                "on-secondary": "#ffffff",
+                "on-secondary-fixed-variant": "#474744",
+                "tertiary-container": "#1b1b1b",
+                "surface-container": "#eeeeee",
+                "surface-container-lowest": "#ffffff",
+                "outline": "#7e7576",
+                "on-secondary-container": "#636360",
+                "neutral-gray": "#666666",
+                "primary-container": "#1b1b1b",
+                "on-surface-variant": "#4c4546",
+                "secondary-container": "#e1dfdc",
+                "secondary": "#5e5e5c",
+                "on-primary-fixed-variant": "#474747",
+                "secondary-fixed": "#e4e2de",
+                "outline-variant": "#cfc4c5",
+                "on-error-container": "#93000a",
+                "border-gray": "#e5e5e5",
+                "on-tertiary-fixed": "#1b1b1b",
+                "surface-container-highest": "#e2e2e2",
+                "tertiary-fixed-dim": "#c6c6c6",
+                "on-tertiary-fixed-variant": "#474747",
+                "surface-variant": "#e2e2e2",
+                "surface-container-high": "#e8e8e8",
+                "on-primary-container": "#848484",
+                "secondary-fixed-dim": "#c8c6c3",
+                "inverse-surface": "#303030",
+                "primary-fixed-dim": "#c6c6c6",
+                "surface": "#f9f9f9",
+                "primary": "#000000",
+                "on-surface": "#1b1b1b",
+                "error": "#ba1a1a",
+                "inverse-primary": "#c6c6c6",
+                "on-tertiary-container": "#848484",
+                "surface-bright": "#f9f9f9",
+                "on-tertiary": "#ffffff",
+                "primary-fixed": "#e2e2e2",
+                "surface-dim": "#dadada",
+                "on-primary-fixed": "#1b1b1b",
+                "danger-rose": "#e11d48",
+                "on-error": "#ffffff",
+                "on-background": "#1b1b1b",
+                "background": "#f9f9f9",
+                "tertiary-fixed": "#e2e2e2",
+                "on-secondary-fixed": "#1b1c1a",
+                "success-emerald": "#10b981",
+                "surface-tint": "#5e5e5e",
+                "error-container": "#ffdad6",
+                
+                // Keep the tactical colors
+                'bg-deep': '#000000',
+                'bg-panel': '#080a0c',
+                'bg-card': '#0d1012',
+                'border-base': '#1f2427',
+                'border-tactical': '#3b494c',
+                'cyan-elite': '#22d3ee',
+                'cyan-dim': 'rgba(34, 211, 238, 0.1)',
+                'cyan-glow': 'rgba(34, 211, 238, 0.4)',
+                'rose-risk': '#f43f5e',
+                'rose-dim': 'rgba(244, 63, 94, 0.1)',
+                'rose-glow': 'rgba(244, 63, 94, 0.4)',
+                'amber-warn': '#f59e0b',
+                'amber-dim': 'rgba(245, 158, 11, 0.1)',
+                'text-primary': '#f8fafc',
+                'text-secondary': '#94a3b8',
+                'text-muted': '#475569',
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "stack-gap": "1rem",
+                "inline-gap": "0.75rem",
+                "edge-margin": "2rem",
+                "section-gap": "1.5rem",
+                "container-max": "1800px",
+                "card-padding": "1.5rem"
+        },
+        "fontFamily": {
+                "mono-label-bold": [
+                        "JetBrains Mono"
+                ],
+                "mono-data": [
+                        "JetBrains Mono"
+                ],
+                "headline-sm": [
+                        "JetBrains Mono"
+                ],
+                "mono-micro": [
+                        "JetBrains Mono"
+                ],
+                "body-main": [
+                        "JetBrains Mono"
+                ],
+                "headline-md": [
+                        "JetBrains Mono"
+                ],
+                "display-lg": [
+                        "Space Grotesk"
+                ],
+                sans: ['Space Grotesk', 'sans-serif'],
+                mono: ['JetBrains Mono', 'monospace'],
+        },
+        animation: {
+          'fade-in': 'fadeIn 0.5s ease-out forwards',
+          'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          'scan-line': 'scanLine 8s linear infinite',
+          'flicker': 'flicker 3s infinite',
+          'sweep': 'sweep 4s ease-in-out infinite',
+          'glitch': 'glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite',
+          'ring-pulse': 'ringPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          'progress-bar': 'progressBar 1.5s ease-out forwards',
+        },
+        keyframes: {
+          fadeIn: {
+            '0%': { opacity: '0' },
+            '100%': { opacity: '1' },
+          },
+          slideUp: {
+            '0%': { opacity: '0', transform: 'translateY(10px)' },
+            '100%': { opacity: '1', transform: 'translateY(0)' },
+          },
+          pulseGlow: {
+            '0%, 100%': { opacity: '1', filter: 'drop-shadow(0 0 4px currentColor)' },
+            '50%': { opacity: '0.6', filter: 'drop-shadow(0 0 1px currentColor)' },
+          },
+          scanLine: {
+            '0%': { transform: 'translateY(-100%)' },
+            '100%': { transform: 'translateY(100vh)' },
+          },
+          flicker: {
+            '0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100%': { opacity: '1' },
+            '20%, 21.999%, 63%, 63.999%, 65%, 69.999%': { opacity: '0.4' },
+          },
+          sweep: {
+            '0%': { left: '-100%' },
+            '50%': { left: '100%' },
+            '100%': { left: '100%' },
+          },
+          glitch: {
+            '0%': { transform: 'translate(0)', textShadow: 'none' },
+            '20%': { transform: 'translate(-2px, 2px)', textShadow: '2px 0 #f43f5e, -2px 0 #22d3ee' },
+            '40%': { transform: 'translate(-2px, -2px)', textShadow: '-2px 0 #f43f5e, 2px 0 #22d3ee' },
+            '60%': { transform: 'translate(2px, 2px)', textShadow: '2px 0 #f43f5e, -2px 0 #22d3ee' },
+            '80%': { transform: 'translate(2px, -2px)', textShadow: '-2px 0 #f43f5e, 2px 0 #22d3ee' },
+            '100%': { transform: 'translate(0)', textShadow: 'none' }
+          },
+          ringPulse: {
+            '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(244, 63, 94, 0.7)' },
+            '70%': { transform: 'scale(1)', boxShadow: '0 0 0 10px rgba(244, 63, 94, 0)' },
+            '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(244, 63, 94, 0)' }
+          },
+          progressBar: {
+            '0%': { width: '0%' },
+          }
+        }
+      },
+    },
+  }
+</script>
+<!-- Custom Styles -->
+<style data-purpose="custom-utilities">
+    body {
+      background-color: #000000;
+      color: #f8fafc;
+      position: relative;
+    }
+    
+    /* Technical Grid Background */
+    body::after {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background-image: 
+        linear-gradient(to right, rgba(31, 36, 39, 0.4) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(31, 36, 39, 0.4) 1px, transparent 1px),
+        linear-gradient(to right, rgba(31, 36, 39, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(31, 36, 39, 0.1) 1px, transparent 1px);
+      background-size: 48px 48px, 48px 48px, 12px 12px, 12px 12px;
+      pointer-events: none;
+      z-index: 48;
+    }
 
----
+    /* CRT Scanline Overlay */
+    .crt-scanlines {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.15));
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 49;
+    }
 
-## SmartParser Output
+    /* Active Monitor Scanline */
+    .monitor-scan {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 10vh;
+      background: linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.05), transparent);
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 50;
+      animation: scanLine 8s linear infinite;
+    }
 
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #000000; 
+      border-left: 1px solid #1f2427;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3b494c; 
+      border-radius: 0;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #22d3ee; 
+    }
+
+    /* Panel Base Styles - Hardened Tactical */
+    .panel {
+      background-color: rgba(8, 10, 12, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid #1f2427;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    
+    /* Double Borders for Panels */
+    .panel-inner {
+      border: 1px dashed rgba(31, 36, 39, 0.5);
+      margin: 2px;
+      height: calc(100% - 4px);
+    }
+    
+    /* Enhanced Corner Brackets */
+    .panel::before, .panel::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      pointer-events: none;
+      z-index: 10;
+      transition: all 0.3s ease;
+    }
+    .panel::before {
+      top: 0; left: 0;
+      border-top: 2px solid #22d3ee;
+      border-left: 2px solid #22d3ee;
+      box-shadow: -2px -2px 8px rgba(34, 211, 238, 0.3);
+    }
+    .panel::after {
+      bottom: 0; right: 0;
+      border-bottom: 2px solid #22d3ee;
+      border-right: 2px solid #22d3ee;
+      box-shadow: 2px 2px 8px rgba(34, 211, 238, 0.3);
+    }
+    
+    .panel:hover::before, .panel:hover::after {
+      width: 16px;
+      height: 16px;
+      border-color: #22d3ee;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.6);
+    }
+
+    /* Panel Header */
+    .panel-header {
+      border-bottom: 1px solid #1f2427;
+      padding: 0.5rem 0.75rem;
+      background: linear-gradient(90deg, rgba(13, 16, 18, 0.9) 0%, rgba(8, 10, 12, 0.9) 100%);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+    
+    .panel-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0;
+      width: 30%;
+      height: 1px;
+      background: linear-gradient(90deg, #22d3ee, transparent);
+    }
+
+    /* Buttons */
+    .btn-action {
+      background-color: rgba(13, 16, 18, 0.8);
+      border: 1px solid #1f2427;
+      color: #94a3b8;
+      padding: 0.25rem 0.75rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      box-shadow: inset 0 0 0 transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .btn-action:hover {
+      border-color: #22d3ee;
+      color: #22d3ee;
+      background-color: rgba(34, 211, 238, 0.05);
+      box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.15), 0 0 8px rgba(34, 211, 238, 0.2);
+    }
+    
+    .btn-action:active {
+      transform: translateY(1px);
+    }
+
+    /* Badges - Tactical */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.125rem 0.375rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.55rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border: 1px solid;
+    }
+    
+    .badge-cyan {
+      background-color: rgba(34, 211, 238, 0.1);
+      border-color: rgba(34, 211, 238, 0.4);
+      color: #22d3ee;
+    }
+    
+    .badge-rose {
+      background-color: rgba(244, 63, 94, 0.1);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #f43f5e;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
+    }
+    
+    .badge-amber {
+      background-color: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #f59e0b;
+    }
+    
+    .badge-muted {
+      background-color: rgba(71, 85, 105, 0.1);
+      border-color: rgba(71, 85, 105, 0.4);
+      color: #94a3b8;
+    }
+
+    /* Checkbox - Sharp */
+    .form-checkbox {
+      appearance: none;
+      background-color: #000000;
+      margin: 0;
+      color: currentColor;
+      width: 1em;
+      height: 1em;
+      border: 1px solid #3b494c;
+      display: grid;
+      place-content: center;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    .form-checkbox::before {
+      content: "";
+      width: 0.6em;
+      height: 0.6em;
+      transform: scale(0);
+      transition: 120ms transform ease-in-out;
+      background-color: #22d3ee;
+      transform-origin: center;
+      clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+    
+    .form-checkbox:checked {
+      border-color: #22d3ee;
+      box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+    }
+    
+    .form-checkbox:checked::before {
+      transform: scale(1);
+    }
+
+    /* Staggered Animations */
+    .delay-100 { animation-delay: 50ms; }
+    .delay-200 { animation-delay: 100ms; }
+    .delay-300 { animation-delay: 150ms; }
+    .delay-400 { animation-delay: 200ms; }
+    .delay-500 { animation-delay: 250ms; }
+    .delay-600 { animation-delay: 300ms; }
+    
+  </style>
+</head>
+<body class="min-h-screen p-2 md:p-4 antialiased flex flex-col gap-3 selection:bg-cyan-glow selection:text-white font-mono text-xs overflow-x-hidden">
+<div class="crt-scanlines"></div>
+<div class="monitor-scan"></div>
+<!-- BEGIN: Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-border-base pb-2 animate-fade-in relative z-10">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-elite text-xl flex items-center justify-center filter drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]">memory</span>
+<span class="font-bold text-lg tracking-widest text-white uppercase font-sans">Beyond<span class="text-cyan-elite">Arch</span></span>
+</div>
+<!-- Search Bar -->
+<div class="relative hidden md:block w-96">
+<div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-text-muted text-sm flex items-center justify-center">search</span>
+</div>
+<input class="block w-full pl-8 pr-16 py-1.5 border border-border-tactical bg-bg-panel text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-cyan-elite focus:ring-1 focus:ring-cyan-elite transition-colors font-mono" placeholder="Search tools, artifacts, commands..." type="text"/>
+<div class="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none">
+<span class="text-[9px] text-cyan-elite border border-cyan-elite/30 px-1 py-0.5 bg-cyan-dim/10 font-sans tracking-widest font-bold">CTRL K</span>
+</div>
+</div>
+</div>
+<nav class="hidden lg:flex items-center gap-6 font-sans text-[10px] font-bold tracking-widest uppercase">
+<a class="text-cyan-elite text-cyan-glow transition-colors border-b-2 border-cyan-elite pb-1" href="#">TRIAGE</a>
+<a class="text-text-secondary hover:text-cyan-elite transition-colors pb-1 border-b-2 border-transparent hover:border-cyan-elite/50" href="#">RECON</a>
+<a class="text-text-secondary hover:text-cyan-elite transition-colors pb-1 border-b-2 border-transparent hover:border-cyan-elite/50" href="#">SIEM</a>
+<a class="text-text-secondary hover:text-cyan-elite transition-colors pb-1 border-b-2 border-transparent hover:border-cyan-elite/50" href="#">TOOLS</a>
+<a class="text-text-secondary hover:text-cyan-elite transition-colors pb-1 border-b-2 border-transparent hover:border-cyan-elite/50" href="#">DETECTION</a>
+</nav>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5 border border-border-tactical px-2 py-1 bg-bg-panel text-[9px] font-sans font-bold text-text-secondary tracking-widest">
+<span class="w-1.5 h-1.5 bg-cyan-elite animate-pulse rounded-full shadow-[0_0_5px_rgba(34,211,238,0.8)]"></span>
+        SYS: ONLINE
+      </div>
+<button aria-label="Theme" class="btn-action p-1 h-7 w-7">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">dark_mode</span>
+</button>
+<button aria-label="User Profile" class="btn-action p-1 h-7 w-7">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">person</span>
+</button>
+</div>
+</header>
+<!-- END: Top Navigation Bar -->
+<!-- BEGIN: Intake Status Bar -->
+<div class="panel flex items-center justify-between p-1.5 border-l-2 border-l-cyan-elite opacity-0 animate-slide-up delay-100 relative z-10">
+<div class="panel-sweep animate-sweep"></div>
+<div class="flex items-center gap-3">
+<span class="badge badge-cyan flex items-center gap-1.5 bg-cyan-elite/10">
+<span class="material-symbols-outlined text-[10px] flex items-center justify-center">bolt</span>
+        SMART INTAKE
+      </span>
+<span class="font-mono text-[10px] text-text-secondary uppercase tracking-widest flex items-center gap-2">
+<span class="text-border-tactical">|</span> Local artifact parser for triage, extraction, and indicator discovery.
+      </span>
+</div>
+<div class="badge badge-cyan bg-transparent border-cyan-elite/30 flex items-center gap-1.5 font-sans font-bold">
+<div class="w-1.5 h-1.5 bg-cyan-elite animate-pulse"></div>
+      LOCAL-FIRST INTEGRITY ACTIVE
+    </div>
+</div>
+<!-- END: Intake Status Bar -->
+<main class="grid grid-cols-1 lg:grid-cols-12 gap-3 relative z-10">
+<!-- Left Column: Primary Content -->
+<div class="lg:col-span-8 xl:col-span-9 flex flex-col gap-3">
+<!-- BEGIN: Verdict & Metrics Row -->
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-3 opacity-0 animate-slide-up delay-200">
+<!-- Verdict Card -->
+<div class="panel xl:col-span-3 border-l-4 border-l-rose-risk bg-gradient-to-br from-[#1a0508] to-[#000000] relative overflow-hidden group shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmNDNmNWUiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-10 z-0 mix-blend-screen"></div>
+<div class="panel-sweep animate-sweep bg-gradient-to-r from-transparent via-rose-risk/20 to-transparent"></div>
+<!-- Grid Overlay -->
+<div class="absolute inset-0 bg-[linear-gradient(rgba(244,63,94,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(244,63,94,0.05)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+<div class="p-5 flex flex-col h-full justify-between relative z-10">
+<div>
+<div class="flex items-center gap-2 mb-3">
+<span class="font-mono text-[10px] font-bold text-rose-risk tracking-widest border border-rose-risk/50 px-2 py-0.5 bg-rose-dim/20 animate-pulse-glow shadow-[0_0_8px_rgba(244,63,94,0.4)] flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">emergency</span> MALICIOUS_ACTIVITY
+                  </span>
+<span class="font-mono text-[10px] text-text-muted border-l border-border-tactical pl-2">ID: 1A-AT8</span>
+<div class="ml-auto flex gap-1.5">
+<span class="badge badge-rose text-rose-glow border-rose-risk/80 bg-rose-risk/20 shadow-[0_0_10px_rgba(244,63,94,0.5)] font-mono">CVE-2024-12345</span>
+<span class="badge badge-rose border-rose-risk/50 bg-rose-dim/10 font-mono">T1566.002</span>
+</div>
+</div>
+<h1 class="text-3xl font-black tracking-widest uppercase text-white mt-1 mb-2 font-sans group-hover:animate-glitch">ATT&amp;CK Mapping Analysis</h1>
+<p class="text-sm text-rose-risk/90 flex items-center gap-2 font-mono bg-rose-risk/10 p-2 border-l-2 border-rose-risk w-fit">
+<span class="material-symbols-outlined text-rose-risk text-sm flex items-center justify-center animate-pulse">warning</span>
+                Found ATT&amp;CK technique IDs associated with known campaigns.
+              </p>
+</div>
+<div class="mt-4 pt-3 border-t border-rose-risk/30 border-dashed flex justify-between items-end">
+<span class="font-sans text-[9px] font-bold text-rose-risk/80 uppercase tracking-[0.2em]">DETECTION RULE VERDICT</span>
+<div class="flex gap-1">
+<div class="h-1 w-8 bg-rose-risk/40"></div>
+<div class="h-1 w-8 bg-rose-risk/70"></div>
+<div class="h-1 w-8 bg-rose-risk animate-pulse"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Metrics Cards -->
+<div class="flex flex-col gap-3 xl:col-span-1">
+<div class="panel p-4 flex flex-col items-center justify-center border-b-2 border-b-rose-risk bg-rose-dim/5 group relative h-full">
+<div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(244,63,94,0.05)_50%,transparent_75%)] bg-[size:4px_4px]"></div>
+<span class="font-sans font-bold text-[10px] text-text-secondary uppercase tracking-[0.2em] mb-2 z-10 flex items-center gap-1"><span class="material-symbols-outlined text-[10px]">data_object</span> IOCs</span>
+<div class="relative z-10 flex items-center justify-center">
+<div class="absolute w-16 h-16 border-2 border-rose-risk/30 rounded-full animate-ring-pulse"></div>
+<div class="absolute w-20 h-20 border border-rose-risk/10 rounded-full border-dashed animate-[spin_10s_linear_infinite]"></div>
+<span class="font-sans text-5xl font-black text-rose-risk text-rose-glow group-hover:scale-110 transition-transform drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]">9</span>
+</div>
+</div>
+<div class="panel p-4 flex flex-col items-center justify-center border-b-2 border-b-cyan-elite bg-cyan-dim/5 group relative h-full">
+<div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(34,211,238,0.05)_50%,transparent_75%)] bg-[size:4px_4px]"></div>
+<span class="font-sans font-bold text-[10px] text-text-secondary uppercase tracking-[0.2em] mb-2 z-10 flex items-center gap-1"><span class="material-symbols-outlined text-[10px]">cell_tower</span> Signals</span>
+<div class="relative z-10 flex items-center justify-center">
+<div class="absolute w-16 h-16 border-2 border-cyan-elite/30 rounded-full animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+<span class="font-sans text-5xl font-black text-white group-hover:text-cyan-elite transition-colors drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">5</span>
+</div>
+</div>
+</div>
+</div>
+<!-- END: Verdict & Metrics Row -->
+<!-- BEGIN: Evidence Matrix (IOCs) -->
+<div class="panel opacity-0 animate-slide-up delay-400">
+<div class="panel-header justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center">hub</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">Evidence Matrix // IOCs</h2>
+</div>
+<span class="badge badge-muted font-sans bg-bg-deep border-border-tactical">9 indicators total</span>
+</div>
+<div class="p-3 flex flex-col gap-2 relative bg-bg-card">
+<div class="scanlines opacity-5 pointer-events-none"></div>
+<!-- High Risk Item -->
+<div class="flex items-center gap-3 p-2.5 bg-rose-risk/10 border-l-2 border-l-rose-risk border border-rose-risk/30 relative overflow-hidden group hover:border-rose-risk/60 transition-colors shadow-[inset_0_0_10px_rgba(244,63,94,0.05)]">
+<div class="absolute inset-0 bg-gradient-to-r from-rose-risk/20 via-transparent to-transparent animate-sweep"></div>
+<div class="bg-rose-risk/20 p-1.5 rounded-sm border border-rose-risk/40">
+<span class="material-symbols-outlined text-rose-risk text-base animate-pulse">link</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="text-[9px] font-bold text-rose-risk uppercase tracking-widest font-sans bg-rose-risk/10 px-1 border border-rose-risk/30">URL [HIGH RISK]</span>
+<span class="h-px flex-1 bg-gradient-to-r from-rose-risk/40 to-transparent"></span>
+<span class="text-[9px] text-rose-risk/60 font-mono">1st Seen: 2024-05-20T14:32Z</span>
+</div>
+<div class="text-sm font-mono text-white truncate drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]">https://phish.example.com/login</div>
+</div>
+<div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="btn-action p-1 h-7 w-7 border-rose-risk/30 hover:border-rose-risk hover:bg-rose-risk/20 hover:text-rose-risk"><span class="material-symbols-outlined text-xs">search</span></button>
+<button class="btn-action p-1 h-7 w-7 border-rose-risk/30 hover:border-rose-risk hover:bg-rose-risk/20 hover:text-rose-risk"><span class="material-symbols-outlined text-xs">content_copy</span></button>
+</div>
+</div>
+<!-- Data Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
+<!-- Item -->
+<div class="flex items-center gap-3 p-2 border border-border-tactical bg-bg-panel hover:border-cyan-elite/50 transition-colors group">
+<div class="bg-bg-deep p-1 rounded-sm border border-border-base group-hover:border-cyan-elite/30">
+<span class="material-symbols-outlined text-cyan-elite text-sm">language</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="text-[8px] text-text-muted uppercase font-sans font-bold tracking-widest mb-0.5 flex justify-between">
+<span>DOMAIN</span>
+<span class="text-cyan-elite/50 opacity-0 group-hover:opacity-100 transition-opacity">PIVOT</span>
+</div>
+<div class="text-[11px] font-mono text-text-primary truncate">phish.example.com</div>
+</div>
+<button class="btn-action p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-[10px]">content_copy</span></button>
+</div>
+<!-- Item -->
+<div class="flex items-center gap-3 p-2 border border-border-tactical bg-bg-panel hover:border-cyan-elite/50 transition-colors group">
+<div class="bg-bg-deep p-1 rounded-sm border border-border-base group-hover:border-cyan-elite/30">
+<span class="material-symbols-outlined text-cyan-elite text-sm">router</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="text-[8px] text-text-muted uppercase font-sans font-bold tracking-widest mb-0.5 flex justify-between">
+<span>IPv4</span>
+<span class="text-cyan-elite/50 opacity-0 group-hover:opacity-100 transition-opacity">PIVOT</span>
+</div>
+<div class="text-[11px] font-mono text-text-primary truncate">198.51.100.23</div>
+</div>
+<button class="btn-action p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-[10px]">content_copy</span></button>
+</div>
+<!-- Item -->
+<div class="flex items-center gap-3 p-2 border border-border-tactical bg-bg-panel hover:border-cyan-elite/50 transition-colors group">
+<div class="bg-bg-deep p-1 rounded-sm border border-border-base group-hover:border-cyan-elite/30">
+<span class="material-symbols-outlined text-text-muted text-sm group-hover:text-cyan-elite/70">fingerprint</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="text-[8px] text-text-muted uppercase font-sans font-bold tracking-widest mb-0.5">SHA256</div>
+<div class="text-[11px] font-mono text-text-primary truncate">275a021b...f651fd0f</div>
+</div>
+<button class="btn-action p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-[10px]">content_copy</span></button>
+</div>
+<!-- Item -->
+<div class="flex items-center gap-3 p-2 border border-rose-risk/30 bg-rose-dim/5 hover:border-rose-risk/60 transition-colors group">
+<div class="bg-bg-deep p-1 rounded-sm border border-rose-risk/20 group-hover:border-rose-risk/50">
+<span class="material-symbols-outlined text-rose-risk text-sm">emergency</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="text-[8px] text-rose-risk/70 uppercase font-sans font-bold tracking-widest mb-0.5 flex justify-between">
+<span>CVE</span>
+<span class="text-rose-risk/50 opacity-0 group-hover:opacity-100 transition-opacity">LOOKUP</span>
+</div>
+<div class="text-[11px] font-mono text-white truncate">CVE-2024-12345</div>
+</div>
+<button class="btn-action p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity border-rose-risk/30 hover:border-rose-risk hover:bg-rose-risk/20 hover:text-rose-risk"><span class="material-symbols-outlined text-[10px]">content_copy</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- END: Evidence Matrix -->
+<!-- BEGIN: Analyst Response Guide -->
+<div class="panel opacity-0 animate-slide-up delay-500">
+<div class="panel-header">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center">assignment</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">Analyst Response Guide</h2>
+</div>
+<div class="p-4 flex flex-col gap-4 font-mono text-xs relative bg-bg-card">
+<!-- Background decorative grid -->
+<div class="absolute inset-0 bg-[linear-gradient(to_right,#1f2427_1px,transparent_1px),linear-gradient(to_bottom,#1f2427_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none"></div>
+<!-- L1 Containment Block -->
+<div class="border border-rose-risk/40 bg-rose-dim/10 p-4 flex flex-col gap-3 relative overflow-hidden z-10 shadow-[inset_0_0_15px_rgba(244,63,94,0.05)]">
+<div class="absolute top-0 left-0 w-1 h-full bg-rose-risk animate-flicker"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t border-r border-rose-risk/30 m-1"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-rose-risk/30 m-1"></div>
+<div class="flex items-center justify-between border-b border-rose-risk/30 pb-2 mb-1">
+<span class="text-[10px] font-black text-rose-risk uppercase tracking-[0.2em] font-sans flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px] bg-rose-risk/20 p-0.5 rounded-sm">warning</span>
+            L1 - CONTAINMENT
+          </span>
+<span class="text-[8px] text-rose-risk/60 font-mono">PRIORITY: HIGH</span>
+</div>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-rose-risk/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Treat this as ATT&amp;CK Mapping in the Detection Rule family.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-rose-risk/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Open Safe URL Analyzer next for deeper analysis.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-rose-risk/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5 border-cyan-elite" type="checkbox"/>
+<span class="text-cyan-elite group-hover:text-cyan-glow transition-colors font-medium text-xs leading-snug drop-shadow-[0_0_2px_rgba(34,211,238,0.3)]">Copy the detected type, key artifacts, source/method, and limitations into the ticket.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-rose-risk/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Confirm the rule type, detection condition, log source, and referenced fields.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-rose-risk/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Open Detection &amp; MITRE for mapping and detection notes.</span>
+</label>
+</div>
+<!-- L2 Investigation Block -->
+<div class="border border-amber-warn/40 bg-amber-dim/10 p-4 flex flex-col gap-3 relative z-10 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]">
+<div class="absolute top-0 left-0 w-1 h-full bg-amber-warn/60"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t border-r border-amber-warn/30 m-1"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-amber-warn/30 m-1"></div>
+<div class="flex items-center justify-between border-b border-amber-warn/30 pb-2 mb-1">
+<span class="text-[10px] font-black text-amber-warn uppercase tracking-[0.2em] font-sans flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px] bg-amber-warn/20 p-0.5 rounded-sm">search</span>
+            L2 - INVESTIGATION
+          </span>
+<span class="text-[8px] text-amber-warn/60 font-mono">PRIORITY: MED</span>
+</div>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-amber-warn/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Preserve original artifact text and timestamps before enrichment.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-amber-warn/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5 border-cyan-elite" type="checkbox"/>
+<span class="text-cyan-elite group-hover:text-cyan-glow transition-colors font-medium text-xs leading-snug drop-shadow-[0_0_2px_rgba(34,211,238,0.3)]">Use normalized IOCs for pivots, but keep originals for evidence.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-amber-warn/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Review ATT&amp;CK tags, command-line keywords, required telemetry, and false-positive conditions.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-amber-warn/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5 border-cyan-elite" type="checkbox"/>
+<span class="text-cyan-elite group-hover:text-cyan-glow transition-colors font-medium text-xs leading-snug drop-shadow-[0_0_2px_rgba(34,211,238,0.3)]">Turn useful test observations into report notes instead of treating the rule as evidence by itself.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group hover:bg-amber-warn/5 p-1 -mx-1 rounded transition-colors">
+<input class="form-checkbox mt-0.5" type="checkbox"/>
+<span class="text-text-secondary group-hover:text-white transition-colors text-xs leading-snug">Use ATT&amp;CK IDs as mapping candidates, not final attribution.</span>
+</label>
+</div>
+</div>
+</div>
+<!-- END: Analyst Response Guide -->
+<!-- BEGIN: Footer Actions -->
+<div class="panel p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-t-2 border-t-cyan-elite/30 opacity-0 animate-slide-up delay-600 bg-gradient-to-r from-bg-card to-bg-panel mt-2">
+<div class="flex flex-col gap-2">
+<p class="text-[10px] text-text-muted font-sans max-w-2xl leading-relaxed uppercase tracking-wider">
+            ATT&amp;CK Mapping detected; 9 IOCs extracted for local analyst review. Pattern-based classification. Analyst review is required before taking action.
+          </p>
+<div class="flex flex-wrap gap-2 font-mono text-[9px] uppercase text-text-secondary font-bold tracking-widest mt-1">
+<span class="border border-border-tactical px-1.5 py-0.5 flex items-center gap-1 bg-bg-deep"><span class="material-symbols-outlined text-cyan-elite text-[10px] flex items-center justify-center">check</span> IOCS NORMALIZED</span>
+<span class="border border-border-tactical px-1.5 py-0.5 flex items-center gap-1 bg-bg-deep"><span class="material-symbols-outlined text-cyan-elite text-[10px] flex items-center justify-center">check</span> DUPLICATES REMOVED</span>
+<span class="border border-border-tactical px-1.5 py-0.5 bg-border-tactical text-white shadow-[0_0_5px_rgba(255,255,255,0.2)]">LOCAL ONLY</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-2">
+<button class="btn-action px-3 py-1.5 text-[10px]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">content_copy</span>
+            COPY MD
+          </button>
+<button class="btn-action px-3 py-1.5 text-[10px]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">data_object</span>
+            JSON
+          </button>
+<div class="h-6 w-px bg-border-tactical mx-1 hidden sm:block"></div>
+<button class="btn-action text-cyan-elite border-cyan-elite/50 bg-cyan-dim/10 px-3 py-1.5 text-[10px] shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">download</span>
+            MD
+          </button>
+<button class="btn-action text-cyan-elite border-cyan-elite/50 bg-cyan-dim/10 px-3 py-1.5 text-[10px] shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">download</span>
+            JSON
+          </button>
+</div>
+</div>
+<!-- END: Footer Actions -->
+</div>
+<!-- End Left Column -->
+<!-- Right Column: Sidebar -->
+<div class="lg:col-span-4 xl:col-span-3 flex flex-col gap-3">
+<!-- BEGIN: Controls -->
+<div class="panel opacity-0 animate-slide-up delay-100">
+<div class="panel-header">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center">tune</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">Controls</h2>
+</div>
+<div class="p-3 flex flex-col gap-2 bg-bg-card">
+<button class="btn-action w-full justify-center text-cyan-elite border-cyan-elite/40 hover:border-cyan-elite bg-bg-deep shadow-[0_0_8px_rgba(34,211,238,0.1)] py-2 text-[10px]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">edit</span>
+            EDIT INPUT
+          </button>
+<button class="btn-action w-full justify-center border-border-tactical hover:border-rose-risk hover:text-rose-risk hover:bg-rose-dim/10 bg-bg-deep py-2 text-[10px]">
+<span class="material-symbols-outlined text-sm flex items-center justify-center">delete</span>
+            CLEAR ANALYSIS
+          </button>
+</div>
+</div>
+<!-- END: Controls -->
+<!-- BEGIN: Live Data Nodes (Signals Feed) -->
+<div class="panel opacity-0 animate-slide-up delay-200">
+<div class="panel-header justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center animate-pulse">sensors</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">Live Data Nodes</h2>
+</div>
+<span class="w-2 h-2 rounded-full bg-cyan-elite animate-ping"></span>
+</div>
+<div class="p-3 flex flex-col gap-3 relative bg-bg-card">
+<!-- Background tech grid -->
+<div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(34,211,238,0.03)_1px,transparent_1px),linear-gradient(rgba(34,211,238,0.03)_1px,transparent_1px)] bg-[size:10px_10px] pointer-events-none"></div>
+<!-- Node: High Risk -->
+<div class="p-2.5 border border-rose-risk/40 bg-rose-dim/10 relative group shadow-[inset_0_0_8px_rgba(244,63,94,0.1)] z-10">
+<div class="absolute -left-px top-1/2 -translate-y-1/2 w-0.5 h-1/2 bg-rose-risk"></div>
+<div class="flex items-start gap-2.5">
+<div class="bg-rose-risk/20 p-1 rounded-sm border border-rose-risk/30 mt-0.5">
+<span class="material-symbols-outlined text-rose-risk text-xs animate-pulse">report</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-end mb-1.5">
+<span class="text-[9px] font-black text-rose-risk uppercase font-sans tracking-widest">Suspicious Keyword</span>
+<span class="text-[9px] text-rose-risk font-mono font-bold bg-rose-risk/10 px-1 border border-rose-risk/30">98% CONF</span>
+</div>
+<div class="h-1.5 w-full bg-bg-deep border border-border-tactical rounded-none overflow-hidden relative">
+<div class="h-full bg-rose-risk animate-progress-bar shadow-[0_0_5px_rgba(244,63,94,0.8)]" style="width: 98%"></div>
+</div>
+<div class="text-[10px] text-white mt-2 font-mono flex items-center gap-1.5 border-t border-border-tactical pt-1.5">
+<span class="text-rose-risk text-[8px]">▶</span> Account-action keyword detected in URL
+                  </div>
+</div>
+</div>
+</div>
+<!-- Node: Info -->
+<div class="p-2.5 border border-cyan-elite/30 bg-bg-panel relative group hover:border-cyan-elite/60 transition-colors z-10">
+<div class="absolute -left-px top-1/2 -translate-y-1/2 w-0.5 h-1/2 bg-cyan-elite/50"></div>
+<div class="flex items-start gap-2.5">
+<div class="bg-cyan-elite/10 p-1 rounded-sm border border-cyan-elite/20 mt-0.5 group-hover:bg-cyan-elite/20 transition-colors">
+<span class="material-symbols-outlined text-cyan-elite text-xs">info</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-end mb-1.5">
+<span class="text-[9px] font-bold text-cyan-elite uppercase font-sans tracking-widest">Content Analysis</span>
+<span class="text-[9px] text-cyan-elite/80 font-mono">72% CONF</span>
+</div>
+<div class="h-1.5 w-full bg-bg-deep border border-border-tactical rounded-none overflow-hidden">
+<div class="h-full bg-cyan-elite animate-progress-bar shadow-[0_0_5px_rgba(34,211,238,0.5)]" style="width: 72%"></div>
+</div>
+<div class="text-[10px] text-text-primary mt-2 font-mono flex items-center gap-1.5 border-t border-border-tactical pt-1.5">
+<span class="text-cyan-elite/50 text-[8px]">▶</span> Defanged content present in payload
+                  </div>
+</div>
+</div>
+</div>
+<!-- Node: Technical -->
+<div class="p-2.5 border border-cyan-elite/30 bg-bg-panel relative group hover:border-cyan-elite/60 transition-colors z-10">
+<div class="absolute -left-px top-1/2 -translate-y-1/2 w-0.5 h-1/2 bg-cyan-elite/50"></div>
+<div class="flex items-start gap-2.5">
+<div class="bg-cyan-elite/10 p-1 rounded-sm border border-cyan-elite/20 mt-0.5 group-hover:bg-cyan-elite/20 transition-colors">
+<span class="material-symbols-outlined text-cyan-elite text-xs">shield</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-end mb-1.5">
+<span class="text-[9px] font-bold text-cyan-elite uppercase font-sans tracking-widest">Encoding Detection</span>
+<span class="text-[9px] text-cyan-elite/80 font-mono">85% CONF</span>
+</div>
+<div class="h-1.5 w-full bg-bg-deep border border-border-tactical rounded-none overflow-hidden">
+<div class="h-full bg-cyan-elite animate-progress-bar shadow-[0_0_5px_rgba(34,211,238,0.5)]" style="width: 85%"></div>
+</div>
+<div class="text-[10px] text-text-primary mt-2 font-mono flex items-center gap-1.5 border-t border-border-tactical pt-1.5">
+<span class="text-cyan-elite/50 text-[8px]">▶</span> Base64-looking blob identified
+                  </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- END: Live Data Nodes -->
+<!-- BEGIN: Suggested Routes -->
+<div class="panel opacity-0 animate-slide-up delay-300">
+<div class="panel-header">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center">alt_route</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">Suggested Routes</h2>
+</div>
+<div class="p-2 flex flex-col gap-1 bg-bg-card">
+<a class="flex justify-between items-center p-2 rounded-sm text-[11px] font-mono text-text-secondary hover:bg-bg-panel hover:text-cyan-elite transition-colors group border border-border-base hover:border-cyan-elite/30" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px] bg-bg-deep p-0.5 rounded-sm border border-border-tactical group-hover:border-cyan-elite/30 flex items-center justify-center">security</span> Safe URL Analyzer</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity text-cyan-elite flex items-center justify-center transform group-hover:translate-x-1 duration-200">arrow_forward</span>
+</a>
+<a class="flex justify-between items-center p-2 rounded-sm text-[11px] font-mono text-text-secondary hover:bg-bg-panel hover:text-cyan-elite transition-colors group border border-border-base hover:border-cyan-elite/30" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px] bg-bg-deep p-0.5 rounded-sm border border-border-tactical group-hover:border-cyan-elite/30 flex items-center justify-center">travel_explore</span> Recon &amp; Exposure</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity text-cyan-elite flex items-center justify-center transform group-hover:translate-x-1 duration-200">arrow_forward</span>
+</a>
+<a class="flex justify-between items-center p-2 rounded-sm text-[11px] font-mono text-text-secondary hover:bg-bg-panel hover:text-cyan-elite transition-colors group border border-border-base hover:border-cyan-elite/30" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px] bg-bg-deep p-0.5 rounded-sm border border-border-tactical group-hover:border-cyan-elite/30 flex items-center justify-center">attachment</span> Attachment Triage</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity text-cyan-elite flex items-center justify-center transform group-hover:translate-x-1 duration-200">arrow_forward</span>
+</a>
+<a class="flex justify-between items-center p-2 rounded-sm text-[11px] font-mono text-text-secondary hover:bg-bg-panel hover:text-cyan-elite transition-colors group border border-border-base hover:border-cyan-elite/30" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px] bg-bg-deep p-0.5 rounded-sm border border-border-tactical group-hover:border-cyan-elite/30 flex items-center justify-center">radar</span> Detection &amp; MITRE</span>
+<span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity text-cyan-elite flex items-center justify-center transform group-hover:translate-x-1 duration-200">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- END: Suggested Routes -->
+<!-- BEGIN: Parse Info -->
+<div class="panel opacity-0 animate-slide-up delay-400">
+<div class="panel-header">
+<span class="material-symbols-outlined text-cyan-elite text-sm flex items-center justify-center">analytics</span>
+<h2 class="font-bold text-[11px] uppercase tracking-widest font-sans text-cyan-elite">System Metadata</h2>
+</div>
+<div class="p-4 font-mono text-[10px] flex flex-col gap-2 bg-bg-card">
+<div class="flex justify-between items-center border-b border-border-tactical pb-1.5">
+<span class="text-text-muted font-sans font-bold tracking-widest uppercase text-[9px]">METHOD</span>
+<span class="text-cyan-elite bg-cyan-dim/10 px-1 border border-cyan-elite/20">deterministic_browser_parser</span>
+</div>
+<div class="flex justify-between items-center border-b border-border-tactical pb-1.5">
+<span class="text-text-muted font-sans font-bold tracking-widest uppercase text-[9px]">SOURCE</span>
+<span class="text-text-primary">local_browser</span>
+</div>
+<div class="flex justify-between items-center border-b border-border-tactical pb-1.5">
+<span class="text-text-muted font-sans font-bold tracking-widest uppercase text-[9px]">LINES</span>
+<span class="text-text-primary">8</span>
+</div>
+<div class="flex justify-between items-center border-b border-border-tactical pb-1.5">
+<span class="text-text-muted font-sans font-bold tracking-widest uppercase text-[9px]">CHARS</span>
+<span class="text-text-primary">233</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-text-muted font-sans font-bold tracking-widest uppercase text-[9px]">JSON OBJS</span>
+<span class="text-text-primary">0</span>
+</div>
+</div>
+</div>
+<!-- END: Parse Info -->
+</div>
+<!-- End Right Column -->
+</main>
+</body></html>

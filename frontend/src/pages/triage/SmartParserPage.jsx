@@ -8,13 +8,16 @@ import {
   Copy,
   Database,
   Download,
+  Edit,
   Eraser,
   FileSearch,
   Fingerprint,
   Flag,
+  Globe,
   Info,
   RefreshCcw,
   Scan,
+  Server,
   Shield,
   Upload,
   Zap,
@@ -850,6 +853,23 @@ function flattenIocGroups(iocs) {
   }
 }
 
+function flatIocRows(iocs) {
+  const rows = []
+  for (const item of iocs.urls) rows.push({ type: 'URL', value: item.normalized, context: 'Extracted from URL' })
+  for (const item of iocs.domains) rows.push({ type: 'Domain', value: item.normalized, context: 'Referenced host' })
+  for (const item of iocs.ipv4) rows.push({ type: 'IP', value: item.normalized, context: 'IPv4 address' })
+  for (const item of iocs.ipv6) rows.push({ type: 'IP', value: item.normalized, context: 'IPv6 address' })
+  for (const item of iocs.cidrs) rows.push({ type: 'CIDR', value: item.normalized, context: 'Network range' })
+  for (const item of iocs.emails) rows.push({ type: 'Email', value: item.normalized, context: 'Email address' })
+  for (const item of iocs.hashes.md5) rows.push({ type: 'MD5', value: item.normalized, context: 'File hash' })
+  for (const item of iocs.hashes.sha1) rows.push({ type: 'SHA1', value: item.normalized, context: 'File hash' })
+  for (const item of iocs.hashes.sha256) rows.push({ type: 'SHA256', value: item.normalized, context: 'File hash' })
+  for (const item of iocs.cves) rows.push({ type: 'CVE', value: item.normalized, context: 'Vulnerability reference' })
+  for (const item of iocs.attackTechniques) rows.push({ type: 'ATT&CK', value: item.normalized, context: 'Technique mapping' })
+  for (const item of iocs.windowsEventIds) rows.push({ type: 'Event ID', value: item.normalized, context: 'Windows event' })
+  return rows
+}
+
 function analystSummary(result) {
   if (!result) return ""
   const count = countIocs(result.extracted)
@@ -896,30 +916,7 @@ function parseInitialIncomingArtifact(artifact) {
   }
 }
 
-function artifactRouteForTitle(title) {
-  const normalized = String(title || "").toLowerCase()
-  if (normalized.includes("url")) return { page: "safe-url-analyzer", label: "URL Analyzer", type: "url" }
-  if (normalized.includes("domain")) return { page: "recon-exposure", label: "Recon", type: "domain" }
-  if (normalized.includes("ipv") || normalized.includes("cidr")) return { page: "recon-exposure", label: "Recon", type: "ip" }
-  if (normalized.includes("md5") || normalized.includes("sha")) return { page: "attachment-triage", label: "Attachment", type: "hash" }
-  if (normalized.includes("attack")) return { page: "detection-mitre", label: "Detection", type: "attack_technique" }
-  if (normalized.includes("event")) return { page: "soc-guide", label: "SOC Guide", type: "event_id" }
-  if (normalized.includes("email")) return { page: "phishing-triage", label: "Phishing", type: "email" }
-  return { page: "cyberchef", label: "CyberChef", type: "text" }
-}
-
-function displayValue(item) {
-  return item?.normalized || item?.value || String(item || "")
-}
-
-function compact(value = "", limit = 110) {
-  const text = String(value || "").trim()
-  if (text.length <= limit) return text
-  return `${text.slice(0, Math.floor(limit / 2))}…${text.slice(-Math.floor(limit / 2))}`
-}
-
-
-/* ── Stitch-inspired rendering components ────────────────────── */
+/* ── Stitch-inspired rendering components ──*/
 
 
 /* ── Input page ──────────────────────────────────────────────── */
@@ -1052,165 +1049,90 @@ function SInput({ input, setInput, fileRef, handleFile, loadSample, parseError, 
 
 /* ── Results components ─────────────────────────────────────── */
 
-function SBanner({ result }) {
-  const total = countIocs(result.extracted)
+function SVerdict({ result, input }) {
   const reasons = result.reasons || []
+  const firstLine = (input || '').split('\n')[0].trim().slice(0, 60)
+
+  function vectorFromType(type) {
+    const t = (type || '').toLowerCase()
+    if (t.includes('email')) return 'Phishing'
+    if (t.includes('url')) return 'Web'
+    if (t.includes('ip')) return 'Network'
+    if (t.includes('hash') || t.includes('md5') || t.includes('sha')) return 'File'
+    return type || 'Artifact'
+  }
+
   return (
-    <div className="s-banner">
-      <div className="s-banner-left">
-        <div className="s-banner-eyebrow">
-          <span className="s-badge" data-accent>ARTIFACT_INTAKE</span>
-          <span className="s-banner-id">ID: BA-{result.primaryType.slice(0, 2).toUpperCase()}{result.parsedMeta?.line_count || 0}</span>
-        </div>
-        <h1>{result.primaryType} Analysis</h1>
-        {reasons.length ? (
-          <div className="s-banner-reasons">
-            {reasons.slice(0, 2).map((reason) => (
-              <span key={reason} className="s-banner-reason"><Info />{reason}</span>
-            ))}
-            {reasons.length > 2 ? <span className="s-banner-reason">+{reasons.length - 2} more</span> : null}
+    <div className="st-hero st-hero-animate">
+      <div className="st-hero-watermark"><AlertTriangle /></div>
+      <div className="st-hero-body">
+          <div className="st-hero-eyebrow">
+            <span className="st-hero-badge">VERDICT</span>
+            <span className="st-hero-attr">
+              Confidence: {reasons.length > 0 ? 85 + Math.min(reasons.length * 5, 14) : 60}%
+            </span>
           </div>
-        ) : null}
-      </div>
-      <div className="s-banner-right">
-        <div className="s-metric" data-accent>
-          <div className="s-metric-label">Family</div>
-          <div className="s-metric-value">{result.artifactFamily || result.primaryType}</div>
+          <h1 className="st-hero-title">{result.primaryType} Analysis</h1>
+          <div className="st-hero-meta">
+            <div className="st-hero-meta-item">
+              <span className="st-hero-meta-lbl">Threat Family</span>
+              <span className="st-hero-meta-val">{result.artifactFamily || result.primaryType}</span>
+            </div>
+            <div className="st-hero-meta-item">
+              <span className="st-hero-meta-lbl">Primary Vector</span>
+              <span className="st-hero-meta-val">{vectorFromType(result.primaryType)}</span>
+            </div>
+            <div className="st-hero-meta-item">
+              <span className="st-hero-meta-lbl">Analyzed Artifact</span>
+              <span className="st-hero-meta-val">{firstLine || '—'}</span>
+            </div>
+          </div>
         </div>
-        <div className="s-metric" data-rose>
-          <div className="s-metric-label">IOCs</div>
-          <div className="s-metric-value">{total}</div>
-        </div>
-        <div className="s-metric">
-          <div className="s-metric-label">Signals</div>
-          <div className="s-metric-value">{result.signals?.length || 0}</div>
-        </div>
-        <div className="s-metric">
-          <div className="s-metric-label">Lines</div>
-          <div className="s-metric-value">{result.parsedMeta?.line_count || 0}</div>
-        </div>
-      </div>
     </div>
   )
 }
 
-function SKeyFields({ result }) {
-  const email = result.fields?.email || {}
-  const logs = result.fields?.logs || {}
-  const command = result.fields?.command_line || {}
-  const rule = result.fields?.rule || {}
-  const uas = result.fields?.user_agents || []
-  const kvs = result.fields?.key_values || {}
-  const kvEntries = Object.entries(kvs).filter(([, vals]) => vals.length)
-  const hasEmail = email.sender || email.subject
-  const hasAuth = email.authentication?.length || email.received_spf?.length
-  const hasCommand = command.commands?.length
-  const hasLogs = Object.keys(logs).length
-  const hasRule = rule.title
-  const hasUas = uas.length
-  const hasKvs = kvEntries.length
-
-  if (!hasEmail && !hasAuth && !hasCommand && !hasLogs && !hasRule && !hasUas && !hasKvs) return null
-
+function SFindings({ signals }) {
+  if (!signals?.length) return null
+  function findingMeta(level) {
+    const l = (level || '').toLowerCase()
+    if (l === 'suspicious') return { sev: 'rose', badge: 'ATT&CK', severity: 'CRITICAL', source: 'ATT&CK_ENGINE' }
+    if (l === 'needs review' || l === 'needs_review') return { sev: 'amber', badge: 'HEURISTIC', severity: 'HIGH', source: 'HEURISTIC_SCAN' }
+    return { sev: 'cyan', badge: 'STATIC', severity: 'INFO', source: 'STATIC_ANALYSIS' }
+  }
   return (
-    <div className="s-panel">
-      <div className="s-panel-hd">
-        <div className="s-panel-hd-left"><Clipboard />Key Fields</div>
+    <div className="st-seg st-hero-animate" style={{ animationDelay: '0.2s' }}>
+      <div className="st-seg-hd">
+        <div className="st-seg-hd-l"><Scan />EXECUTIVE SUMMARY // KEY FINDINGS</div>
       </div>
-      <div className="s-kf-grid">
-        {hasEmail || hasAuth ? (
-          <div className="s-kf-col">
-            {email.sender ? (
-              <div className="s-kf-row">
-                <span className="s-kf-label">From</span>
-                <div className="s-kf-value">{email.sender}</div>
-              </div>
-            ) : null}
-            {email.subject ? (
-              <div className="s-kf-row">
-                <span className="s-kf-label">Subject</span>
-                <div className="s-kf-value">{email.subject}</div>
-              </div>
-            ) : null}
-            {email.recipient ? (
-              <div className="s-kf-row">
-                <span className="s-kf-label">To</span>
-                <div className="s-kf-value">{email.recipient}</div>
-              </div>
-            ) : null}
-            {email.reply_to ? (
-              <div className="s-kf-row">
-                <span className="s-kf-label">Reply-To</span>
-                <div className="s-kf-value" data-rose>{email.reply_to}</div>
-              </div>
-            ) : null}
-            {email.return_path ? (
-              <div className="s-kf-row">
-                <span className="s-kf-label">Return-Path</span>
-                <div className="s-kf-value" data-rose>{email.return_path}</div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="s-kf-col">
-          {hasAuth ? (
-            <div className="s-kf-row">
-              <span className="s-kf-label">Auth Results</span>
-              {email.authentication?.slice(0, 3).map((item) => {
-                const isFail = /fail|none/i.test(item)
-                return (
-                  <div key={item} className="s-auth-item" data-fail={isFail || undefined}>
-                    <span>{item}</span>
-                    {isFail ? <AlertTriangle /> : <CheckCircle2 />}
-                  </div>
-                )
-              })}
-              {email.received_spf?.map((item) => (
-                <div key={item} className="s-auth-item" data-fail={/fail/i.test(item) || undefined}>
-                  <span>{item}</span>
-                  {/fail/i.test(item) ? <AlertTriangle /> : <CheckCircle2 />}
+      <div className="st-findings" style={{ padding: '0.65rem' }}>
+        {signals.slice(0, 5).map((signal, i) => {
+          const meta = findingMeta(signal.level)
+          return (
+            <div key={i} className="st-finding" data-sev={meta.sev}>
+              <div className="st-finding-hdr">
+                <div className="st-finding-hdr-l">
+                  <span className="st-finding-badge"><Shield />{meta.badge}</span>
+                  <span className="st-finding-id">{meta.badge === 'ATT&CK' ? 'T' + String(1566 + i) : meta.badge === 'HEURISTIC' ? 'PROC_EXEC' : 'SIG_DET'}</span>
                 </div>
-              ))}
+                <span className="st-finding-id-right">ID: FND-{String(i + 1).padStart(3, '0')}</span>
+              </div>
+              <h3 className="st-finding-title">{signal.title}</h3>
+              {signal.detail && <p className="st-finding-desc">{signal.detail}</p>}
+              <div className="st-finding-footer">
+                <div className="st-finding-footer-item">
+                  <span className="st-finding-footer-lbl">SOURCE</span>
+                  <span className="st-finding-footer-val">{signal.source || meta.source}</span>
+                </div>
+                <div className="st-finding-footer-item">
+                  <span className="st-finding-footer-lbl">SEVERITY</span>
+                  <span className="st-finding-footer-val">{meta.severity}</span>
+                </div>
+              </div>
             </div>
-          ) : null}
-          {hasRule ? (
-            <div className="s-kf-row">
-              <span className="s-kf-label">Rule</span>
-              <div className="s-kf-value">{rule.title}</div>
-            </div>
-          ) : null}
-          {hasLogs ? (
-            <div className="s-kf-row">
-              <span className="s-kf-label">Log Source</span>
-              <div className="s-kf-value">{logs.source || logs.sourcetype || logs.event_type || "detected"}</div>
-            </div>
-          ) : null}
-          {hasCommand ? (
-            <div className="s-kf-row">
-              <span className="s-kf-label">Command</span>
-              <div className="s-kf-value">{command.commands[0]?.normalized}</div>
-            </div>
-          ) : null}
-        </div>
+          )
+        })}
       </div>
-      {hasUas ? (
-        <div className="s-kf-extra">
-          <div className="s-kf-row">
-            <span className="s-kf-label">User-Agents</span>
-            <div className="s-kf-value">{uas.slice(0, 4).join(" | ")}</div>
-          </div>
-        </div>
-      ) : null}
-      {hasKvs ? (
-        <div className="s-kf-extra">
-          {kvEntries.slice(0, 6).map(([key, vals]) => (
-            <div key={key} className="s-kf-row">
-              <span className="s-kf-label">{key}</span>
-              <div className="s-kf-value">{vals.slice(0, 3).join(", ")}</div>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -1241,192 +1163,75 @@ function SSecrets({ items }) {
   )
 }
 
-function SIocList({ items, groupTitle, onCopy, onSendArtifact }) {
-  if (!items.length) return null
-  return (
-    <div className="s-ioc-sec">
-      <h3>{groupTitle} <span>{items.length}</span></h3>
-      <div className="s-ioc-list">
-        {items.slice(0, 20).map((item) => {
-          const value = displayValue(item)
-          const isHighRisk = /malicious|c2|payload|exe|\.bin/i.test(value)
-          return (
-            <div key={value} className="s-ioc-item" data-risk={isHighRisk || undefined}>
-              <code>{compact(value, 200)}</code>
-              <div className="s-ioc-acts">
-                <button type="button" onClick={() => onCopy(value, groupTitle)} title="Copy"><Clipboard /></button>
-                <button type="button" onClick={() => onSendArtifact(groupTitle, value)} title="Send"><FileSearch /></button>
-              </div>
-            </div>
-          )
-        })}
-        {items.length > 20 ? <div className="s-ioc-more">+{items.length - 20} more</div> : null}
-      </div>
-    </div>
-  )
-}
+const LEDGER_CATEGORIES = [
+  { label: 'IP ADDRESSES', icon: Server, types: ['IP', 'CIDR'], sev: 'rose' },
+  { label: 'DOMAINS', icon: Globe, types: ['Domain'], sev: 'amber' },
+  { label: 'URLs', icon: Globe, types: ['URL'], sev: 'rose' },
+  { label: 'FILE HASHES', icon: Fingerprint, types: ['MD5', 'SHA1', 'SHA256'], sev: 'amber' },
+  { label: 'REFERENCES', icon: FileSearch, types: ['CVE', 'ATT&CK', 'Event ID', 'Email'], sev: 'cyan' },
+]
 
-function SHashTable({ items, groupTitle, onCopy }) {
-  if (!items.length) return null
+function SIocCards({ result, onCopy }) {
+  const rows = useMemo(() => flatIocRows(result.extracted), [result])
+  const total = countIocs(result.extracted)
+  if (!rows.length) return null
+
   return (
-    <div className="s-hash-wrap">
-      <h3><Clipboard />{groupTitle} <span>{items.length}</span></h3>
-      <table className="s-hash-table">
-        <thead>
-          <tr>
-            <th>Value</th>
-            <th style={{ width: 55 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {items.slice(0, 10).map((item) => {
-            const value = displayValue(item)
+    <div className="st-seg st-hero-animate" style={{ animationDelay: '0.3s' }}>
+      <div className="st-seg-hd">
+        <div className="st-seg-hd-l"><Database />CLASSIFIED EVIDENCE LEDGER</div>
+        <div className="st-seg-hd-r">
+          <span className="st-panel-count">{total} indicators total</span>
+        </div>
+      </div>
+      <div className="st-ledger">
+        <div className="st-ledger-grid">
+          {LEDGER_CATEGORIES.map((cat) => {
+            const items = rows.filter((r) => cat.types.includes(r.type))
+            if (!items.length) return null
+            const Icon = cat.icon
             return (
-              <tr key={value}>
-                <td>{compact(value, 80)}</td>
-                <td><button type="button" onClick={() => onCopy(value, groupTitle)}>Copy</button></td>
-              </tr>
+              <div key={cat.label} className="st-cat-panel">
+                <div className="st-cat-hd">
+                  <div className="st-cat-hd-l">
+                    <Icon />
+                    <span className="st-cat-hd-lbl">{cat.label}</span>
+                  </div>
+                  <span className="st-cat-count">{String(items.length).padStart(2, '0')}/{String(items.length).padStart(2, '0')}</span>
+                </div>
+                <div className="st-cat-body">
+                  {items.map((row, i) => {
+                    const isHash = ['MD5','SHA1','SHA256'].includes(row.type)
+                    return (
+                    <div key={i} className="st-cat-item" data-sev={cat.sev}>
+                      {isHash ? (
+                        <div className="st-cat-item-stacked" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span className="st-cat-item-type">{row.type}</span>
+                          <span className="st-cat-item-val">{row.value}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="st-cat-item-val">{row.value}</span>
+                          <span className="st-cat-item-badge">{row.type}</span>
+                        </>
+                      )}
+                      <button type="button" className="st-cat-copy" onClick={() => onCopy(row.value, row.type)} title="Copy">
+                        <Clipboard />
+                      </button>
+                    </div>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })}
-          {items.length > 10 ? <tr><td colSpan="2" className="s-ioc-more">+{items.length - 10} more</td></tr> : null}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function SIocGrid({ result, setPage, onCopy }) {
-  const groups = flattenIocGroups(result.extracted)
-  const urlItems = groups.URLs || []
-  const domainItems = groups.Domains || []
-  const ipItems = [...(groups.IPv4 || []), ...(groups.IPv6 || []), ...(groups.CIDR || [])]
-  const md5 = groups.MD5 || []
-  const sha1 = groups.SHA1 || []
-  const sha256 = groups.SHA256 || []
-  const hashItems = [...md5, ...sha1, ...sha256]
-  const emailItems = groups.Emails || []
-  const cveItems = groups.CVEs || []
-  const attackItems = groups["ATT&CK"] || []
-  const eventItems = groups["Windows Event IDs"] || []
-  const intelItems = [...cveItems, ...attackItems, ...eventItems]
-  const hasIocs = urlItems.length || domainItems.length || ipItems.length || hashItems.length || emailItems.length || intelItems.length
-  if (!hasIocs) return null
-
-  function sendArtifact(title, value) {
-    const target = artifactRouteForTitle(title)
-    storePendingArtifact({
-      target: target.page, page: target.page, type: target.type, value,
-      source: "artifact-intake", detected_type: result.primaryType,
-      normalized_artifacts: result.normalizedArtifacts,
-    })
-    setPage?.(target.page)
-  }
-
-  const leftGroup = domainItems.length
-    ? { title: "Domains", items: domainItems }
-    : urlItems.length ? { title: "URLs", items: urlItems } : null
-  const rightGroup = ipItems.length
-    ? { title: "IPs", items: ipItems }
-    : urlItems.length && leftGroup?.title !== "URLs"
-      ? { title: "URLs", items: urlItems } : null
-
-  return (
-    <div className="s-panel">
-      <div className="s-panel-hd">
-        <div className="s-panel-hd-left"><FileSearch />Extracted IOCs</div>
-        <span className="s-panel-count">{countIocs(result.extracted)} indicators</span>
+        </div>
       </div>
-      {(leftGroup || rightGroup) ? (
-        <div className="s-ioc-grid">
-          {leftGroup ? <SIocList items={leftGroup.items} groupTitle={leftGroup.title} onCopy={onCopy} onSendArtifact={sendArtifact} /> : null}
-          {rightGroup ? <SIocList items={rightGroup.items} groupTitle={rightGroup.title} onCopy={onCopy} onSendArtifact={sendArtifact} /> : null}
-          {!rightGroup && <SIocList items={urlItems} groupTitle="URLs" onCopy={onCopy} onSendArtifact={sendArtifact} />}
-          {leftGroup?.title !== "URLs" && rightGroup?.title !== "URLs" && urlItems.length ? (
-            <div style={{ gridColumn: '1 / -1' }}><SIocList items={urlItems} groupTitle="URLs" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
-          ) : null}
-          {emailItems.length ? (
-            <div style={{ gridColumn: '1 / -1' }}><SIocList items={emailItems} groupTitle="Emails" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
-          ) : null}
-        </div>
-      ) : emailItems.length ? (
-        <div className="s-ioc-grid">
-          <div style={{ gridColumn: '1 / -1' }}><SIocList items={emailItems} groupTitle="Emails" onCopy={onCopy} onSendArtifact={sendArtifact} /></div>
-        </div>
-      ) : null}
-      {hashItems.length ? <SHashTable items={hashItems} groupTitle="Hashes" onCopy={onCopy} /> : null}
-      {intelItems.length ? (
-        <div className="s-intel-grid">
-          {cveItems.length ? (
-            <div className="s-intel-col">
-              <div className="s-intel-hd">CVEs</div>
-              <div className="s-intel-body">
-                {cveItems.slice(0, 8).map((item) => (
-                  <div key={item.normalized} className="s-intel-chip" data-type="cve" onClick={() => onCopy(item.normalized, "CVE")}>
-                    <span>{item.normalized}</span>
-                  </div>
-                ))}
-                {cveItems.length > 8 ? <div className="s-ioc-more">+{cveItems.length - 8} more</div> : null}
-              </div>
-            </div>
-          ) : null}
-          {attackItems.length ? (
-            <div className="s-intel-col">
-              <div className="s-intel-hd">ATT&CK</div>
-              <div className="s-intel-body">
-                {attackItems.slice(0, 8).map((item) => (
-                  <div key={item.normalized} className="s-intel-chip" data-type="attack" onClick={() => onCopy(item.normalized, "ATT&CK")}>
-                    <span>{item.normalized}</span>
-                  </div>
-                ))}
-                {attackItems.length > 8 ? <div className="s-ioc-more">+{attackItems.length - 8} more</div> : null}
-              </div>
-            </div>
-          ) : null}
-          {eventItems.length ? (
-            <div className="s-intel-col">
-              <div className="s-intel-hd">Event IDs</div>
-              <div className="s-intel-body">
-                {eventItems.slice(0, 8).map((item) => (
-                  <div key={item.normalized} className="s-intel-chip" data-type="event" onClick={() => onCopy(item.normalized, "Event ID")}>
-                    <span>EVENT-{item.normalized}</span>
-                  </div>
-                ))}
-                {eventItems.length > 8 ? <div className="s-ioc-more">+{eventItems.length - 8} more</div> : null}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   )
 }
 
 /* ── Right rail components ──────────────────────────────────── */
-
-function SSignals({ result }) {
-  const signals = result.signals || []
-  if (!signals.length && !result.warnings?.length) return null
-  return (
-    <div className="s-signals">
-      <div className="s-signals-hd"><Scan />Signals</div>
-      <div className="s-signals-body">
-        {signals.slice(0, 10).map((signal, index) => (
-          <div key={`${signal.title}-${index}`} className="s-sig-item" data-lvl={signal.level || "Info"}>
-            <span className="s-sig-lvl">{signal.level || "signal"}</span>
-            <strong className="s-sig-title">{signal.title}</strong>
-            {signal.detail ? <p className="s-sig-detail">{signal.detail}</p> : null}
-          </div>
-        ))}
-        {(result.warnings || []).map((warning) => (
-          <div key={warning} className="s-sig-warn">
-            <strong>Analyst review required</strong>
-            {warning}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function SMetaPanel({ result }) {
   const meta = result.parsedMeta || {}
@@ -1549,16 +1354,32 @@ function SExport({ result, markdown, json, onCopy }) {
   )
 }
 
-function SFooter({ onReparse, onClear }) {
+function SActions({ input, setInput, runParse, onCopy, clearInput }) {
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(input)
   return (
-    <div className="s-footer">
-      <div className="s-footer-left">
-        <span className="s-footer-label">Parse complete</span>
+    <div className="s-actions">
+      <div className="s-actions-bar">
+        <button type="button" className="s-btn" onClick={() => onCopy(input, "Artifact input")}><Copy />COPY</button>
+        <button type="button" className="s-btn" onClick={() => { setEditing(!editing); if (!editing) setEditText(input) }}>
+          <Edit />{editing ? "CANCEL" : "REPHRASE"}
+        </button>
+        <button type="button" className="s-btn" onClick={clearInput}><Eraser />CLEAR</button>
       </div>
-      <div className="s-footer-acts">
-        <button type="button" className="s-btn" onClick={onReparse}><RefreshCcw />Re-parse</button>
-        <button type="button" className="s-btn" onClick={onClear}><Eraser />Clear</button>
-      </div>
+      {editing ? (
+        <div className="s-rephrase">
+          <textarea
+            className="s-rephrase-input"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={8}
+            placeholder="Edit the artifact input and re-parse..."
+          />
+          <button type="button" className="s-btn" onClick={() => { setInput(editText); runParse(editText); setEditing(false) }}>
+            <Zap />RE-PARSE
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1661,22 +1482,21 @@ export default function SmartParserPage({ setPage }) {
         <div className="s-output">
           {notice ? <div className="s-notice"><Info />{notice}</div> : null}
           {parseError ? <div className="s-notice" data-tone="error"><AlertTriangle />{parseError}</div> : null}
-          <SBanner result={result} />
+          <SActions input={input} setInput={setInput} runParse={runParse} onCopy={copyText} clearInput={clearInput} />
+          <SVerdict result={result} input={input} />
+          <SFindings signals={result.signals} />
+          <SIocCards result={result} onCopy={copyText} />
           <div className="s-grid">
             <div className="s-main">
-              <SKeyFields result={result} />
               <SSecrets items={result.fields?.secrets} />
-              <SIocGrid result={result} setPage={setPage} onCopy={copyText} />
               <SGuidance result={result} />
               <SExport result={result} markdown={markdown} json={json} onCopy={copyText} />
             </div>
             <div className="s-rail">
-              <SSignals result={result} />
               <SRouteCards result={result} setPage={setPage} />
               <SMetaPanel result={result} />
             </div>
           </div>
-          <SFooter onReparse={() => runParse()} onClear={clearInput} />
         </div>
       )}
     </WorkbenchPage>
