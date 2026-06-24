@@ -1,22 +1,121 @@
-/* phishing-triage-additions.css — Stitch-inspired design
-   Scoped to .ba-phishing-triage-page.
+/* phishing-triage-additions.css
+   Dark theme matching homepage + intake (Smart Parser) design.
+   Colors mirror --clr-* (homepage) and --sp-* (intake) patterns.
 */
 
-.ba-phishing-triage-page {
-  --p-line: #000000;
-  --p-card: #ffffff;
-  --p-bg: #f4f1ea;
-  --p-surface: #f8f1fe;
-  --p-error: #ffdad6;
-  --p-error-text: #93000a;
-  --p-error-border: #ba1a1a;
+/* ── Vars at .ba-app level (ALL themes forced dark, like Smart Parser ── */
+.ba-app.ba-app-page-phishing-triage[data-theme],
+.ba-app.ba-app-page-phishing-triage[data-theme="light"],
+.ba-app.ba-app-page-phishing-triage[data-theme="dark"] {
+  --p-bg: #070a11;
+  --p-card: #111822;
+  --p-surface: #1e2b3c;
+  --p-bg-elevated: #172131;
+  --p-line: #2563eb;
+  --p-accent: #00d5ef;
+  --p-error-bg: #3a1721;
+  --p-error-text: #fb7185;
+  --p-error-border: #fb7185;
 
-  background: var(--p-bg);
-  font-size: 14px;
-  line-height: 1.5;
-  min-height: 100%;
+  --neo-ink: #cffafe;
+  --neo-subtle: #06b6d4;
+  --neo-muted: #7e7576;
+  --neo-faint: rgba(255,255,255,0.1);
+  --neo-violet: #8b5cf6;
+  --neo-amber: #fbbf24;
+  --neo-invert-text: #000;
+
+  --pr-ink: #cffafe;
+  --pr-muted: #7e7576;
+  --pr-faint: #9f907d;
+  --pr-border: #2563eb;
+  --pr-violet: #8b5cf6;
+  --pr-cyan: #06b6d4;
+  --pr-rose: #fb7185;
+  --pr-amber: #fbbf24;
+  --pr-emerald: #34d399;
 }
 
+/* ── Theme overrides (mirrors Smart Parser) ── */
+:is(html.theme-cyberpunk) .ba-app-page-phishing-triage {
+  --p-line: #ff00ff;
+  --p-accent: #00ffff;
+  --p-error-bg: #3a001a;
+  --p-error-text: #ff0066;
+  --p-error-border: #ff0066;
+  --neo-ink: #ffffff;
+  --neo-subtle: #cccccc;
+  --neo-muted: #666666;
+  --neo-faint: rgba(255,0,255,0.15);
+  --neo-violet: #ff00ff;
+  --neo-amber: #ffcc00;
+  --pr-ink: #ffffff;
+  --pr-muted: #cccccc;
+  --pr-border: #ff00ff;
+}
+:is(html.theme-terminal) .ba-app-page-phishing-triage {
+  --p-line: #39FF14;
+  --p-accent: #39FF14;
+  --p-error-bg: #0a1a00;
+  --p-error-text: #ff3333;
+  --p-error-border: #333;
+  --neo-ink: #39FF14;
+  --neo-subtle: #28B40E;
+  --neo-muted: rgba(57,255,20,0.5);
+  --neo-faint: rgba(57,255,20,0.08);
+  --neo-violet: #39FF14;
+  --neo-amber: #39FF14;
+  --pr-ink: #39FF14;
+  --pr-muted: rgba(57,255,20,0.5);
+  --pr-border: #333;
+}
+:is(html.theme-space-purple) .ba-app-page-phishing-triage {
+  --p-line: #5b3e7a;
+  --p-accent: #8b5cf6;
+  --p-error-bg: #1a0520;
+  --p-error-text: #f43f5e;
+  --p-error-border: #5b3e7a;
+  --neo-ink: #c4b5fd;
+  --neo-subtle: #a78bfa;
+  --neo-muted: rgba(167,139,250,0.5);
+  --neo-faint: rgba(139,92,246,0.12);
+  --neo-violet: #8b5cf6;
+  --neo-amber: #fbbf24;
+  --pr-ink: #c4b5fd;
+  --pr-muted: rgba(167,139,250,0.5);
+  --pr-border: #5b3e7a;
+}
+
+/* ── Force body + shell bg dark (mirrors Smart Parser) ── */
+body:has(.ba-phishing-triage-page),
+html.light body:has(.ba-phishing-triage-page),
+html.dark body:has(.ba-phishing-triage-page) {
+  background: var(--p-bg, #070a11) !important;
+}
+body:has(.ba-phishing-triage-page) .ba-app,
+body:has(.ba-phishing-triage-page) .ba-main-shell,
+body:has(.ba-phishing-triage-page) .ba-page-shell,
+body:has(.ba-phishing-triage-page) .ba-topbar-shell,
+body:has(.ba-phishing-triage-page) .ba-topbar {
+  background: var(--p-bg, #070a11) !important;
+  color: var(--neo-ink, #cffafe) !important;
+}
+.ba-app.ba-app-page-phishing-triage,
+.ba-app.ba-app-page-phishing-triage .ba-main-shell,
+.ba-app.ba-app-page-phishing-triage .ba-page-shell {
+  background: var(--p-bg) !important;
+  color: var(--neo-ink);
+}
+
+/* ── Page scaffolding ── */
+.ba-phishing-triage-page {
+  background: var(--p-bg);
+  color: var(--neo-ink);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
 .ba-phishing-triage-page h1,
 .ba-phishing-triage-page h2,
 .ba-phishing-triage-page h3,
@@ -32,7 +131,7 @@
 .p-card {
   border: 2px solid var(--p-line);
   background: var(--p-card);
-  box-shadow: 6px 6px 0 0 var(--p-line);
+  box-shadow: 4px 4px 0 0 var(--p-line);
   position: relative;
 }
 .p-card::after {
@@ -40,7 +139,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(0,0,0,0.015) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%);
 }
 .p-card-hd {
   display: flex;
@@ -80,6 +179,7 @@
   padding: 0.45rem 0.7rem;
   box-shadow: 2px 2px 0 0 var(--p-line);
   cursor: pointer;
+  border-radius: 0;
   transition: transform 0.08s, box-shadow 0.08s;
   white-space: nowrap;
   line-height: 1;
@@ -201,6 +301,7 @@
   background: var(--p-card);
   cursor: pointer;
   outline: none;
+  color: var(--neo-ink);
 }
 .p-intake-ft-right { display: flex; align-items: center; gap: 0.35rem; }
 
@@ -249,7 +350,7 @@
   background: var(--p-card);
 }
 .p-notice[data-tone="error"] {
-  background: var(--p-error);
+  background: var(--p-error-bg);
   border-color: var(--p-error-border);
   color: var(--p-error-text);
 }
@@ -393,7 +494,7 @@
 }
 .p-metric[data-rose] .p-metric-value { color: var(--p-error-border); }
 .p-metric[data-accent] .p-metric-value { color: var(--neo-violet); }
-.p-metric[data-good] .p-metric-value { color: #065f46; }
+.p-metric[data-good] .p-metric-value { color: #34d399; }
 
 /* ── Verdict panel ───────────────────────────────────────────── */
 
@@ -444,7 +545,7 @@
 .p-verdict-body {
   padding: 0.75rem;
   border: 2px solid var(--p-error-border);
-  background: var(--p-error);
+  background: var(--p-error-bg);
   color: var(--p-error-text);
   font-size: 0.82rem;
   line-height: 1.5;
@@ -498,7 +599,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(186,26,26,0.04) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgba(251,113,133,0.04) 0%, transparent 50%);
   pointer-events: none;
 }
 .p-verdict-hd {
@@ -580,17 +681,17 @@
   font-family: "JetBrains Mono", monospace;
   font-size: 0.82rem;
   margin-bottom: 0.35rem;
-  background: rgba(0,0,0,0.015);
+  background: rgba(255,255,255,0.025);
 }
 .p-auth-row[data-rose] {
-  background: var(--p-error);
+  background: var(--p-error-bg);
   color: var(--p-error-text);
   border-color: var(--p-error-border);
   font-weight: 600;
 }
 .p-auth-row[data-emerald] {
-  background: #d1fae5;
-  color: #065f46;
+  background: rgba(16,185,129,0.1);
+  color: #34d399;
   border-color: #10b981;
   font-weight: 600;
 }
@@ -679,6 +780,7 @@
   border: 1px solid var(--p-line);
   background: var(--p-card);
   cursor: pointer;
+  color: var(--neo-ink);
 }
 .p-url-table .p-url-acts button:hover { background: var(--p-surface); }
 .p-url-table .p-url-acts svg { width: 0.75rem; height: 0.75rem; }
@@ -720,6 +822,7 @@
   border: 1px solid var(--p-line);
   background: var(--p-card);
   cursor: pointer;
+  color: var(--neo-ink);
 }
 .p-ioc-cell-acts button:hover { background: var(--p-surface); }
 .p-ioc-cell-acts svg { width: 0.65rem; height: 0.65rem; }
@@ -740,7 +843,7 @@
 }
 .p-finding-num {
   flex-shrink: 0;
-  background: #111;
+  background: var(--p-bg-elevated);
   color: white;
   padding: 0.5rem;
   text-align: center;
@@ -765,8 +868,8 @@
   flex-shrink: 0;
 }
 .p-finding-sev[data-rose] { background: var(--p-error-border); color: white; }
-.p-finding-sev[data-amber] { background: var(--neo-amber); color: white; }
-.p-finding-sev[data-cyan] { background: #008e9a; color: white; }
+.p-finding-sev[data-amber] { background: var(--neo-amber); color: var(--neo-invert-text); }
+.p-finding-sev[data-cyan] { background: #22d3ee; color: #000; }
 .p-finding-body p { font-size: 0.78rem; color: var(--neo-muted); line-height: 1.45; }
 .p-finding-raw {
   margin-top: 0.5rem;
@@ -793,9 +896,9 @@
   border: 1px solid var(--p-line);
   border-left: 4px solid var(--neo-faint);
 }
-.p-evidence-item[data-rose] { border-left-color: var(--p-error-border); background: #fff5f5; }
-.p-evidence-item[data-amber] { border-left-color: var(--neo-amber); background: #fffcf0; }
-.p-evidence-item[data-cyan] { border-left-color: #008e9a; background: #f4fffe; }
+.p-evidence-item[data-rose] { border-left-color: var(--p-error-border); background: rgba(251,113,133,0.06); }
+.p-evidence-item[data-amber] { border-left-color: var(--neo-amber); background: rgba(251,191,36,0.06); }
+.p-evidence-item[data-cyan] { border-left-color: #22d3ee; background: rgba(34,211,238,0.06); }
 .p-evidence-item-hd {
   display: flex;
   align-items: center;
@@ -828,13 +931,15 @@
   cursor: pointer;
   transition: transform 0.08s, box-shadow 0.08s;
   text-align: left;
+  background: var(--p-card);
+  color: var(--neo-ink);
 }
 .p-rail-action:hover {
   transform: translate(-2px, -2px);
   box-shadow: 4px 4px 0 0 var(--p-line);
 }
 .p-rail-action[data-rose] { background: var(--p-error-border); color: white; }
-.p-rail-action[data-dark] { background: #111; color: white; }
+.p-rail-action[data-dark] { background: var(--p-bg-elevated); color: white; }
 .p-rail-action[data-accent] { background: var(--neo-violet); color: white; }
 .p-rail-action svg { width: 0.85rem; height: 0.85rem; flex-shrink: 0; }
 .p-rail-action-sub {
@@ -858,7 +963,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.65rem 0.75rem;
-  background: #111;
+  background: var(--p-bg-elevated);
   color: white;
 }
 .p-score-hd span {
@@ -916,7 +1021,7 @@
   margin-top: 0.35rem;
   padding: 0.45rem;
   border: 2px solid var(--p-line);
-  background: #111;
+  background: var(--p-bg-elevated);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.62rem;
   color: #10b981;
@@ -936,8 +1041,8 @@
 .p-markdown-hd h3 { font-size: 0.82rem; font-weight: 700; }
 .p-markdown pre {
   padding: 0.65rem;
-  background: #111;
-  color: #e2e8f0;
+  background: var(--p-bg-elevated);
+  color: var(--neo-ink);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.62rem;
   line-height: 1.55;
@@ -990,9 +1095,9 @@
   border-left: 4px solid var(--p-line);
   font-size: 0.78rem;
 }
-.p-impact-item[data-rose] { border-left-color: var(--p-error-border); background: #fff5f5; }
-.p-impact-item[data-accent] { border-left-color: var(--neo-violet); background: #faf5ff; }
-.p-impact-item[data-cyan] { border-left-color: #008e9a; background: #f4fffe; }
+.p-impact-item[data-rose] { border-left-color: var(--p-error-border); background: rgba(251,113,133,0.06); }
+.p-impact-item[data-accent] { border-left-color: var(--neo-violet); background: rgba(167,139,250,0.06); }
+.p-impact-item[data-cyan] { border-left-color: #22d3ee; background: rgba(34,211,238,0.06); }
 .p-impact-item svg { width: 0.8rem; height: 0.8rem; flex-shrink: 0; margin-top: 0.1rem; }
 
 /* Message fields table */
@@ -1003,7 +1108,7 @@
   gap: 0.5rem;
   padding: 0.25rem 0.35rem;
   font-size: 0.75rem;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .p-msg-row:last-child { border-bottom: none; }
 .p-msg-row-label {
@@ -1046,16 +1151,16 @@
   font-size: 0.85rem;
 }
 .p-ioc-card[data-rose] {
-  background: linear-gradient(135deg, var(--p-error) 0%, #fff5f5 100%);
+  background: linear-gradient(135deg, var(--p-error-bg) 0%, rgba(251,113,133,0.04) 100%);
   color: var(--p-error-text);
   border-color: var(--p-error-border);
 }
 .p-ioc-card[data-gold] {
-  background: linear-gradient(135deg, #fef3c7 0%, #fffcf0 100%);
+  background: linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(251,191,36,0.03) 100%);
 }
 .p-ioc-card[data-accent] {
   border-left: 4px solid var(--neo-violet);
-  background: linear-gradient(135deg, #faf5ff 0%, #fff 100%);
+  background: linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(167,139,250,0.02) 100%);
 }
 .p-ioc-value { display: block; font-family: "JetBrains Mono", monospace; font-size: 0.82rem; word-break: break-all; font-weight: 500; }
 .p-ioc-meta { display: block; font-size: 0.75rem; color: var(--neo-muted); margin-top: 0.1rem; }
@@ -1100,18 +1205,18 @@
 }
 .p-evidence-card[data-rose] {
   border-left-color: var(--p-error-border);
-  border-color: #f5c6c6;
-  background: linear-gradient(135deg, var(--p-error) 0%, #fff5f5 100%);
+  border-color: rgba(251,113,133,0.3);
+  background: linear-gradient(135deg, var(--p-error-bg) 0%, rgba(251,113,133,0.04) 100%);
 }
 .p-evidence-card[data-gold] {
   border-left-color: var(--neo-amber);
-  border-color: #e6d5a0;
-  background: linear-gradient(135deg, #fef3c7 0%, #fffcf0 100%);
+  border-color: rgba(251,191,36,0.3);
+  background: linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(251,191,36,0.03) 100%);
 }
 .p-evidence-card[data-emerald] {
   border-left-color: #10b981;
-  border-color: #a7f3d0;
-  background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+  border-color: rgba(16,185,129,0.3);
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%);
 }
 .p-evidence-card-hd { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.15rem; }
 .p-evidence-ref { font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 700; color: var(--neo-subtle); }
@@ -1157,11 +1262,11 @@
 }
 .p-score-row[data-rose] {
   border-left-color: var(--p-error-border);
-  background: linear-gradient(135deg, var(--p-error) 0%, #fff5f5 100%);
+  background: linear-gradient(135deg, var(--p-error-bg) 0%, rgba(251,113,133,0.04) 100%);
 }
 .p-score-row[data-gold] {
   border-left-color: var(--neo-amber);
-  background: linear-gradient(135deg, #fef3c7 0%, #fffcf0 100%);
+  background: linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(251,191,36,0.03) 100%);
 }
 .p-score-pts {
   font-weight: 800;
@@ -1184,15 +1289,15 @@
 }
 .p-chain-node[data-rose] {
   border-left: 4px solid var(--p-error-border);
-  background: linear-gradient(135deg, var(--p-error) 0%, #fff5f5 100%);
+  background: linear-gradient(135deg, var(--p-error-bg) 0%, rgba(251,113,133,0.04) 100%);
 }
 .p-chain-node[data-gold] {
   border-left: 4px solid var(--neo-amber);
-  background: linear-gradient(135deg, #fef3c7 0%, #fffcf0 100%);
+  background: linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(251,191,36,0.03) 100%);
 }
 .p-chain-node[data-emerald] {
   border-left: 4px solid #10b981;
-  background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%);
 }
 .p-chain-step { font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 700; color: var(--neo-subtle); min-width: 1.5rem; }
 .p-chain-label { font-weight: 600; }
@@ -1209,7 +1314,7 @@
   border-left: 3px solid transparent;
 }
 .p-signal-list li:nth-child(odd) {
-  background: rgba(0,0,0,0.02);
+  background: rgba(255,255,255,0.03);
 }
 .p-signal-list li svg {
   width: 0.85rem;
@@ -1225,4 +1330,52 @@
   .p-ioc-col:nth-child(3n) { border-right: 1px solid var(--p-line); }
   .p-engine-grid { grid-template-columns: 1fr; }
   .p-verdict-score { font-size: 2rem; }
+}
+
+/* ── Input page additions ────────────────────────────────────── */
+.p-intake-body textarea:focus {
+  border-color: var(--neo-violet);
+  box-shadow: inset 0 0 0 1px var(--neo-violet), 2px 2px 0 0 var(--p-line);
+}
+.p-intake-ft-left select:focus {
+  border-color: var(--neo-violet);
+  box-shadow: 0 0 0 1px var(--neo-violet);
+}
+.p-intake-ft-left select option {
+  background: var(--p-card);
+  color: var(--neo-ink);
+}
+.p-privacy-card:hover {
+  filter: brightness(1.08);
+}
+.p-input-grid + section {
+  margin-top: 2rem;
+}
+.p-notice {
+  margin-top: 0.5rem;
+}
+
+/* ── JSX inline overrides ──────────────────────────────────────
+   JSX uses var(--clr-text-sub) and hardcoded border:#000.
+   CSS variables handle the first; !important handles the second.
+*/
+.ba-phishing-triage-page { --clr-text-sub: var(--neo-subtle); }
+
+.ba-phishing-triage-page .p-side-card select {
+  border-color: var(--p-line) !important;
+  box-shadow: 2px 2px 0 0 var(--p-line) !important;
+  color: var(--neo-ink) !important;
+  background: var(--p-card) !important;
+}
+.ba-phishing-triage-page .p-side-card select option {
+  background: var(--p-card);
+  color: var(--neo-ink);
+}
+.ba-phishing-triage-page .p-side-card input[type="checkbox"] {
+  accent-color: var(--neo-violet);
+  border-color: var(--p-line) !important;
+}
+.ba-phishing-triage-page .p-side-card label { color: var(--neo-ink); }
+.ba-phishing-triage-page .p-side-card > div > div[style*="border"] {
+  border-color: var(--p-line) !important;
 }

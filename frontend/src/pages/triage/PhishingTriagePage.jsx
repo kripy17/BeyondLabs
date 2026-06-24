@@ -240,7 +240,7 @@ function EmptyPreview() {
   )
 }
 
-function EmptyTriageState({ rawEmail, setRawEmail, mode, setMode, sampleKey, setSampleKey, loadSample, clearAll, runAnalysis, loadingMode, error, notice }) {
+function EmptyTriageState({ rawEmail, setRawEmail, mode, setMode, sampleKey, setSampleKey, loadSample, clearAll, loadFile, fileRef, runAnalysis, loadingMode, error, notice }) {
   const sampleOptions = Object.keys(PHISHING_SAMPLES)
   return (
     <>
