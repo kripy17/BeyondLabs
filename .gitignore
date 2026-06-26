@@ -17,5 +17,8 @@
 # Node dependencies
 /frontend/node_modules/
 
+# Agent tool config
+/.opencode/
+
 # Test artifacts
 /test-results/
