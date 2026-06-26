@@ -59,7 +59,7 @@ Linux/macOS:
 
 ```bash
 ./install.sh
-./run-beyondarch.zsh
+./run.sh
 ```
 
 Recommended SOC helper profile:
@@ -75,12 +75,6 @@ Windows PowerShell:
 .\run.ps1
 ```
 
-Enhanced Zsh launcher for Arch/Zsh users:
-
-```bash
-./run-beyondarch.zsh
-```
-
 Default URLs:
 
 ```text
@@ -92,7 +86,7 @@ API Docs: http://127.0.0.1:8000/docs
 Normally `./install.sh` sets script permissions automatically. If needed:
 
 ```bash
-chmod +x install.sh run-beyondarch.zsh doctor.sh reset-workspace.sh demo-workflow.sh scripts/*.sh
+chmod +x install.sh run.sh doctor.sh reset-workspace.sh demo-workflow.sh scripts/*.sh
 ```
 
 If PowerShell blocks scripts, run PowerShell as your user and use:
@@ -114,10 +108,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cd ..
-./run-beyondarch.zsh
+./run.sh
 ```
 
-`run-beyondarch.zsh` starts both the backend and frontend together.
+`run.sh` starts both the backend and frontend together.
 
 ### Copied project folder fails to run
 
@@ -214,7 +208,7 @@ frontend/src/pages/       Routed workspaces
 frontend/src/lib/         Analysis engines, stores, routing, and local knowledge
 scripts/                  Shared terminal helpers and project check runner
 install.sh                Linux/macOS setup wizard
-run-beyondarch.zsh         Linux/macOS default launcher
+run.sh                    Linux/macOS default launcher (backend + frontend)
 doctor.sh                 Linux/macOS health checker
 reset-workspace.sh        safe local cache cleanup
 demo-workflow.sh          guided demo path

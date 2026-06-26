@@ -31,13 +31,7 @@ trap cleanup_generated EXIT
 
 printf '\nBeyondArch project checks\n\n'
 
-run_required "Bash syntax checks" bash -n install.sh run.sh run-beyondarch.zsh doctor.sh reset-workspace.sh demo-workflow.sh scripts/terminal-ui.sh scripts/tool-inventory.sh scripts/check.sh
-
-if command -v zsh >/dev/null 2>&1; then
-  run_required "Zsh launcher syntax check" zsh -n run-beyondarch.zsh
-else
-  warn "zsh not available; skipped run-beyondarch.zsh syntax check"
-fi
+run_required "Bash syntax checks" bash -n install.sh run.sh doctor.sh reset-workspace.sh demo-workflow.sh scripts/terminal-ui.sh scripts/tool-inventory.sh scripts/check.sh
 
 if command -v pwsh >/dev/null 2>&1; then
   run_required "PowerShell parse checks" pwsh -NoProfile -Command '

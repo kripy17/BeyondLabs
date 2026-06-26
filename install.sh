@@ -453,7 +453,7 @@ next_section "Script permissions"
 chmod +x \
   "$ROOT_DIR"/install.sh \
   "$ROOT_DIR"/run.sh \
-  "$ROOT_DIR"/run-beyondarch.zsh \
+  "$ROOT_DIR"/run.sh \
   "$ROOT_DIR"/doctor.sh \
   "$ROOT_DIR"/reset-workspace.sh \
   "$ROOT_DIR"/demo-workflow.sh 2>/dev/null || true

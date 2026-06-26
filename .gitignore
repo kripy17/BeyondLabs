@@ -1,2 +1,21 @@
 /AGENTS.md
 /screenshot-*.png
+
+# Build output
+/frontend/dist/
+/frontend/dist-bak/
+
+# Generated knowledge graph
+/graphify-out/
+
+# Agent profile
+/.openclaude-profile.json
+
+# Python cache
+/.pytest_cache/
+
+# Node dependencies
+/frontend/node_modules/
+
+# Test artifacts
+/test-results/

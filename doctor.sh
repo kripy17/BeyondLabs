@@ -188,7 +188,7 @@ echo ""
 next_section "Script permissions"
 echo ""
 PERMISSION_FIXES=()
-for _script in install.sh run.sh run-beyondarch.zsh doctor.sh reset-workspace.sh demo-workflow.sh; do
+for _script in install.sh run.sh doctor.sh reset-workspace.sh demo-workflow.sh; do
   if [[ ! -f "$ROOT_DIR/$_script" ]]; then
     info "$_script not found — skipping"
   elif [[ -x "$ROOT_DIR/$_script" ]]; then

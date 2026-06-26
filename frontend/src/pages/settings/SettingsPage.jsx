@@ -135,10 +135,13 @@ const ACTIVE_MODULES = [
   "Phishing Triage",
   "Safe URL Analyzer",
   "Recon & Exposure",
+  "Nmap Runner",
+  "OSINT Tools",
   "SIEM",
   "Logs & Alerts",
   "Attachment Triage",
   "Detection & MITRE",
+  "Investigation Timeline",
   "Settings",
 ]
 
@@ -563,7 +566,7 @@ export default function SettingsPage() {
         setBackendStatus({ label: `HTTP ${response.status}`, tone: "warning", detail: `Backend responded, but /health returned ${response.status}.` })
       }
     } catch {
-      setBackendStatus({ label: "Offline", tone: "danger", detail: "Could not reach the local backend. Check run-beyondarch.zsh or uvicorn." })
+      setBackendStatus({ label: "Offline", tone: "danger", detail: "Could not reach the local backend. Check run.sh or uvicorn." })
     } finally {
       setCheckingBackend(false)
     }
