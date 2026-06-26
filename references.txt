@@ -1,9 +1,0 @@
-# BeyondArch References
-
-Session references, design inspiration links, and notes.
-Entries persist across sessions — add/edit as needed.
-
----
-
-## SmartParser Output
-
