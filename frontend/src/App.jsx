@@ -9,6 +9,7 @@ import BaBackendBanner from "./components/layout/BaBackendBanner"
 const AttachmentTriagePage = lazy(() => import("./pages/triage/AttachmentTriagePage"))
 const CyberChefPage = lazy(() => import("./pages/tools/CyberChefPage"))
 const DetectionMitrePage = lazy(() => import("./pages/detection/DetectionMitrePage"))
+const HackingToolsPage = lazy(() => import("./pages/recon/HackingToolsPage"))
 const IdsBuilderPage = lazy(() => import("./pages/tools/IdsBuilderPage"))
 const InvestigationTimelinePage = lazy(() => import("./pages/detection/InvestigationTimelinePage"))
 const LogsAlertsPage = lazy(() => import("./pages/siem/LogsAlertsPage"))
@@ -60,6 +61,7 @@ const PAGE_TITLES = {
   "osint-tools": "OSINT Tools",
   "nmap-runner": "Nmap Runner",
   "cyberchef": "CyberChef",
+  "hacking-tools": "Hacking Toolkit",
   "ids-builder": "IDS Builder",
   "logs-alerts": "Logs & Alerts",
   "siem": "SIEM Workspace",
@@ -167,6 +169,7 @@ function AppRoutes() {
     { key: "gl", action: () => navigateToPage(navigate, "logs-alerts") },
     { key: "gd", action: () => navigateToPage(navigate, "detection-mitre") },
     { key: "gc", action: () => navigateToPage(navigate, "cyberchef") },
+    { key: "gh", action: () => navigateToPage(navigate, "hacking-tools") },
     { key: "gt", action: () => navigateToPage(navigate, "case-timeline") },
     { key: "/", action: () => {
       window.dispatchEvent(new CustomEvent("beyondarch:open-command-palette"))
@@ -180,6 +183,8 @@ function AppRoutes() {
         return <HomePage />
       case "cyberchef":
         return <CyberChefPage />
+      case "hacking-tools":
+        return <HackingToolsPage />
       case "osint-tools":
         return <OsintToolsPage />
       case "nmap-runner":

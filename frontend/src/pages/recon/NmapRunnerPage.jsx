@@ -22,6 +22,16 @@ import {
 const PENDING_KEY = "beyondarch.pendingArtifact"
 const DEFAULT_CUSTOM_COMMAND = "nmap -Pn -T3 --top-ports 100 scanme.nmap.org"
 
+const SCAN_PROFILE_METADATA = {
+  quick_tcp: { purpose: "Top 100 TCP port discovery — initial exposure snapshot", risk: "Low", outputType: "Service and port table" },
+  service_version: { purpose: "Service and version identification for open ports", risk: "Low", outputType: "Detailed service inventory" },
+  aggressive_inventory: { purpose: "Full -A scan with version, scripts, OS detection", risk: "Moderate — intrusive scan", outputType: "Detailed service inventory" },
+  web_exposure: { purpose: "HTTP/HTTPS service fingerprinting and TLS metadata inspection", risk: "Low", outputType: "Web server and header details" },
+  windows_smb: { purpose: "SMB protocol enumeration and Windows service exposure", risk: "Moderate — SMB may trigger detection", outputType: "SMB service details" },
+  linux_ssh: { purpose: "SSH service and administrative surface review", risk: "Low", outputType: "SSH configuration details" },
+  mail_server: { purpose: "Mail server protocol exposure review", risk: "Low", outputType: "Mail service details" },
+}
+
 const HANDOFF_SOURCES = new Set([
   "recon-exposure",
   "smart-parser",
@@ -33,6 +43,25 @@ const HANDOFF_SOURCES = new Set([
   "soc-guide",
   "cyberchef",
 ])
+
+function generateScanSummary(profileId = "", result = "") {
+  const meta = SCAN_PROFILE_METADATA[profileId] || { purpose: "Custom scan", risk: "Unknown", outputType: "Raw output" }
+  const lines = [
+    `## Nmap Scan Assessment`,
+    ``,
+    `**Profile:** ${profileId}`,
+    `**Purpose:** ${meta.purpose}`,
+    `**Risk Level:** ${meta.risk}`,
+    `**Output Type:** ${meta.outputType}`,
+    `**Output Size:** ${result.length} character(s)`,
+    ``,
+    `**Analyst Recommendation:**`,
+    `- ${meta.risk === "Moderate" || meta.risk.startsWith("Moderate") ? "Correlate scan findings with authorized testing scope. Beacon or alert triage may be triggered by this scan type." : "Low-risk discovery scan. Review results as part of standard reconnaissance workflow."}`,
+    ``,
+    `**Limitations:** This scan was executed from the local environment. Results may differ from external perspective. No stealth, proxying, or evasion techniques are applied beyond the selected profile.`,
+  ]
+  return lines.join("\n")
+}
 
 function getPendingNmapArtifact() {
   try {
@@ -102,7 +131,7 @@ function ProfileHint({ selected }) {
   )
 }
 
-function ScanBrief({ summary, findings, onDownload, onCopy, onRoute, onTimeline, setPage, report }) {
+function ScanBrief({ summary, findings, onDownload, onCopy, onRoute, onTimeline, setPage, report, profileMeta, onGenerateAssessment, showAssessment, assessmentValue }) {
   return (
     <section className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
       <div className="ba-output-section-head">
@@ -113,6 +142,15 @@ function ScanBrief({ summary, findings, onDownload, onCopy, onRoute, onTimeline,
         </div>
         <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-zinc-300">{summary.runnerStatus}</span>
       </div>
+      {profileMeta ? (
+        <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs leading-5 text-zinc-300">
+          <span><span className="font-bold text-zinc-50">Purpose:</span> {profileMeta.purpose}</span>
+          <span className="text-zinc-600">|</span>
+          <span><span className="font-bold text-zinc-50">Risk:</span> {profileMeta.risk}</span>
+          <span className="text-zinc-600">|</span>
+          <span><span className="font-bold text-zinc-50">Output:</span> {profileMeta.outputType}</span>
+        </div>
+      ) : null}
       <NmapMetricGrid fields={[
         ["Target", summary.target],
         ["Profile", summary.profile],
@@ -135,11 +173,12 @@ function ScanBrief({ summary, findings, onDownload, onCopy, onRoute, onTimeline,
       />
       {findings.length ? (
         <div className="grid gap-2 md:grid-cols-2">
-          {findings.slice(0, 4).map((finding) => (
+              {findings.slice(0, 4).map((finding) => (
             <article key={finding.title} className="rounded-xl border border-white/10 bg-black/40 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.12em] ${finding.severity === "high" ? "border border-rose-400/30 bg-rose-400/10 text-rose-100" : finding.severity === "medium" ? "border border-amber-400/30 bg-amber-400/10 text-amber-100" : "border border-white/10 bg-black/40 text-zinc-300"}`}>{finding.severity}</span>
                 <h3 className="text-sm font-black text-zinc-50">{finding.title}</h3>
+                {finding.mitre ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[0.65rem] font-bold text-cyan-100">{finding.mitre}</span> : null}
               </div>
               <p className="mt-2 font-mono text-xs leading-5 text-zinc-300">{finding.evidence}</p>
               <p className="mt-2 text-xs leading-5 text-zinc-400">{finding.action}</p>
@@ -153,7 +192,11 @@ function ScanBrief({ summary, findings, onDownload, onCopy, onRoute, onTimeline,
         <button type="button" className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => onRoute("recon-exposure")}><Route className="mr-2 inline h-4 w-4" />Recon</button>
         <button type="button" className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => onRoute("detection-mitre")}><ShieldCheck className="mr-2 inline h-4 w-4" />Detection</button>
         <button type="button" className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={onTimeline}>Timeline</button>
+        <button type="button" className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={onGenerateAssessment}><FileText className="mr-2 inline h-4 w-4" />{showAssessment ? "Hide" : "Generate"} Assessment</button>
       </div>
+      {showAssessment && assessmentValue ? (
+        <pre className="overflow-auto whitespace-pre-wrap rounded-xl bg-black/60 p-3 font-mono text-xs leading-5 text-cyan-100">{assessmentValue}</pre>
+      ) : null}
       <SendToActions
         payload={{ type: "nmap_scan", title: `Nmap scan: ${summary.target}`, value: report, summary: summary.primaryExposure, tags: ["nmap", "recon", "services"] }}
         source="Nmap Runner"
@@ -196,6 +239,7 @@ export default function NmapRunnerPage({ setPage }) {
   const [result, setResult] = useState(null)
   const [notice, setNotice] = useState(pending.source ? `Loaded target from ${pending.source}. Confirm scope before scanning.` : "")
   const [samplesOpen, setSamplesOpen] = useState(false)
+  const [showAssessment, setShowAssessment] = useState(false)
 
   const selectedProfile = useMemo(() => NMAP_PROFILES.find((profile) => profile.id === profileId) || NMAP_PROFILES[0], [profileId])
   const targetValue = useMemo(() => normalizeTarget(target), [target])
@@ -209,6 +253,7 @@ export default function NmapRunnerPage({ setPage }) {
     if (!scan) return ""
     return [scan.command ? `$ ${scan.command}` : "", scan.stdout || "", scan.stderr ? `\n[stderr]\n${scan.stderr}` : ""].filter(Boolean).join("\n")
   }, [scan])
+  const assessmentValue = useMemo(() => generateScanSummary(selectedProfile?.id || profileId, rawOutput), [selectedProfile, profileId, rawOutput])
 
   function loadSample() {
     setTarget("scanme.nmap.org")
@@ -367,6 +412,10 @@ export default function NmapRunnerPage({ setPage }) {
             }}
             setPage={setPage}
             report={report}
+            profileMeta={SCAN_PROFILE_METADATA[selectedProfile?.id || profileId]}
+            onGenerateAssessment={() => setShowAssessment((v) => !v)}
+            showAssessment={showAssessment}
+            assessmentValue={assessmentValue}
           />
         ) : (
           <section className="rounded-2xl border border-white/10 bg-black/40 p-4">

@@ -1,11 +1,26 @@
 import { useMemo, useState } from "react"
-import { ArrowRightLeft, Clipboard, ExternalLink, FileText, Play, RefreshCcw, Search, ShieldCheck, Terminal, Trash2, Wrench } from "lucide-react"
-import { getLocalOsintTools, runLocalOsintTool } from "../../api/backend"
+import { ArrowRightLeft, Clipboard, ExternalLink, FileText, Play, RefreshCcw, Search, ShieldCheck, Terminal, Trash2, User, Wrench } from "lucide-react"
+import { getLocalOsintTools, runLocalOsintTool, runMaigret } from "../../api/backend"
 import { WorkbenchHeader, WorkbenchPage, WorkbenchPanel } from "../../components/layout/WorkbenchShell"
 import SendToActions from "../../components/investigation/SendToActions"
 import AnalystOutputCard from "../../components/investigation/AnalystOutputCard"
 import { addTimelineArtifact } from "../../lib/timelineStore"
 import { copyText } from "../../lib/domUtils.js"
+
+const OSINT_TOOL_METADATA = {
+  whois: { purpose: "Domain registration and ownership lookup", dataType: "WHOIS record" },
+  dns: { purpose: "DNS record enumeration (A, MX, NS, TXT, SOA)", dataType: "DNS resolution data" },
+  shodan: { purpose: "Internet-facing device and service fingerprinting", dataType: "Service banner and metadata" },
+  crtsh: { purpose: "Certificate transparency log search for domain associations", dataType: "SSL/TLS certificate records" },
+  haveibeenpwned: { purpose: "Credential breach exposure check", dataType: "Breach incident references" },
+  virustotal: { purpose: "File hash and domain reputation lookup", dataType: "Threat intelligence signals" },
+  urlscan: { purpose: "URL and website behavior analysis", dataType: "Page resource and behavior snapshot" },
+  dehashed: { purpose: "Credential and identity leak search", dataType: "Exposed credential references" },
+  hunterio: { purpose: "Email address discovery and verification", dataType: "Email and domain pattern data" },
+  censys: { purpose: "Internet asset discovery and certificate analysis", dataType: "Certificate and service metadata" },
+  securitytrails: { purpose: "Historical DNS and domain intelligence", dataType: "Historical DNS records" },
+  greynoise: { purpose: "Internet scanner and mass-activity analysis", dataType: "Scanner behavior classification" },
+}
 
 const PENDING_KEY = "beyondarch.pendingArtifact"
 
@@ -15,6 +30,8 @@ const LOCAL_RUNNERS = [
   { id: "http_headers", label: "HTTP headers", type: "built-in", binary: "curl", detail: "Headers and redirects only; no browser rendering." },
   { id: "tls_cert", label: "TLS certificate", type: "built-in", binary: "openssl", detail: "TLS handshake and certificate preview." },
   { id: "whois", label: "WHOIS", type: "optional", binary: "whois", detail: "Registration metadata through local whois." },
+  { id: "dns_reverse", label: "Reverse DNS", type: "built-in", binary: "dig", detail: "PTR record lookup for IP-to-hostname resolution." },
+  { id: "dns_zone", label: "DNS zone transfer", type: "built-in", binary: "dig", detail: "Attempts AXFR zone transfer (rarely succeeds externally)." },
   { id: "theharvester", label: "theHarvester", type: "optional", binary: "theharvester", detail: "Passive email/host/subdomain collection." },
   { id: "subfinder", label: "Subfinder", type: "optional", binary: "subfinder", detail: "Passive subdomain enumeration." },
   { id: "amass", label: "Amass passive", type: "optional", binary: "amass", detail: "Passive subdomain enumeration." },
@@ -100,6 +117,11 @@ function makeExternalGroups({ domain, brand, username, email }) {
       ["WebCheck", `https://web-check.xyz/check/${encodeURIComponent(host)}`],
       ["BuiltWith", `https://builtwith.com/${encodeURIComponent(host)}`],
       ["IPinfo", searchUrl("https://ipinfo.io/", host)],
+      ["FullHunt", searchUrl("https://fullhunt.io/search?query=", host)],
+      ["SecurityTrails", `https://securitytrails.com/domain/${encodeURIComponent(host)}/dns`],
+      ["Netlas", searchUrl("https://netlas.io/search/?q=", host)],
+      ["LeakIX", searchUrl("https://leakix.net/search?q=", host)],
+      ["Greynoise", searchUrl("https://viz.greynoise.io/query?gnql=", host)],
     ] },
     { title: "Reputation / URL checks", purpose: "Manual reputation pivots. BeyondArch does not query these automatically.", links: [
       ["VirusTotal domain", `https://www.virustotal.com/gui/domain/${encodeURIComponent(host)}`],
@@ -117,6 +139,8 @@ function makeExternalGroups({ domain, brand, username, email }) {
       ["EmailRep", searchUrl("https://emailrep.io/", mail)],
       ["Hunter.io", searchUrl("https://hunter.io/search/", host)],
       ["Phonebook.cz", searchUrl("https://phonebook.cz/search?q=", host)],
+      ["IntelX", searchUrl("https://intelx.io/?s=", host)],
+      ["LeakCheck", searchUrl("https://leakcheck.io/search?query=", mail)],
       ["Brand phishing search", `https://www.google.com/search?q=${encodeURIComponent(`"${keyword}" phishing OR "verify your account"`)}`],
     ] },
     { title: "Archives & history", purpose: "Historical pages, old exposed files, domain history, and change context.", links: [
@@ -142,6 +166,9 @@ function makeQueryPacks({ domain, brand, username, email }) {
     { title: "Username / account reuse", queries: [`"${user}" github OR gitlab OR bitbucket`, `"${user}" site:pastebin.com OR site:gist.github.com`, `"${user}" "${host}"`, `"${user}" reddit OR twitter OR linkedin OR instagram`] },
     { title: "Support / exposed business surface", queries: [`site:${host} support OR helpdesk OR ticket OR status`, `site:${host} "vpn" OR "sso" OR "okta" OR "citrix"`, `site:${host} "jira" OR "confluence" OR "gitlab"`, `site:${host} "privacy" OR "terms" OR "security"`] },
     { title: "Historical and archive pivots", queries: [`web.archive.org ${host}`, `"${host}" "cached"`, `"${host}" "old" OR "backup" OR "archive"`, `"${keyword}" "domain" "changed"`] },
+    { title: "Subdomain enumeration", queries: [`site:*.${host}`, `site:${host} -www.${host}`, `"*.${host}" crtsh`, `"${host}" "subdomain" OR "hostname" OR "alias"`] },
+    { title: "API and service surface", queries: [`site:${host} inurl:api OR inurl:graphql OR inurl:rest`, `site:${host} inurl:swagger OR inurl:openapi OR inurl:docs`, `site:${host} inurl:wsdl OR inurl:soap OR inurl:.xml OR inurl:.json`, `"${host}" "api_key" OR "x-api-key" OR "bearer"`] },
+    { title: "Employee / people exposure", queries: [`site:linkedin.com "${host}"`, `site:github.com "${host}" in:email`, `"${host}" "resume" OR "cv" OR "curriculum"`, `"${host}" "phone" OR "email" OR "contact"`] },
   ]
 }
 
@@ -206,9 +233,12 @@ function ToolInventorySummary({ status }) {
   </section>
 }
 
-function TerminalOutput({ result }) {
+function TerminalOutput({ result, setNotice }) {
   const text = result ? [result.command || result.command_preview || "", result.install_hint ? `# ${result.install_hint}` : "", result.stdout || "", result.stderr ? `\n[stderr]\n${result.stderr}` : "", result.error ? `\n[error]\n${result.error}` : ""].filter(Boolean).join("\n") : "Run a backend helper to view command output."
-  return <details className="rounded-2xl border border-emerald-400/15 bg-black p-4 shadow-[inset_0_0_32px_rgba(16,185,129,0.08)]"><summary className="cursor-pointer list-none"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Terminal className="h-4 w-4 text-emerald-300" /><span className="text-sm font-black text-zinc-100">Terminal log</span></div><span className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.16em] text-emerald-300">collapsed</span></div></summary><pre className="mt-3 max-h-[24rem] overflow-auto whitespace-pre-wrap border-t border-emerald-400/10 pt-3 font-mono text-xs leading-5 text-emerald-300">{text}</pre></details>
+  return <details className="rounded-2xl border border-emerald-400/15 bg-black p-4 shadow-[inset_0_0_32px_rgba(16,185,129,0.08)]"><summary className="cursor-pointer list-none"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Terminal className="h-4 w-4 text-emerald-300" /><span className="text-sm font-black text-zinc-100">Terminal log</span></div><div className="flex items-center gap-2">
+    {result ? <button className="rounded-lg border border-emerald-400/20 bg-emerald-400/8 px-2 py-1 text-[0.65rem] font-black tracking-[0.12em] text-emerald-200" onClick={() => copyText(text, setNotice, "Terminal output")}><Clipboard className="mr-1 inline h-3 w-3" />Copy</button> : null}
+    <span className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.16em] text-emerald-300">collapsed</span>
+  </div></div></summary><pre className="mt-3 max-h-[24rem] overflow-auto whitespace-pre-wrap border-t border-emerald-400/10 pt-3 font-mono text-xs leading-5 text-emerald-300">{text}</pre></details>
 }
 
 function QueryPack({ packs, setNotice }) {
@@ -261,6 +291,9 @@ export default function OsintToolsPage({ setPage }) {
     return target || pending?.brand || pending?.username || pending?.email ? pending?.source || "another workspace" : ""
   })
   const [workspaceBuilt, setWorkspaceBuilt] = useState(false)
+  const [maigretUser, setMaigretUser] = useState("")
+  const [maigretRunning, setMaigretRunning] = useState(false)
+  const [maigretResult, setMaigretResult] = useState(null)
 
   const hasInput = Boolean(cleanHost(domain) || brand.trim() || username.trim() || email.trim())
   const queryPacks = useMemo(() => makeQueryPacks({ domain, brand, username, email }), [domain, brand, username, email])
@@ -320,6 +353,23 @@ export default function OsintToolsPage({ setPage }) {
       setNotice(`Local helper failed: ${error.message}`)
     } finally {
       setRunning(false)
+    }
+  }
+
+  async function runMaigretSearch() {
+    const u = maigretUser.trim()
+    if (!u) { setNotice("Enter a username first."); return }
+    setMaigretRunning(true)
+    setNotice(`Searching maigret for "${u}"...`)
+    try {
+      const resp = await runMaigret(u)
+      setMaigretResult(resp)
+      setNotice(resp?.error ? `Maigret returned: ${resp.error}` : `Maigret finished for "${u}".`)
+    } catch (error) {
+      setMaigretResult({ error: error.message })
+      setNotice(`Maigret failed: ${error.message}`)
+    } finally {
+      setMaigretRunning(false)
     }
   }
 
@@ -431,14 +481,32 @@ export default function OsintToolsPage({ setPage }) {
             <ToolPicker status={status} runners={LOCAL_RUNNERS} selected={runner} onSelect={setRunner} refreshStatus={refreshStatus} loadingStatus={loadingStatus} />
             <ToolInventorySummary status={status} />
             <section className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
-              <div className="flex items-start gap-3"><Wrench className="mt-1 h-5 w-5 text-cyan-200" /><div><h3 className="text-lg font-black text-zinc-50">{selectedRunner.label}</h3><p className="text-sm leading-6 text-zinc-300">{selectedRunner.detail}</p></div></div>
+              <div className="flex items-start gap-3"><Wrench className="mt-1 h-5 w-5 text-cyan-200" /><div><h3 className="text-lg font-black text-zinc-50">{selectedRunner.label}</h3><p className="text-sm leading-6 text-zinc-300">{selectedRunner.detail}</p>{(function lookupMetadata(runnerId) { const meta = OSINT_TOOL_METADATA[runnerId === "dns_basic" || runnerId === "dns_reverse" || runnerId === "dns_zone" || runnerId === "dig_mx_txt" ? "dns" : runnerId]; return meta ? <p className="mt-1 text-xs text-zinc-500">Purpose: {meta.purpose}</p> : null })(runner)}</div></div>
               {runner === "theharvester" ? <div className="grid gap-3 sm:grid-cols-2"><label className="block space-y-2"><span className="ba-field-label">Source</span><select className="ba-input" value={source} onChange={(e) => setSource(e.target.value)}>{HARVESTER_SOURCES.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="block space-y-2"><span className="ba-field-label">Limit</span><input className="ba-input" type="number" min="10" max="200" value={limit} onChange={(e) => setLimit(Number(e.target.value) || 50)} /></label></div> : null}
               <button className="ba-button-primary w-full rounded-xl px-4 py-3 text-sm font-black disabled:opacity-50" disabled={running || !host} onClick={runBackendTool}><Play className="mr-2 inline h-4 w-4" />{running ? "Running…" : `Run ${selectedRunner.label}`}</button>
             </section>
           </div>
           <div className="space-y-3">
             <div className="rounded-2xl border border-white/10 bg-black/40 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">Helper result</p><p className="mt-2 text-sm leading-6 text-zinc-300">{result ? (result.error ? "Helper returned an error or install hint." : `${selectedRunner.label} completed. Review terminal details if needed.`) : "Run a helper only if local backend evidence is needed."}</p></div>
-            <TerminalOutput result={result} />
+            <TerminalOutput result={result} setNotice={setNotice} />
+          </div>
+        </div>
+      </WorkbenchPanel>
+
+      <WorkbenchPanel className="space-y-4">
+        <div className="ba-output-section-head">
+          <div><p className="ba-output-section-eyebrow" style={{ color: "var(--clr-accent)" }}>Username search</p><h2 className="ba-output-section-title">Maigret profile lookup</h2><p className="mt-1 text-sm leading-6 text-zinc-300">Scans 2500+ sites for username registration. Requires maigret CLI installed locally.</p></div>
+          <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-amber-100"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />Explicit run only</span>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
+          <div className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
+            <div className="flex items-start gap-3"><User className="mt-1 h-5 w-5 text-cyan-200" /><div><h3 className="text-lg font-black text-zinc-50">Maigret</h3><p className="text-sm leading-6 text-zinc-300">Check if a username exists across social networks, forums, and other public sites.</p></div></div>
+            <label className="block space-y-2"><span className="ba-field-label">Username</span><input className="ba-input" value={maigretUser} onChange={(e) => setMaigretUser(e.target.value)} placeholder="johndoe" /></label>
+            <button className="ba-button-primary w-full rounded-xl px-4 py-3 text-sm font-black disabled:opacity-50" disabled={maigretRunning || !maigretUser.trim()} onClick={runMaigretSearch}><Play className="mr-2 inline h-4 w-4" />{maigretRunning ? "Scanning…" : "Run maigret"}</button>
+          </div>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">Maigret result</p><p className="mt-2 text-sm leading-6 text-zinc-300">{maigretResult ? (maigretResult.error ? "Maigret returned an error." : `${(maigretResult.sites_found || 0)} sites matched for "${maigretUser}".`) : "Run maigret to scan for username presence across sites."}</p></div>
+            <TerminalOutput result={maigretResult} setNotice={setNotice} />
           </div>
         </div>
       </WorkbenchPanel>

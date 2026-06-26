@@ -1,6 +1,6 @@
 export { analyzePhishingHeaders, analyzePhishingBody, analyzeFullEmail, analyzeAttachments } from "./phishing"
 export { passiveRecon, runReconDnsLookup, runReconNmapScan, runReconNmapCustom, runReconWebExposure } from "./recon"
-export { usernameOsint, emailOsint, socialLinksFinder, getLocalOsintTools, runTheHarvester, runLocalOsintTool } from "./osint"
+export { usernameOsint, emailOsint, socialLinksFinder, getLocalOsintTools, runTheHarvester, runLocalOsintTool, runMaigret, getHackingtoolCategories, runHackingtoolTool } from "./osint"
 export { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule, explainIdsRule } from "./detection"
 export { extractIocs, identifyHash, generateHashes, parseLogs, parseUserAgent, triageAlert } from "./soc"
 export { uploadMalwareFile, lookupMalwareHash, analyzeStrings } from "./analysis"

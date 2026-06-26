@@ -3,10 +3,11 @@ import { motion } from "framer-motion"
 import {
   BarChart3, BookOpen, ChefHat, Clock3, FileSearch, FileText,
   Globe2, Inbox, Layers3, Link2, MailWarning, Paperclip, Plus,
-  Radar, Search, ShieldCheck, TerminalSquare,
+  Radar, Search, ShieldCheck, Swords, TerminalSquare,
   Activity, ArrowRight,
 } from "lucide-react"
 import { navigateToPage } from "../../lib/navigation"
+import { getRecentPages } from "../../lib/navigationTracker"
 
 const containerVariants = {
   hidden: {},
@@ -45,6 +46,7 @@ const SECTORS = [
       { label: "Recon & Exposure",  page: "recon-exposure",    icon: Radar,          desc: "Map external footprint — subdomains, certificates, exposed ports, and cloud assets.",                      btn: "Open",   gl: false, ac: "border" },
       { label: "OSINT Tools",       page: "osint-tools",       icon: Search,         desc: "Query WHOIS, DNS, Shodan, and other passive intelligence sources.",                     btn: "Launch", gl: false, ac: "border" },
       { label: "Nmap Runner",       page: "nmap-runner",       icon: TerminalSquare, desc: "Execute port scans, service detection, and network topology mapping.",            btn: "Scan",   gl: false, ac: "border" },
+      { label: "Hacking Toolkit",   page: "hacking-tools",    icon: Swords,          desc: "Run local Kali/security tools — web attack, forensics, wireless, exploit, and more.", btn: "Arm", gl: false, ac: "border" },
     ],
   },
   {
@@ -58,6 +60,7 @@ const SECTORS = [
     id: "tools", label: "TOOLS",
     items: [
       { label: "CyberChef",         page: "cyberchef",         icon: ChefHat,        desc: "Encode, decode, encrypt, decrypt, and transform data with the Cyber Swiss Army Knife.",       btn: "Execute", gl: false, ac: "accent" },
+      { label: "Hacking Toolkit",   page: "hacking-tools",    icon: Swords,         desc: "Run local Kali/security tools — web attack, forensics, wireless, exploit, and more.", btn: "Arm",     gl: false, ac: "accent" },
       { label: "Detection Workspace", page: "ids-builder",       icon: ShieldCheck,    desc: "Write, test, and export Sigma and YARA detection rules.",                           btn: "Compile", gl: false, ac: "accent" },
     ],
   },
@@ -104,6 +107,52 @@ function SectBar({ label, dashed }) {
   )
 }
 
+function RecentActivity({ navigate }) {
+  const items = getRecentPages(5)
+  if (!items.length) return null
+  return (
+    <section style={{ marginBottom: "1.5rem", padding: "0.75rem", border: "1px solid var(--clr-border)", background: "var(--clr-surface)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+        <Clock3 size={14} />
+        <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Recent Activity</span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+        {items.map((item, i) => (
+          <button
+            key={i}
+            className="cyber-btn"
+            style={{ fontSize: "0.6rem", padding: "0.2rem 0.5rem" }}
+            onClick={() => navigateToPage(navigate, item.page)}
+          >
+            {item.label || item.page}
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function QuickStats() {
+  let timelineCount = 0
+  try {
+    const raw = window.localStorage.getItem("beyondarch.timelineStore")
+    if (raw) {
+      const entries = JSON.parse(raw)
+      timelineCount = Array.isArray(entries) ? entries.length : 0
+    }
+  } catch {
+    // localStorage unavailable
+  }
+  return (
+    <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+      <div style={{ padding: "0.5rem 0.75rem", border: "1px solid var(--clr-border)", background: "var(--clr-surface)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <Clock3 size={14} />
+        <span style={{ fontSize: "0.65rem" }}>Timeline: <strong>{timelineCount}</strong> entries</span>
+      </div>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
 
@@ -140,6 +189,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <RecentActivity />
+      <QuickStats />
 
       {/* ── Pipeline ── */}
       <section className="animate-fade-in-up stagger-1" style={{ marginBottom: "3rem" }}>

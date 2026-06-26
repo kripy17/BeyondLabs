@@ -14,6 +14,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Swords,
   TerminalSquare,
   Wrench,
 } from "lucide-react"
@@ -59,6 +60,7 @@ export const WORKSPACES = [
     description: "Analyst transforms, helper utilities, and rule drafting.",
     items: [
       { label: "CyberChef", page: "cyberchef", icon: ChefHat, description: "Decode, encode, hash, defang, refang, inspect JWTs, timestamps, and transform artifacts.", tags: ["decode", "hash", "utility", "codec"] },
+      { label: "Hacking Toolkit", page: "hacking-tools", icon: Swords, description: "Run local Kali/security tools via explicit backend wrappers.", tags: ["kali", "tools", "local"] },
       { label: "Detection Workspace", page: "ids-builder", icon: ShieldCheck, description: "Draft detection rules, build log queries, and hand off rule evidence.", tags: ["ids", "rules", "query", "detection"] },
     ],
   },
@@ -96,6 +98,7 @@ export const ROUTE_MAP = {
   siem: "/siem/workspace",
   "logs-alerts": "/siem/logs",
   cyberchef: "/tools/cyberchef",
+  "hacking-tools": "/tools/hacking-tools",
   "ids-builder": "/tools/ids-builder",
   "detection-mitre": "/detection/mitre",
   "soc-guide": "/detection/soc-guide",
@@ -121,10 +124,14 @@ Object.assign(ROUTE_TO_PAGE, {
   "/soc-guide": "soc-guide",
   "/case-timeline": "case-timeline",
   "/cyberchef": "cyberchef",
+  "/hacking-tools": "hacking-tools",
   "/ids-builder": "ids-builder",
 })
 
+import { recordPageVisit } from "./navigationTracker"
+
 export function navigateToPage(navigate, page) {
   const path = ROUTE_MAP[page] || "/"
+  recordPageVisit(page)
   navigate(path)
 }

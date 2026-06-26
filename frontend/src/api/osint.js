@@ -34,3 +34,20 @@ export function runLocalOsintTool({ toolId, domain, source = "duckduckgo", limit
     confirm_permission: Boolean(confirmPermission),
   }, 140000)
 }
+
+export function runMaigret(username) {
+  return postJson("/api/osint/maigret", { username }, 180000)
+}
+
+export function getHackingtoolCategories() {
+  return getJson("/api/hackingtool/categories")
+}
+
+export function runHackingtoolTool({ categoryId, toolId, target = "", args = "" }) {
+  return postJson("/api/hackingtool/run", {
+    category_id: categoryId,
+    tool_id: toolId,
+    target,
+    args,
+  }, 180000)
+}
