@@ -21,6 +21,100 @@ import { useSessionState } from "../../lib/useSessionState"
 import { WorkbenchHeader, WorkbenchPage, WorkbenchPanel } from "../../components/layout/WorkbenchShell"
 import { explainLogEvent } from "../../lib/logEventExplainer"
 
+const LOG_MITRE_MAP = {
+  ssh_failed: { id: "T1110", name: "Brute Force", tactic: "TA0006", tacticName: "Credential Access" },
+  ssh_accepted: { id: "T1078", name: "Valid Accounts", tactic: "TA0001", tacticName: "Initial Access" },
+  powershell_encoded: { id: "T1059.001", name: "PowerShell", tactic: "TA0002", tacticName: "Execution" },
+  windows_logon: { id: "T1078", name: "Valid Accounts", tactic: "TA0001", tacticName: "Initial Access" },
+  windows_process: { id: "T1059", name: "Command and Scripting Interpreter", tactic: "TA0002", tacticName: "Execution" },
+  windows_account: { id: "T1098", name: "Account Manipulation", tactic: "TA0003", tacticName: "Persistence" },
+  windows_service: { id: "T1543", name: "Create or Modify System Process", tactic: "TA0003", tacticName: "Persistence" },
+  web_scan: { id: "T1595", name: "Active Scanning", tactic: "TA0043", tacticName: "Reconnaissance" },
+  web_exploit: { id: "T1190", name: "Exploit Public-Facing Application", tactic: "TA0001", tacticName: "Initial Access" },
+  web_sqli: { id: "T1190", name: "Exploit Public-Facing Application", tactic: "TA0001", tacticName: "Initial Access" },
+  firewall_block: { id: "T1562.001", name: "Disable or Modify Tools", tactic: "TA0005", tacticName: "Defense Evasion" },
+  firewall_portscan: { id: "T1046", name: "Network Service Discovery", tactic: "TA0007", tacticName: "Discovery" },
+  dns_tunnel: { id: "T1071.004", name: "DNS", tactic: "TA0011", tacticName: "Command and Control" },
+  mail_spam: { id: "T1566", name: "Phishing", tactic: "TA0001", tacticName: "Initial Access" },
+  mail_dmarc: { id: "T1566", name: "Phishing", tactic: "TA0001", tacticName: "Initial Access" },
+  vpn_failed: { id: "T1110", name: "Brute Force", tactic: "TA0006", tacticName: "Credential Access" },
+  vpn_auth: { id: "T1078", name: "Valid Accounts", tactic: "TA0001", tacticName: "Initial Access" },
+  cloud_iam: { id: "T1078", name: "Valid Accounts", tactic: "TA0001", tacticName: "Initial Access" },
+  cloud_anomaly: { id: "T1530", name: "Data from Cloud Storage", tactic: "TA0009", tacticName: "Collection" },
+}
+
+const ALERT_PRIORITY_WEIGHTS = {
+  credential_access: { weight: 30, label: "Credential access behavior" },
+  execution: { weight: 25, label: "Suspicious execution detected" },
+  persistence: { weight: 25, label: "Persistence mechanism installed" },
+  privilege_escalation: { weight: 20, label: "Privilege escalation indicator" },
+  defense_evasion: { weight: 20, label: "Defense evasion technique" },
+  lateral_movement: { weight: 20, label: "Lateral movement detected" },
+  discovery: { weight: 10, label: "Discovery / recon activity" },
+  collection: { weight: 15, label: "Data collection behavior" },
+  command_and_control: { weight: 20, label: "C2 communication pattern" },
+  exfiltration: { weight: 30, label: "Data exfiltration indicator" },
+}
+
+function computeAlertPriority(text = "") {
+  const lower = String(text || "").toLowerCase()
+  const patterns = [
+    { key: "credential_access", words: ["password", "credential", "logon", "4625", "4648", "lsass", "sam dump", "sekurlsa"] },
+    { key: "execution", words: ["powershell", "cmd.exe", "wmic", "encodedcommand", "script", "-enc"] },
+    { key: "persistence", words: ["run key", "scheduled task", "service install", "7045", "startup", "registry"] },
+    { key: "privilege_escalation", words: ["admin", "elevated", "uac", "token", "privilege", "4732", "domain admins"] },
+    { key: "defense_evasion", words: ["cleared", "1102", "disabled", "event log", "timestomp", "hide"] },
+    { key: "lateral_movement", words: ["rdp", "wmi", "winrm", "ps exec", "remote", "3389"] },
+    { key: "discovery", words: ["whoami", "net group", "ipconfig", "netstat", "nslookup", "dir"] },
+    { key: "collection", words: ["compress", "archive", "rar", "zip", "exfil", "copy"] },
+    { key: "command_and_control", words: ["dns", "http", "https", "beacon", "c2", "callback"] },
+    { key: "exfiltration", words: ["upload", "ftp", "scp", "smtp", "dns tunnel", "data send"] },
+  ]
+  let total = 0
+  const matched = []
+  for (const p of patterns) {
+    const hits = p.words.filter((w) => lower.includes(w)).length
+    if (hits > 0) {
+      const partial = Math.min(hits / Math.max(p.words.length * 0.3, 1), 1)
+      const score = Math.round(ALERT_PRIORITY_WEIGHTS[p.key].weight * partial)
+      if (score > 0) {
+        matched.push({ pattern: ALERT_PRIORITY_WEIGHTS[p.key].label, score, weight: ALERT_PRIORITY_WEIGHTS[p.key].weight })
+        total += score
+      }
+    }
+  }
+  const score = Math.min(total, 100)
+  const level = score >= 75 ? "critical" : score >= 50 ? "high" : score >= 25 ? "medium" : score >= 10 ? "low" : "info"
+  return { score, level, matched, confidence: matched.length >= 3 ? "high" : matched.length >= 1 ? "medium" : "low" }
+}
+
+function generateAlertNarrative(text = "", priority = {}) {
+  if (!text?.trim()) return ""
+  const p = priority || {}
+  const level = p.level || "info"
+  const lines = [
+    `## Alert Triage Report`,
+    ``,
+    `**Priority:** ${level.toUpperCase()} (${p.score || "?"}/100)`,
+    `**Confidence:** ${p.confidence || "low"}`,
+    ``,
+  ]
+  if (p.matched?.length) {
+    lines.push(`**Observed Signals:**`, ...p.matched.slice(0, 5).map((m) => `- ${m.pattern} (score ${m.score})`), ``)
+  }
+  lines.push(
+    `**Analyst Recommendation:**`,
+    level === "critical" || level === "high"
+      ? "- Escalate for immediate investigation. Isolate affected hosts, preserve evidence, and engage incident response."
+      : level === "medium"
+      ? "- Prioritize for review within current shift. Correlate with surrounding telemetry before escalating."
+      : "- Log for situational awareness. No immediate action required.",
+    ``,
+    `**Limitations:** This assessment is based on local pattern matching only. No sandbox execution, threat intelligence lookup, or dynamic analysis was performed. Validate findings against approved telemetry sources before taking action.`,
+  )
+  return lines.join("\n")
+}
+
 const SAMPLES = {
   linux_ssh: {
     label: "Linux SSH failed + accepted",
@@ -64,21 +158,95 @@ const SAMPLES = {
     label: "User-Agent list",
     text: ["sqlmap/1.7", "curl/8.4.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "python-requests/2.31"].join("\n"),
   },
+  windows_7045: {
+    label: "Windows 7045 service install",
+    text: ["EventID: 7045", "Service Name: RemoteScheduler", "Image Path: C:\\Users\\Public\\svchost.exe", "Service Type: user mode service", "Start Type: auto start", "Computer: DESKTOP-01"].join("\n"),
+  },
+  windows_4732: {
+    label: "Windows 4732 group add",
+    text: ["EventID: 4732", "Member: CN=krish,CN=Users,DC=corp,DC=local", "Group: Domain Admins", "Subject User Name: admin", "Computer: DC-01"].join("\n"),
+  },
+  dns_nxdomain: {
+    label: "DNS NXDOMAIN spike",
+    text: [
+      '2026-04-25T10:15:00Z dns query=evil-c2.example.com rcode=NXDOMAIN client_ip=10.0.0.5 server=8.8.8.8',
+      '2026-04-25T10:15:01Z dns query=random1.malicious.tk rcode=NXDOMAIN client_ip=10.0.0.5 server=8.8.8.8',
+      '2026-04-25T10:15:02Z dns query=random2.malicious.tk rcode=NXDOMAIN client_ip=10.0.0.5 server=8.8.8.8',
+    ].join("\n"),
+  },
+  cloudtrail: {
+    label: "CloudTrail console login",
+    text: '{"eventVersion":"1.08","userIdentity":{"type":"IAMUser","arn":"arn:aws:iam::123456789012:user/admin","userName":"admin"},"eventTime":"2026-04-25T10:15:00Z","eventSource":"signin.amazonaws.com","eventName":"ConsoleLogin","awsRegion":"us-east-1","sourceIPAddress":"8.8.8.8","userAgent":"Mozilla/5.0","responseElements":{"ConsoleLogin":"Success"}}',
+  },
+  mssql_failed: {
+    label: "MSSQL failed login",
+    text: "2026-04-25 10:15:00.00 Logon    Error: 18456, Severity: 14, State: 8. Login failed for user 'sa'. Reason: Password did not match. [CLIENT: 8.8.8.8]",
+  },
 }
 
 const WINDOWS_EVENT_LABELS = {
   4624: "Successful logon",
   4625: "Failed logon",
+  4648: "Explicit credential logon",
   4672: "Special privileges assigned",
   4688: "Process creation",
+  4719: "Audit policy change",
   4720: "User created",
   4726: "User deleted",
   4732: "User added to group",
+  4740: "Account locked out",
+  4768: "Kerberos TGT requested",
+  4769: "Kerberos service ticket requested",
+  4776: "NTLM credential validation",
   7045: "Service installed",
   1102: "Audit log cleared",
 }
 
 const HIGH_RISK_PORTS = new Set(["22", "23", "3389", "445", "135", "139", "1433", "3306", "5432", "6379", "9200", "27017"])
+
+function getMitreForEvent(event) {
+  if (!event) return null
+  const type = event.event_type || ""
+  const raw = ((event.raw || "") + " " + (event.message || "") + " " + (event.command_line || "")).toLowerCase()
+  if (type === "linux_ssh_failed_login") return LOG_MITRE_MAP.ssh_failed
+  if (type === "linux_ssh_accepted_login") return LOG_MITRE_MAP.ssh_accepted
+  if (type.startsWith("windows_event_4688") && /encodedcommand/i.test(raw)) return LOG_MITRE_MAP.powershell_encoded
+  if (["windows_event_4624", "windows_event_4625"].includes(type)) return LOG_MITRE_MAP.windows_logon
+  if (type.startsWith("windows_event_4688")) return LOG_MITRE_MAP.windows_process
+  if (["windows_event_4732", "windows_event_4720", "windows_event_4726"].includes(type)) return LOG_MITRE_MAP.windows_account
+  if (type === "windows_event_7045") return LOG_MITRE_MAP.windows_service
+  if (type === "cloudtrail_event") return LOG_MITRE_MAP.cloud_iam
+  if (type === "web_access") {
+    if (/union\s+select|sqlmap|sqli/i.test(raw)) return LOG_MITRE_MAP.web_sqli
+    if (/\.\.\/|\.\.%2f|etc\/passwd/i.test(raw)) return LOG_MITRE_MAP.web_exploit
+    return LOG_MITRE_MAP.web_scan
+  }
+  if (type === "network_firewall_proxy") {
+    if (/scan|port|syn/i.test(raw)) return LOG_MITRE_MAP.firewall_portscan
+    return LOG_MITRE_MAP.firewall_block
+  }
+  if (type === "dns_query") {
+    if (/\btk\b|\bml\b|\bga\b|\bcf\b|\bgq\b|nxdomain|tunnel/i.test(raw)) return LOG_MITRE_MAP.dns_tunnel
+  }
+  return null
+}
+
+function collectMitreTactics(events) {
+  const tactics = new Map()
+  for (const event of events) {
+    const info = getMitreForEvent(event)
+    if (!info) continue
+    if (!tactics.has(info.tactic)) {
+      tactics.set(info.tactic, { id: info.tactic, name: info.tacticName, techniques: [] })
+    }
+    const entry = tactics.get(info.tactic)
+    if (!entry.techniques.some((t) => t.id === info.id)) {
+      entry.techniques.push({ id: info.id, name: info.name })
+    }
+  }
+  return [...tactics.values()]
+}
+
 const LOLBINS = ["powershell", "cmd", "wscript", "cscript", "mshta", "rundll32", "regsvr32", "certutil", "bitsadmin", "schtasks", "net", "net1", "whoami"]
 const SUSPICIOUS_FLAGS = ["-encodedcommand", "-nop", "-w hidden", "/c", "/download", "invoke-webrequest", "iex"]
 const WEB_ATTACK_PATTERNS = [
@@ -138,6 +306,22 @@ const QUERY_PROFILES = {
       ["field", "Field"], ["value", "Value"], ["severity", "Severity"], ["host", "Host"], ["user", "User"], ["time", "Time window"],
     ],
     defaults: { severity: "high" },
+  },
+  windows: {
+    label: "Windows Events",
+    description: "Windows Event Log — security, system, application, PowerShell, Sysmon.",
+    fields: [
+      ["event_id", "Event ID"], ["user", "User"], ["host", "Host"], ["process_name", "Process name"], ["command_line", "Command line"], ["time", "Time window"],
+    ],
+    defaults: { event_id: "4688", host: "DESKTOP-" },
+  },
+  cloud: {
+    label: "Cloud/SaaS",
+    description: "CloudTrail, Azure Activity, GCP audit, Office 365, and SaaS platform logs.",
+    fields: [
+      ["event_name", "Event name"], ["user", "User"], ["source_ip", "Source IP"], ["service", "Service"], ["region", "Region"], ["time", "Time window"],
+    ],
+    defaults: { event_name: "ConsoleLogin", service: "signin.amazonaws.com" },
   },
 }
 
@@ -214,7 +398,7 @@ function extractEntities(text = "", events = []) {
     }),
     ...(combined.match(/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b/gi) || []),
   ].filter((item) => item && !item.includes("@") && !/\.(?:php|aspx|jsp|env|bak|zip|sql|exe|dll|ps1|bat|cmd|scr|vbs|js|hta)$/i.test(item) && !processLike.has(item.toLowerCase())).map((value) => ({ value, normalized: value.toLowerCase() })))
-  const eventIds = uniq((combined.match(/\b(?:4624|4625|4672|4688|4720|4726|4732|7045|1102)\b/g) || []).map((value) => ({ value, normalized: value })))
+  const eventIds = uniq((combined.match(/\b(?:4624|4625|4648|4672|4688|4719|4720|4726|4732|4740|4768|4769|4776|7045|1102)\b/g) || []).map((value) => ({ value, normalized: value })))
   const statusCodes = uniq(events.map((event) => event.status_code).filter(Boolean).map((value) => ({ value, normalized: String(value) })))
   const rawUsers = [
     ...events.map((event) => event.user).filter(Boolean),
@@ -248,15 +432,15 @@ function parseJsonLine(line, index) {
     const obj = JSON.parse(line)
     if (!obj || typeof obj !== "object") return null
     const alert = obj.alert || {}
-    return {
+    const result = {
       id: `event-${index}`,
-      timestamp: obj.timestamp || obj["@timestamp"] || "",
+      timestamp: obj.timestamp || obj["@timestamp"] || obj.eventTime || "",
       event_type: obj.event_type === "alert" || obj.alert ? "suricata_eve_alert" : obj.event_type || "json_event",
       source: obj.alert ? "Suricata/EVE JSON" : "Structured JSON",
       severity: alert.severity ? (Number(alert.severity) <= 1 ? "High" : Number(alert.severity) === 2 ? "Medium" : "Low") : obj.severity || "Info",
       host: obj.host || obj.hostname || obj.computer || "",
       user: obj.user || obj.username || "",
-      src_ip: obj.src_ip || obj.source_ip || obj.client_ip || "",
+      src_ip: obj.src_ip || obj.source_ip || obj.client_ip || obj.sourceIPAddress || "",
       dst_ip: obj.dest_ip || obj.dst_ip || obj.destination_ip || "",
       src_port: obj.src_port || "",
       dst_port: obj.dest_port || obj.dst_port || "",
@@ -274,6 +458,20 @@ function parseJsonLine(line, index) {
       message: alert.signature || obj.message || obj.alert || line,
       raw: line,
     }
+    if (obj.eventSource) {
+      const ctUser = obj.userIdentity?.arn || obj.userIdentity?.userName || obj.userName || ""
+      const ctEvent = obj.eventName || ""
+      result.event_type = "cloudtrail_event"
+      result.source = "CloudTrail"
+      result.user = result.user || ctUser
+      result.action = ctEvent
+      result.region = obj.awsRegion || ""
+      result.message = `${ctEvent} on ${obj.eventSource}${ctUser ? ` by ${ctUser}` : ""}`
+      if (/ConsoleLogin/.test(ctEvent)) result.severity = obj.responseElements?.ConsoleLogin === "Success" ? "Medium" : "High"
+      if (/CreateUser|CreateAccessKey|DeleteLogGroup|DeleteTrail|CreatePolicy/.test(ctEvent)) result.severity = "High"
+      if (/UpdateAssumeRolePolicy|PassRole|AssumeRole/.test(ctEvent)) result.severity = "Medium"
+    }
+    return result
   } catch {
     return null
   }
@@ -311,8 +509,8 @@ function parseLinuxAuth(line, index) {
 
 function parseWindowsBlock(block, index) {
   const eventId = block.match(/(?:EventID|Event ID|Id)\s*[:=]\s*(\d{4})/i)?.[1] || block.match(/<EventID[^>]*>(\d{4})<\/EventID>/i)?.[1] || ""
-  if (!eventId && !/\b(?:4624|4625|4672|4688|4720|4726|4732|7045|1102)\b/.test(block)) return null
-  const id = eventId || block.match(/\b(?:4624|4625|4672|4688|4720|4726|4732|7045|1102)\b/)?.[0] || ""
+  if (!eventId && !/\b(?:4624|4625|4648|4672|4688|4719|4720|4726|4732|4740|4768|4769|4776|7045|1102)\b/.test(block)) return null
+  const id = eventId || block.match(/\b(?:4624|4625|4648|4672|4688|4719|4720|4726|4732|4740|4768|4769|4776|7045|1102)\b/)?.[0] || ""
   const user = block.match(/Subject User Name\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || block.match(/Account Name\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || ""
   const host = block.match(/Computer\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || block.match(/ComputerName\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || ""
   const processName = block.match(/New Process Name\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || block.match(/Process(?: Name)?\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || ""
@@ -323,7 +521,7 @@ function parseWindowsBlock(block, index) {
     timestamp: block.match(/(?:TimeCreated|Time|Date)\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim() || "",
     event_type: `windows_event_${id}`,
     source: "Windows Event",
-    severity: ["1102", "7045"].includes(id) ? "High" : id === "4625" ? "Medium" : "Info",
+    severity: ["1102", "7045", "4726"].includes(id) ? "High" : ["4625", "4648", "4740", "4769"].includes(id) ? "Medium" : "Info",
     host,
     user,
     src_ip: sourceIp,
@@ -407,6 +605,27 @@ function parseGenericAlert(text, index) {
   }
 }
 
+function parseDnsQuery(line, index) {
+  if (!/\b(dns|query|resolver|NXDOMAIN|rrname|qtype|domain\.lookup|dns\.question|dns\.query)\b/i.test(line)) return null
+  const fields = parseKeyValueLine(line)
+  const query = fields.query || fields.q || fields.rrname || fields.domain || line.match(/(?:query|name)[:\s]+([^\s,]+)/i)?.[1] || ""
+  const rcode = fields.rcode || fields.result || ""
+  const clientIp = fields.client_ip || fields.src_ip || fields.source || fields.client || ""
+  return {
+    id: `event-${index}`,
+    timestamp: line.match(/\b\d{4}-\d{2}-\d{2}T[^\s]+/)?.[0] || line.match(/^([A-Z][a-z]{2}\s+\d{1,2}\s+\d\d:\d\d:\d\d)/)?.[1] || "",
+    event_type: "dns_query",
+    source: "DNS Logs",
+    severity: /NXDOMAIN/i.test(rcode || line) ? "Low" : "Info",
+    host: fields.host || fields.server || "",
+    src_ip: clientIp,
+    domain: query,
+    action: rcode || fields.action || "",
+    message: line,
+    raw: line,
+  }
+}
+
 function parseUserAgentLine(line, index) {
   if (!line.trim() || /\s-\s-\s\[/.test(line) || line.includes("EventID")) return null
   if (!/(mozilla|curl|wget|python-requests|sqlmap|nikto|nmap|powershell|webclient|bot|crawler|spider)/i.test(line)) return null
@@ -428,6 +647,8 @@ function parseInput(text = "") {
   lines.forEach((line, index) => {
     const json = parseJsonLine(line.trim(), index)
     if (json) { events.push(json); return }
+    const dns = parseDnsQuery(line, index)
+    if (dns) { events.push(dns); return }
     const linux = parseLinuxAuth(line, index)
     if (linux) { events.push(linux); return }
     const web = parseWebAccess(line, index)
@@ -470,8 +691,10 @@ function classify(text, events) {
     const families = []
     if (sources.has("Linux/Auth")) families.push("Linux Auth")
     if (sources.has("Web Access")) families.push("Web Access")
+    if (sources.has("DNS Logs")) families.push("DNS Logs")
     if (sources.has("EDR/SIEM Generic")) families.push("Alert Text")
     if (sources.has("Windows Event")) families.push("Windows Event")
+    if (sources.has("CloudTrail")) families.push("CloudTrail")
     if (sources.has("Suricata/EVE JSON")) families.push("Network Alert")
     if (sources.has("Network/Firewall") || sources.has("Proxy")) families.push("Network/Firewall")
     family = families.join(", ") || "Mixed"
@@ -480,9 +703,11 @@ function classify(text, events) {
   }
   else if (sources.has("Suricata/EVE JSON")) { primary = "Suricata / EVE Alert"; family = "Network Alert"; score = 95; reasons.push("Structured JSON alert fields were parsed.") }
   else if (sources.has("Windows Event")) { primary = "Windows Event / Endpoint Alert"; family = "Windows Event"; score = 90; reasons.push("Windows Event ID structure was observed.") }
+  else if (sources.has("DNS Logs")) { primary = "DNS Query Logs"; family = "DNS"; score = 85; reasons.push("DNS query/response structure was observed.") }
   else if (sources.has("Linux/Auth")) { primary = "Linux Auth / SSH Log"; family = "Linux/Auth"; score = 88; reasons.push("sshd/auth log structure was observed.") }
   else if (sources.has("Web Access")) { primary = "Web Access Log"; family = "Web"; score = 86; reasons.push("Apache/Nginx-style access log format was parsed.") }
   else if (sources.has("Network/Firewall") || sources.has("Proxy")) { primary = "Network / Firewall / Proxy Log"; family = "Network"; score = 78; reasons.push("Network key-value fields were parsed.") }
+  else if (sources.has("CloudTrail")) { primary = "CloudTrail Audit Log"; family = "Cloud"; score = 90; reasons.push("AWS CloudTrail JSON event fields were parsed.") }
   else if (sources.has("EDR/SIEM Generic")) { primary = "EDR / SIEM Alert Text"; family = "EDR/SIEM"; score = 72; reasons.push("Alert-style fields or severity keywords were observed.") }
   else if (sources.has("User-Agent")) { primary = "User-Agent List"; family = "User-Agent"; score = 70; reasons.push("User-Agent strings were detected.") }
   else if (text.trim()) reasons.push("No strong log structure was detected; entities are still extracted.")
@@ -509,6 +734,8 @@ function detectSignals(events) {
   const acceptedByIp = {}
   const statusCounts = {}
   const signatureCounts = {}
+  const dnsNxCount = {}
+  const dnsQueryCount = {}
 
   for (const event of events) {
     const raw = `${event.raw || ""} ${event.message || ""} ${event.command_line || ""}`.toLowerCase()
@@ -529,9 +756,17 @@ function detectSignals(events) {
       const id = String(event.event_id)
       if (id === "4625") addSignal(signals, event, { title: "Windows failed logon", severity: "Medium", evidence: event.raw, why: "Failed logons may indicate password guessing or access issues.", action: "Review account, host, logon type, and source." })
       if (id === "4624") addSignal(signals, event, { title: "Windows successful logon", severity: "Info", evidence: event.raw, why: "Successful logons are context-dependent.", action: "Verify expected user, host, and logon type." })
+      if (id === "4648") addSignal(signals, event, { title: "Explicit credential logon", severity: "Medium", evidence: event.raw, why: "Explicit credentials (runas) can indicate lateral movement or credential reuse.", action: "Verify target account, host, and whether the credential use was legitimate.", mitre: ["T1078"] })
       if (id === "4672") addSignal(signals, event, { title: "Special privileges assigned", severity: "Medium", evidence: event.raw, why: "Privileged logons deserve review in suspicious timelines.", action: "Confirm admin activity was expected." })
       if (id === "4688") addSignal(signals, event, { title: "Windows process creation", severity: "Info", evidence: event.command_line || event.raw, why: "Process creation provides endpoint execution context.", action: "Review parent/child process if available.", mitre: ["T1059"] })
-      if (id === "7045") addSignal(signals, event, { title: "Service installed", severity: "High", evidence: event.raw, why: "New service installation can indicate persistence.", action: "Escalate if unexpected and review service binary/path.", mitre: ["T1543"] })
+      if (id === "4720") addSignal(signals, event, { title: "User account created", severity: "High", evidence: event.raw, why: "New user account can indicate persistence or unauthorized admin activity.", action: "Validate account owner, group membership, and creation source.", mitre: ["T1136"] })
+      if (id === "4726") addSignal(signals, event, { title: "User account deleted", severity: "High", evidence: event.raw, why: "Account deletion can indicate cleanup after compromise or insider action.", action: "Verify authorized change and recover account if needed.", mitre: ["T1098"] })
+      if (id === "4732") addSignal(signals, event, { title: "User added to privileged group", severity: "High", evidence: event.raw, why: "Adding users to elevated groups can indicate privilege escalation or persistence.", action: "Verify group name, member, and authorizing user.", mitre: ["T1098"] })
+      if (id === "4740") addSignal(signals, event, { title: "Account locked out", severity: "Low", evidence: event.raw, why: "Account lockouts can indicate brute-force attempts or user errors.", action: "Check source IP and failure volume.", mitre: ["T1110"] })
+      if (id === "4768") addSignal(signals, event, { title: "Kerberos TGT requested", severity: "Info", evidence: event.raw, why: "Kerberos ticket requests are routine but may indicate abnormal access patterns at scale.", action: "Correlate with user and host baseline." })
+      if (id === "4769") addSignal(signals, event, { title: "Kerberos service ticket requested", severity: "Medium", evidence: event.raw, why: "Service ticket requests for unusual services can indicate Kerberoasting or lateral movement.", action: "Check requested SPN and requesting user context.", mitre: ["T1558"] })
+      if (id === "4719") addSignal(signals, event, { title: "Audit policy changed", severity: "Medium", evidence: event.raw, why: "Audit policy modifications can indicate defense evasion or configuration drift.", action: "Verify change was authorized.", mitre: ["T1562"] })
+      if (id === "7045") addSignal(signals, event, { title: "Service installed", severity: "High", evidence: event.raw, why: "New service installation can indicate persistence.", action: "Escalate if unexpected and review service binary/path.", mitre: ["T1543.003"] })
       if (id === "1102") addSignal(signals, event, { title: "Audit log cleared", severity: "Critical", evidence: event.raw, why: "Audit log clearing can indicate defense evasion.", action: "Escalate and preserve host evidence.", mitre: ["T1070.001"] })
     }
 
@@ -560,9 +795,28 @@ function detectSignals(events) {
       if (event.signature) signatureCounts[event.signature] = (signatureCounts[event.signature] || 0) + 1
     }
 
+    if (event.source === "CloudTrail") {
+      const action = event.action || ""
+      if (/ConsoleLogin/.test(action)) addSignal(signals, event, { title: "Cloud console login", severity: event.severity || "Medium", evidence: event.raw, why: "Console logins should be reviewed for geographic anomalies and MFA status.", action: "Check source IP, region, MFA, and IAM identity.", mitre: ["T1078"] })
+      if (/CreateUser|CreateAccessKey/.test(action)) addSignal(signals, event, { title: "IAM user or key created", severity: "High", evidence: event.raw, why: "New IAM users or access keys can indicate persistence or unauthorized access.", action: "Escalate and verify IAM change request.", mitre: ["T1098"] })
+      if (/DeleteLogGroup|DeleteTrail/.test(action)) addSignal(signals, event, { title: "Cloud audit trail altered", severity: "Critical", evidence: event.raw, why: "Deleting CloudTrail trails or log groups can indicate defense evasion.", action: "Escalate immediately and recover logs.", mitre: ["T1562"] })
+      if (/UpdateAssumeRolePolicy|PassRole/.test(action)) addSignal(signals, event, { title: "IAM privilege escalation risk", severity: "High", evidence: event.raw, why: "Role policy updates can enable privilege escalation.", action: "Verify before/after policy document and authorized user.", mitre: ["T1098"] })
+    }
+
     if (event.source === "EDR/SIEM Generic") {
       if (["High", "Critical"].includes(event.severity)) addSignal(signals, event, { title: "High-severity alert text", severity: event.severity, evidence: event.message, why: "The provided alert text contains high/critical severity.", action: "Validate scope, impacted host, user, and action taken." })
       if (/malware|quarantine|credential|lateral|blocked|suspicious/i.test(raw)) addSignal(signals, event, { title: "EDR/SIEM keyword signal", severity: "Medium", evidence: event.raw, why: "Security alert keywords were observed in the provided text.", action: "Review vendor event details and endpoint evidence." })
+    }
+
+    if (event.source === "DNS Logs") {
+      const domain = event.domain || ""
+      addSignal(signals, event, { title: "DNS query observed", severity: "Info", evidence: domain, why: "DNS queries provide network telemetry and can reveal C2 or data exfiltration.", action: "Review query patterns and correlate with known threats." })
+      if (/NXDOMAIN/i.test(event.action || "")) {
+        addSignal(signals, event, { title: "NXDOMAIN DNS response", severity: "Low", evidence: domain, why: "NXDOMAIN responses can indicate DNS tunneling, DGA domains, or stub resolution.", action: "Resolve domain over time and check for recurring NXDOMAIN patterns." })
+        dnsNxCount[domain] = (dnsNxCount[domain] || 0) + 1
+      }
+      if (/\.(?:tk|ml|ga|cf|gq|xyz|top|loan|work|click|download|date|men|bid|trade|webcam|science|racing|review|faith|win|loan|date|men)/i.test(domain)) addSignal(signals, event, { title: "Suspicious TLD in DNS query", severity: "Medium", evidence: domain, why: "Querying known suspicious TLDs can indicate malware C2 or risky domain resolution.", action: "Check domain against threat intel and DNS firewall.", mitre: ["T1071.004"] })
+      dnsQueryCount[domain] = (dnsQueryCount[domain] || 0) + 1
     }
   }
 
@@ -577,6 +831,9 @@ function detectSignals(events) {
   Object.entries(signatureCounts).forEach(([signature, count]) => {
     if (count > 1) signals.push({ title: "Repeated alert signature", severity: "Medium", evidence: `${signature}: ${count} times`, why: "Repeated signatures can indicate ongoing activity or noisy detection.", recommended_action: "Group by source, destination, and time.", source: "Suricata/EVE JSON", mitre: [] })
   })
+  Object.entries(dnsNxCount).forEach(([domain, count]) => {
+    if (count >= 2) signals.push({ title: `Repeated NXDOMAIN for same domain`, severity: "Low", evidence: `${domain}: ${count} times`, why: "Repeated NXDOMAIN for the same name can indicate broken C2 or DNS tunneling.", recommended_action: "Check domain reputation and search for related queries.", source: "DNS Logs", mitre: ["T1071.004"] })
+  })
   return signals.sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity))
 }
 
@@ -589,12 +846,18 @@ function mitreCandidates(signals) {
     if (signal.mitre?.includes("T1059")) add("T1059", "Command and Scripting Interpreter", signal.title)
     if (signal.mitre?.includes("T1027")) add("T1027", "Obfuscated Files or Information", signal.title)
     if (signal.mitre?.includes("T1543")) add("T1543", "Create or Modify System Process", signal.title)
+    if (signal.mitre?.includes("T1543.003")) add("T1543.003", "Windows Service", signal.title)
     if (signal.mitre?.includes("T1070.001")) add("T1070.001", "Clear Windows Event Logs", signal.title)
     if (signal.mitre?.includes("T1110")) add("T1110", "Brute Force", signal.title)
     if (signal.mitre?.includes("T1078")) add("T1078", "Valid Accounts", signal.title)
     if (signal.mitre?.includes("T1548")) add("T1548", "Abuse Elevation Control Mechanism", signal.title)
     if (signal.mitre?.includes("T1136")) add("T1136", "Create Account", signal.title)
+    if (signal.mitre?.includes("T1098")) add("T1098", "Account Manipulation", signal.title)
+    if (signal.mitre?.includes("T1558")) add("T1558", "Steal or Forge Kerberos Tickets", signal.title)
+    if (signal.mitre?.includes("T1562")) add("T1562", "Impair Defenses", signal.title)
+    if (signal.mitre?.includes("T1071.004")) add("T1071.004", "DNS C2 / Application Layer Protocol", signal.title)
     if (/web|path traversal|sql injection|admin path|automation user-agent|probing/i.test(`${signal.source} ${signal.title}`)) add("T1595", "Active Scanning", signal.title)
+    if (/cloud|cloudtrail|console.*login|iam/i.test(`${signal.source} ${signal.title}`)) add("T1525", "Implant Container Image / Cloud", signal.title)
   })
   return candidates
 }
@@ -627,6 +890,7 @@ function guidance(classification, signals, entities) {
   const high = signals.some((signal) => ["Critical", "High"].includes(signal.severity))
   const hasCommand = entities.command_lines.length > 0
   const hasUrls = entities.urls.length || entities.domains.length
+  const hasCve = entities.cves.length > 0
   return {
     l1: [
       "Identify affected host, user, source IP, destination, event ID, and action from the normalized events.",
@@ -635,7 +899,8 @@ function guidance(classification, signals, entities) {
       "Add key IPs, domains, URLs, usernames, hashes, event IDs, and top signals to the ticket.",
       hasUrls ? "Route suspicious URLs/domains/IPs to Recon & Exposure." : "Document that no URL/domain pivot was extracted if confirmed.",
       hasCommand ? "Send encoded or obfuscated command lines to CyberChef." : "If command lines are absent, note the visibility limitation.",
-    ],
+      hasCve ? "Route extracted CVE references to threat intel and check for known exploit activity." : null,
+    ].filter(Boolean),
     l2: [
       "Search the same source IP, user, host, event ID, or signature across a broader time range.",
       "Check successful logins after failed attempts and correlate with session/process activity.",
@@ -644,7 +909,8 @@ function guidance(classification, signals, entities) {
       "Build or tune detection logic for repeated patterns and route candidates to Detection & MITRE.",
       "Copy Markdown or export JSON with timeline, evidence, limitations, and disposition.",
       "Validate parser output with source telemetry owner where needed.",
-    ],
+      hasCve ? "Correlate any extracted CVE references with asset vulnerability data." : null,
+    ].filter(Boolean),
   }
 }
 
@@ -667,7 +933,10 @@ function buildReport(result) {
     `- URLs: ${result.entities.urls.map((item) => item.normalized).join(", ") || "None"}`,
     `- Domains: ${result.entities.domains.map((item) => item.normalized).join(", ") || "None"}`,
     `- Users: ${result.entities.users.map((item) => item.normalized).join(", ") || "None"}`,
+    `- Hosts: ${result.entities.hosts.map((item) => item.normalized).join(", ") || "None"}`,
     `- Event IDs: ${result.entities.event_ids.map((item) => item.normalized).join(", ") || "None"}`,
+    `- CVEs: ${result.entities.cves.map((item) => item.normalized).join(", ") || "None"}`,
+    `- MITRE IDs: ${result.entities.attack_ids.map((item) => item.normalized).join(", ") || "None"}`,
     "",
     "## Suspicious Signals",
     ...(result.signals.length ? result.signals.map((item) => `- ${item.severity}: ${item.title} - ${item.evidence}`) : ["- No suspicious deterministic signals identified."]),
@@ -698,14 +967,22 @@ function incidentSummary(result) {
   if (!result) return ""
   const hasSuccessAfterFailure = result.signals.some((signal) => signal.title === "Successful login after failures")
   const hasSudo = result.events.some((event) => event.event_type === "linux_sudo" || event.event_type === "linux_su")
-  const hasAccount = result.events.some((event) => event.event_type === "linux_user_created" || event.event_id === "4720")
+  const hasAccount = result.events.some((event) => event.event_type === "linux_user_created" || event.event_id === "4720" || event.event_id === "4726" || event.event_id === "4732")
   const hasWeb = result.signals.some((signal) => /Path traversal|SQL injection|Admin path|automation/i.test(signal.title))
-  if (hasSuccessAfterFailure || hasSudo || hasAccount || hasWeb) {
+  const hasService = result.events.some((event) => event.event_id === "7045")
+  const hasLogClear = result.events.some((event) => event.event_id === "1102")
+  const hasKerberos = result.events.some((event) => event.event_id === "4769")
+  const hasCloudTrail = result.signals.some((signal) => /CloudTrail|IAM|console.*login|cloud/.test(signal.title))
+  if (hasSuccessAfterFailure || hasSudo || hasAccount || hasWeb || hasService || hasLogClear || hasKerberos || hasCloudTrail) {
     return [
       hasSuccessAfterFailure ? "Possible SSH compromise sequence detected: failed attempts were followed by a successful login." : null,
       hasSudo ? "Privilege escalation activity appears in the same log set." : null,
-      hasAccount ? "Account creation was observed and needs ownership validation." : null,
+      hasAccount ? "Account or group changes observed and need ownership validation." : null,
       hasWeb ? "Web logs also show sensitive path probing or scanner-style activity." : null,
+      hasService ? "New service installation was observed — review for unauthorized persistence." : null,
+      hasLogClear ? "Audit log clearing detected — escalate for host evidence preservation." : null,
+      hasKerberos ? "Kerberos service ticket requests may indicate Kerberoasting or lateral movement." : null,
+      hasCloudTrail ? "CloudTrail events indicate cloud/IAM activity requiring cross-environment review." : null,
     ].filter(Boolean).join(" ")
   }
   const top = result.signals[0]
@@ -722,10 +999,14 @@ function entityCount(entities = {}) {
 
 function detectionCategory(signal) {
   const haystack = `${signal.source} ${signal.title}`.toLowerCase()
-  if (/ssh|login|logon|auth|valid account|brute|password/.test(haystack)) return "Authentication"
-  if (/account|user created|group/.test(haystack)) return "Account Changes"
+  if (/ssh|login|logon|auth|valid account|brute|password|kerberos/.test(haystack)) return "Authentication"
+  if (/account|user created|group|privilege|admin.*change/.test(haystack)) return "Account Changes"
   if (/web|path|sql|xss|admin|automation|http|probing/.test(haystack)) return "Web Probing"
+  if (/dns|nxdomain|domain.*query|dga/.test(haystack)) return "DNS / C2"
+  if (/firewall|deny|block|network|port/.test(haystack)) return "Network"
   if (/alert|edr|siem|suricata|signature/.test(haystack)) return "Alert Text"
+  if (/cloudtrail|cloud|console.*login|iam|access.*key/.test(haystack)) return "Cloud / IAM"
+  if (/service|process|scheduled|persistence|startup/.test(haystack)) return "Endpoint / Persistence"
   return "Other"
 }
 
@@ -958,9 +1239,43 @@ function RouteActions({ result, text, setPage, copy, report }) {
 }
 
 
-function LogEventExplainerPanel({ explanation, copy }) {
+function MitreTacticsPanel({ tactics = [] }) {
+  if (!tactics.length) return null
+  return (
+    <WorkbenchPanel>
+      <div className="ba-output-section-head">
+        <p className="ba-output-section-eyebrow"><Shield size={14} className="inline mr-1" />MITRE ATT&CK</p>
+        <h2 className="ba-output-section-title">Tactics present</h2>
+      </div>
+      <div className="ba-mitre-tactic-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "0.65rem" }}>
+        {tactics.map((tactic) => (
+          <article key={tactic.id} style={{ border: "1px solid var(--ba-border)", borderRadius: "16px", background: "rgba(255,255,255,.028)", padding: "0.85rem" }}>
+            <span className="ba-chip ba-status-info">{tactic.id}</span>
+            <h3 style={{ margin: "0.5rem 0 0.35rem", fontSize: "0.85rem", color: "#fff", fontWeight: 760 }}>{tactic.name}</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+              {tactic.techniques.map((tech) => (
+                <span key={tech.id} style={{ fontSize: "0.7rem", color: "var(--ba-text-muted)", border: "1px solid var(--ba-border)", borderRadius: "999px", padding: "0.15rem 0.45rem", background: "rgba(255,255,255,.03)" }}>{tech.id}</span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </WorkbenchPanel>
+  )
+}
+
+function LogEventExplainerPanel({ explanation, result, copy, text }) {
+  const priority = useMemo(() => computeAlertPriority(text || ""), [text])
+  const narrative = useMemo(() => {
+    if (!text) return ""
+    return generateAlertNarrative(text, priority)
+  }, [text, priority])
+  const [showNarrative, setShowNarrative] = useState(false)
   if (!explanation) return null
   const tone = ["Critical", "High"].includes(explanation.severity) ? "ba-status-danger" : explanation.severity === "Medium" ? "ba-status-warning" : "ba-status-info"
+  const primaryEvent = result?.events?.[0] || null
+  const mitreInfo = primaryEvent ? getMitreForEvent(primaryEvent) : null
+  const barColor = priority.level === "critical" ? "var(--clr-red)" : priority.level === "high" ? "var(--clr-orange)" : priority.level === "medium" ? "var(--clr-yellow)" : "var(--clr-blue)"
   return (
     <WorkbenchPanel className="ba-log-explainer-panel">
       <div className="ba-log-explainer-head">
@@ -969,8 +1284,33 @@ function LogEventExplainerPanel({ explanation, copy }) {
           <h2>{explanation.title}</h2>
           <p>{explanation.whatHappened}</p>
         </div>
-        <span className={`ba-chip ${tone}`}>{explanation.severity} · {explanation.confidence} confidence</span>
+        <div className="ba-chip-list" style={{ flexShrink: 0 }}>
+          {mitreInfo ? <span className="ba-chip ba-status-local">MITRE: {mitreInfo.id} {mitreInfo.name}</span> : null}
+          <span className={`ba-chip ${tone}`}>{explanation.severity} · {explanation.confidence} confidence</span>
+        </div>
       </div>
+      {priority.score > 0 ? (
+        <div className="ba-log-priority-section">
+          <div className="ba-log-priority-row">
+            <span className="ba-log-priority-label">Alert Priority: {priority.level.toUpperCase()} ({priority.score}/100)</span>
+            <span className={`ba-chip ${priority.level === "critical" || priority.level === "high" ? "ba-status-danger" : priority.level === "medium" ? "ba-status-warning" : "ba-status-info"}`}>{priority.confidence} confidence</span>
+          </div>
+          <div className="ba-log-priority-bar-track">
+            <div className="ba-log-priority-bar-fill" style={{ width: `${priority.score}%`, background: barColor }} />
+          </div>
+          <div className="ba-log-priority-signals">
+            {priority.matched?.slice(0, 3).map((m, i) => (
+              <span key={i} className="ba-chip ba-status-local" style={{ fontSize: "11px" }}>{m.pattern} ({m.score})</span>
+            ))}
+          </div>
+          <button type="button" className="ba-button-secondary" style={{ marginTop: "6px" }} onClick={() => setShowNarrative((v) => !v)}>
+            <Clipboard size={13} className="inline mr-1" />{showNarrative ? "Hide" : "Generate"} Alert Report
+          </button>
+          {showNarrative && narrative ? (
+            <pre className="ba-log-narrative-block">{narrative}</pre>
+          ) : null}
+        </div>
+      ) : null}
       <div className="ba-log-explainer-grid">
         <section>
           <h3><BarChart3 size={14} className="inline mr-1" />Important fields</h3>
@@ -1067,6 +1407,7 @@ export default function LogsAlertsPage({ setPage }) {
 
   const detections = useMemo(() => groupedDetections(result?.signals || []), [result])
   const mitre = useMemo(() => mitreDetails(result), [result])
+  const mitreTactics = useMemo(() => collectMitreTactics(result?.events || []), [result])
   const report = result?.markdown || ""
   const brief = useMemo(() => buildTriageBrief(result, detections), [result, detections])
   const explanation = useMemo(() => (result ? explainLogEvent(text, result) : null), [result, text])
@@ -1115,6 +1456,8 @@ export default function LogsAlertsPage({ setPage }) {
     ["Commands", result.entities.command_lines, (value) => { sendPending("command", value, "logs-alerts", "soc-guide"); setPage?.("soc-guide") }],
     ["Hashes", result.entities.hashes, (value) => { sendPending("hash", value, "logs-alerts", "attachment-triage"); setPage?.("attachment-triage") }],
     ["Event IDs", result.entities.event_ids, (value) => { sendPending("event_id", value, "logs-alerts", "soc-guide"); setPage?.("soc-guide") }],
+    ["CVEs", result.entities.cves],
+    ["MITRE IDs", result.entities.attack_ids],
   ] : []
 
   return (
@@ -1181,7 +1524,9 @@ export default function LogsAlertsPage({ setPage }) {
             ]}
           />
 
-          <LogEventExplainerPanel explanation={explanation} copy={copy} />
+          <LogEventExplainerPanel explanation={explanation} result={result} copy={copy} text={text} />
+
+          <MitreTacticsPanel tactics={mitreTactics} />
 
           <LogQueryBuilder copy={copy} setNotice={setNotice} />
 

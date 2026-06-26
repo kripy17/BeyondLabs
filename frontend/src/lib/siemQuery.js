@@ -37,6 +37,18 @@ const FIELD_ALIASES = {
 const SEVERITY_RANK = { info: 1, low: 2, medium: 3, high: 4, critical: 5 }
 const SEARCH_META_FIELDS = new Set(["index", "source", "sourcetype", "host", "earliest", "latest"])
 
+const SIEM_QUERY_MITRE_MAP = {
+  process_start: "T1059",
+  process_create: "T1059",
+  network_connection: "T1071",
+  dns_query: "T1071.004",
+  url_request: "T1071.001",
+  windows_event: "",
+  cloudtrail_event: "T1078",
+  edr: "T1059",
+  proxy: "T1071.001",
+}
+
 function deriveTimestamp(event = {}) {
   const direct = event.timestamp || event._time || event.time || event.date || event.datetime || event.TimeCreated || event['@timestamp'] || ""
   if (direct) return String(direct)
@@ -112,6 +124,7 @@ export function normalizeEvent(event = {}, index = 0) {
     iocs: event.iocs || {},
     raw: event.raw || event.message || JSON.stringify(event),
     matched_rule: event.matched_rule || "",
+    mitre: SIEM_QUERY_MITRE_MAP[event.event_type || event.sourcetype] || "",
   }
 }
 

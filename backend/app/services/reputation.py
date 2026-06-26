@@ -53,6 +53,15 @@ def verdict_from_rating(rating: str | None) -> str:
     return "unknown"
 
 
+INDICATOR_MITRE_MAP = {
+    "ip": {"id": "T1071", "name": "Application Layer Protocol", "subtechniques": [{"id": "T1071.001", "name": "Web Protocols"}]},
+    "domain": {"id": "T1583", "name": "Acquire Infrastructure", "subtechniques": [{"id": "T1583.001", "name": "Domains"}]},
+    "url": {"id": "T1566", "name": "Phishing", "subtechniques": [{"id": "T1566.002", "name": "Spearphishing Link"}]},
+    "hash": {"id": "T1204", "name": "User Execution", "subtechniques": [{"id": "T1204.002", "name": "Malicious File"}]},
+    "email": {"id": "T1566", "name": "Phishing", "subtechniques": [{"id": "T1566.001", "name": "Spearphishing Attachment"}, {"id": "T1566.002", "name": "Spearphishing Link"}]},
+}
+
+
 def finding(
     *,
     indicator: str,
@@ -70,7 +79,7 @@ def finding(
     recommended_next_step: str = "Correlate with case evidence and logs.",
     raw_details: dict | None = None,
 ) -> dict:
-    return {
+    result = {
         "id": f"{indicator_type}:{indicator}:{source}:{method}:{checked_at or utc_now()}",
         "indicator": indicator,
         "type": indicator_type,
@@ -87,6 +96,10 @@ def finding(
         "recommended_next_step": recommended_next_step,
         "raw_details": raw_details,
     }
+    mitre = INDICATOR_MITRE_MAP.get(indicator_type)
+    if mitre:
+        result["mitre_attack"] = mitre
+    return result
 
 
 def local_reputation_finding(indicator: str, indicator_type: str, raw: dict) -> dict:

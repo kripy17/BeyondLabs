@@ -106,7 +106,85 @@ const QUICK_RECIPE_PRESETS = [
     description: "Break a URL into host, path, query parameters, and related parts.",
     sample: "https://example.com/login?user=test&id=7",
   },
+  {
+    id: "hex-decode-extract",
+    label: "Hex Decode -> Extract IOCs",
+    operations: ["from-hex", "extract-iocs"],
+    description: "Decode hex-encoded text, then extract indicators.",
+    sample: "68747470733a2f2f6578616d706c652e636f6d2f6c6f67696e",
+  },
+  {
+    id: "extract-ips-clean",
+    label: "Extract IPs -> Sort -> Unique",
+    operations: ["extract-ips", "sort-lines", "unique-lines"],
+    description: "Pull unique sorted IP addresses from messy logs or blacklists.",
+    sample: "10.0.0.2\n10.0.0.1\n10.0.0.1\n10.0.0.3",
+  },
+  {
+    id: "extract-cves-sort",
+    label: "Extract CVEs -> Sort -> Unique",
+    operations: ["extract-cves", "sort-lines", "unique-lines"],
+    description: "Pull unique sorted CVE references from advisory or changelog text.",
+    sample: "CVE-2024-1234\nFixed CVE-2024-5678 and CVE-2024-1234\nCVE-2023-9999",
+  },
+  {
+    id: "defang-normalize-ioc",
+    label: "Defang -> Normalize IOCs",
+    operations: ["defang", "normalize-ioc-list"],
+    description: "Defang indicators then normalize the IOC list.",
+    sample: "  http://example.com/login\nExample.com\nhttps://example.com\n",
+  },
+  {
+    id: "base64-hex-decode",
+    label: "Base64 -> Hex -> Decode",
+    operations: ["from-base64", "from-hex"],
+    description: "Decode Base64-wrapped hex payload (common in encoded scripts).",
+    sample: "NDg2NTczNzA3Mzc0NzM3YTY1NzI3MzNhMmYyZjY1NzgyNjE2ZDcwNmMyZTY3NzI2Zg==",
+  },
+  {
+    id: "url-decode-parse",
+    label: "URL Decode -> Parse URL",
+    operations: ["url-decode", "parse-url"],
+    description: "Decode then structurally analyze a URL for phishing or C2 review.",
+    sample: "https%3A%2F%2Fevil.example.com%2F%2Fgate.php%3Fid%3D1234",
+  },
+  {
+    id: "timestamp-format",
+    label: "Timestamp Convert",
+    operations: ["timestamp"],
+    description: "Convert epoch/unix timestamps to human-readable format.",
+    sample: "1735689600\n1700000000",
+  },
+  {
+    id: "powershell-defang-iocs",
+    label: "PS Decode -> Extract IOCs -> Defang",
+    operations: ["from-base64", "powershell-analyze", "extract-iocs", "defang"],
+    description: "Decode Base64 PowerShell, triage the script, extract indicators, and defang them.",
+    sample: "JHVybCA9ICJodHRwczovL2V4YW1wbGUuY29tL2Ryb3AuZXhlIjtfaW52b2tlLVdlYlJlcXVlc3QgJHVybCAtT3V0RmlsZSBDOlx0ZW1wX3BheWxvYWQuZXhl",
+  },
+  {
+    id: "multi-base64-round",
+    label: "Multi-layer Base64 Decode",
+    operations: ["from-base64", "from-base64", "from-base64"],
+    description: "Decode three layers of Base64 (common malware evasion pattern).",
+    sample: "UjBsR09EbGhMMkIxWkdsdVp6MGlNakF5TlRZaUxDSmhiR2NpT2lKaGQj",
+  },
 ]
+
+const RECIPE_MITRE_MAP = {
+  "url-decode-iocs": "T1595 (Active Scanning)",
+  "base64-url-iocs": "T1059 (Command and Scripting Interpreter)",
+  "base64-powershell": "T1059.001 (PowerShell)",
+  "html-url-extract": "T1566 (Phishing)",
+  "unicode-ioc-extract": "T1059 (Command and Scripting Interpreter)",
+  "json-ioc-review": "T1595 (Active Scanning)",
+  "jwt-decode": "T1078 (Valid Accounts)",
+  "parse-url": "T1566 (Phishing)",
+  "hex-decode-extract": "T1059 (Command and Scripting Interpreter)",
+  "extract-ips-clean": "T1046 (Network Service Discovery)",
+  "extract-cves-sort": "T1595 (Active Scanning)",
+  "timestamp-format": "T1595 (Active Scanning)",
+}
 
 const BASE_CATEGORIES = [
   {
@@ -1932,6 +2010,12 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
     setNotice("Output copied.")
   }
 
+  function copyAllStepsOutput() {
+    const stepSummaries = steps.filter((s) => s.status === "ok" && s.output).map((s) => `[Step ${s.index + 1}] ${s.label}\n${"─".repeat(40)}\n${s.output}`).join("\n\n")
+    navigator.clipboard?.writeText(stepSummaries || output)
+    setNotice("All step outputs copied.")
+  }
+
   function copyMarkdownSummary() {
     navigator.clipboard?.writeText(markdownSummary)
     setNotice("Markdown summary copied.")
@@ -2004,6 +2088,39 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
     link.click()
     URL.revokeObjectURL(url)
     setNotice("Output downloaded as text.")
+  }
+
+  function exportRecipe() {
+    const payload = {
+      version: 1,
+      exported_at: new Date().toISOString(),
+      label: "BeyondArch CyberChef Recipe",
+      recipe: serializeRecipe(recipe),
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `beyondarch-recipe-${Date.now()}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    setNotice("Recipe exported as JSON.")
+  }
+
+  function importRecipeFromFile(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        importRecipeText(e.target.result)
+        setNotice(`Recipe imported from ${file.name}.`)
+      } catch (err) {
+        setError(err.message || "Recipe import failed.")
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = ""
   }
 
   function clearInput() {
@@ -2283,8 +2400,11 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
                       className="mb-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-left transition hover:border-cyan-800 hover:bg-white/5"
                     >
                       <span className="block truncate text-xs font-semibold text-zinc-100">{label}</span>
-                      <span className="mt-0.5 line-clamp-2 block text-[10px] leading-4 text-zinc-500">{description}</span>
-                      <span className="mt-1 block truncate text-[10px] text-cyan-300/80">{operations.map((operationId) => OPERATION_BY_ID[operationId]?.label || operationId).join(" -> ")}</span>
+                      <span className="mt-0.5 line-clamp-2 block text-[10px] leading-4 text-zinc-500">Purpose: {description}</span>
+                      <span className="mt-1 flex items-center gap-2">
+                        <span className="block truncate text-[10px] text-cyan-300/80">{operations.map((operationId) => OPERATION_BY_ID[operationId]?.label || operationId).join(" -> ")}</span>
+                        {RECIPE_MITRE_MAP[id] && <span className="ba-chip ba-status-info shrink-0">MITRE: {RECIPE_MITRE_MAP[id]}</span>}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -2371,6 +2491,13 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
                 <button className={iconButtonClass()} onClick={loadSavedRecipe} title="Open recipe" aria-label="Open recipe">
                   <FolderOpen className="h-4 w-4" />
                 </button>
+                <button className={iconButtonClass()} onClick={exportRecipe} title="Export recipe as JSON" aria-label="Export recipe">
+                  <Upload className="h-4 w-4" />
+                </button>
+                <label className={iconButtonClass() + " relative cursor-pointer"} title="Import recipe from JSON" aria-label="Import recipe">
+                  <Download className="h-4 w-4" />
+                  <input type="file" accept=".json" className="absolute inset-0 cursor-pointer opacity-0" onChange={importRecipeFromFile} />
+                </label>
                 <button className={iconButtonClass()} onClick={resetRecipe} title="Clear recipe" aria-label="Clear recipe">
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -2382,6 +2509,7 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
                 ["normalize-then-defang", "Normalize + defang"],
                 ["base64-powershell", "Base64 + PS triage"],
                 ["json-ioc-review", "JSON + IOCs"],
+                ["base64-hex-decode", "B64 → Hex"],
               ].map(([presetId, label]) => (
                 <button key={presetId} className="ba-button-ghost rounded-lg px-2.5 py-1.5 text-[11px] font-black" onClick={() => loadPreset(presetId)}>{label}</button>
               ))}
@@ -2547,6 +2675,7 @@ export default function CyberChefPage({ initialMode = "defang", setPage }) {
                   <div className="cyberchef-send-menu absolute right-0 z-20 mt-2 w-56 rounded-xl border border-white/10 bg-black/40 p-2 shadow-xl">
                     <button className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-cyan-100" onClick={swapInputOutput} disabled={!input && !output}><Shuffle className="mr-2 inline h-3.5 w-3.5" />Swap input/output</button>
                     <button className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-cyan-100" onClick={downloadOutput}><Download className="mr-2 inline h-3.5 w-3.5" />Download output</button>
+                    <button className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-cyan-100" onClick={copyAllStepsOutput} disabled={steps.length < 2}>Copy all step outputs</button>
                     <button className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-cyan-100" onClick={copyMarkdownSummary}>Copy analyst summary</button>
                     <button className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-zinc-200 hover:bg-white/5 hover:text-cyan-100" onClick={() => {
                       const entry = addTimelineArtifact({ title: `CyberChef output: ${recipePipeline || "manual transform"}`, summary: `Recipe ${recipePipeline || "empty"}; output ${output.length} chars.`, source: "CyberChef", raw: output || input, tags: ["transform"] })

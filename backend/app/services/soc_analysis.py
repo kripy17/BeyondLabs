@@ -49,17 +49,30 @@ def parse_logs(text: str) -> dict:
 
     pattern_hits = {}
 
+    MITRE_LOG_MAP = {
+        "failed_login": {"id": "T1110", "name": "Brute Force"},
+        "bruteforce": {"id": "T1110", "name": "Brute Force"},
+        "privilege": {"id": "T1078", "name": "Valid Accounts"},
+        "web_attack": {"id": "T1190", "name": "Exploit Public-Facing Application"},
+        "scanner": {"id": "T1595", "name": "Active Scanning"},
+        "malware": {"id": "T1204", "name": "User Execution"},
+    }
+
     lowered = text.lower()
     for category, keywords in SUSPICIOUS_LOG_PATTERNS.items():
         hits = [keyword for keyword in keywords if keyword in lowered]
         if hits:
             pattern_hits[category] = hits
-            findings.append({
+            finding = {
                 "severity": "medium" if category not in ["web_attack", "malware"] else "high",
                 "title": f"{category.replace('_', ' ').title()} indicators found",
                 "detail": f"Matched: {', '.join(hits)}",
                 "recommendation": "Review matching log lines and correlate with user, source IP, and timeline."
-            })
+            }
+            mitre = MITRE_LOG_MAP.get(category)
+            if mitre:
+                finding["mitre_attack"] = mitre
+            findings.append(finding)
 
     for line in lines[:300]:
         linux_match = LINUX_AUTH_RE.search(line)
@@ -176,6 +189,47 @@ def parse_user_agent(user_agent: str) -> dict:
     }
 
 
+MITRE_MAP = {
+    "phishing": {
+        "id": "T1566",
+        "name": "Phishing",
+        "subtechniques": [
+            {"id": "T1566.001", "name": "Spearphishing Attachment"},
+            {"id": "T1566.002", "name": "Spearphishing Link"},
+        ],
+    },
+    "malware": {
+        "id": "T1204",
+        "name": "User Execution",
+        "subtechniques": [
+            {"id": "T1204.002", "name": "Malicious File"},
+        ],
+    },
+    "suspicious_login": {
+        "id": "T1078",
+        "name": "Valid Accounts",
+        "subtechniques": [
+            {"id": "T1078.004", "name": "Cloud Accounts"},
+        ],
+    },
+    "web_attack": {
+        "id": "T1190",
+        "name": "Exploit Public-Facing Application",
+    },
+    "data_exfiltration": {
+        "id": "T1048",
+        "name": "Exfiltration Over Alternative Protocol",
+    },
+    "recon_scanning": {
+        "id": "T1595",
+        "name": "Active Scanning",
+        "subtechniques": [
+            {"id": "T1595.001", "name": "Scanning IP Blocks"},
+            {"id": "T1595.002", "name": "Vulnerability Scanning"},
+        ],
+    },
+}
+
 def triage_alert(title: str, description: str = "", raw_log: str = "") -> dict:
     combined = f"{title}\n{description}\n{raw_log}".lower()
 
@@ -193,10 +247,14 @@ def triage_alert(title: str, description: str = "", raw_log: str = "") -> dict:
     for category, keywords in categories.items():
         hits = [keyword for keyword in keywords if keyword in combined]
         if hits:
-            matched_categories.append({
+            entry = {
                 "category": category,
                 "matched_keywords": hits,
-            })
+            }
+            mitre = MITRE_MAP.get(category)
+            if mitre:
+                entry["mitre_attack"] = mitre
+            matched_categories.append(entry)
 
     severity = "low"
 

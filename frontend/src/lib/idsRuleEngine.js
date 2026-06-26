@@ -246,6 +246,135 @@ export const IDS_TEMPLATE_LIBRARY = [
       http_header: false,
     },
   },
+  {
+    id: "ldap-query-injection",
+    name: "LDAP query injection",
+    description: "Detects LDAP injection keywords in HTTP request URI targeting directory services.",
+    tags: ["web", "ldap", "injection"],
+    data: {
+      engine: "snort", action: "alert", protocol: "tcp",
+      src_ip: "any", src_port: "any", direction: "->", dst_ip: "any", dst_port: "80",
+      msg: "Possible LDAP injection attempt in URI",
+      content: "(&(objectClass=*", pcre: "", flow: "to_server,established",
+      classtype: "web-application-attack", priority: "1", sid: "1000009", rev: "1",
+      extra_options: "", nocase: true, http_uri: true, http_header: false,
+    },
+  },
+  {
+    id: "smb-lateral-psexec",
+    name: "SMB lateral movement (PsExec)",
+    description: "Detects PsExec-style named pipe traffic over SMB, a common lateral movement vector.",
+    tags: ["lateral", "smb", "psexec"],
+    data: {
+      engine: "snort", action: "alert", protocol: "tcp",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "$HOME_NET", dst_port: "445",
+      msg: "Possible PsExec lateral movement via SMB",
+      content: "|5c 00|pipe|5c 00|", pcre: "/(svcctl|winexesvc|psexesvc)/i",
+      flow: "to_server,established", classtype: "trojan-activity", priority: "1", sid: "1000010", rev: "1",
+      extra_options: "", nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "log4j-jndi-probe",
+    name: "Log4j JNDI probe",
+    description: "Detects Log4j shell JNDI injection probes in HTTP traffic.",
+    tags: ["web", "log4j", "rce"],
+    data: {
+      engine: "suricata", action: "alert", protocol: "tcp",
+      src_ip: "any", src_port: "any", direction: "->", dst_ip: "any", dst_port: "any",
+      msg: "Possible Log4j JNDI injection probe",
+      content: "${jndi:", pcre: "", flow: "to_server,established",
+      classtype: "web-application-attack", priority: "1", sid: "1000011", rev: "1",
+      extra_options: "reference:url,cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228",
+      nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "ssh-brute-force",
+    name: "SSH brute force (high rate)",
+    description: "Detects repeated SSH authentication failures at high rate (coarse heuristic).",
+    tags: ["ssh", "brute-force", "auth"],
+    data: {
+      engine: "suricata", action: "alert", protocol: "tcp",
+      src_ip: "any", src_port: "any", direction: "->", dst_ip: "$HOME_NET", dst_port: "22",
+      msg: "Possible SSH brute force attack",
+      content: "Failed password", pcre: "", flow: "to_server,established",
+      classtype: "attempted-admin", priority: "2", sid: "1000012", rev: "1",
+      extra_options: "threshold: type both, track by_src, count 10, seconds 30",
+      nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "certutil-download",
+    name: "LOLBin file download (certutil)",
+    description: "Detects certutil used to download a remote payload.",
+    tags: ["lolbin", "download", "execution"],
+    data: {
+      engine: "suricata", action: "alert", protocol: "tcp",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "$EXTERNAL_NET", dst_port: "80",
+      msg: "Possible certutil payload download",
+      content: "certutil", pcre: "/certutil.*(-urlcache|-split|-f)/i",
+      flow: "to_server,established", classtype: "trojan-activity", priority: "1", sid: "1000013", rev: "1",
+      extra_options: "", nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "dns-malware-domain",
+    name: "DNS query to known malware domain",
+    description: "Detects DNS queries to a blocklisted malware domain.",
+    tags: ["dns", "c2", "blocklist"],
+    data: {
+      engine: "suricata", action: "alert", protocol: "dns",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "any", dst_port: "53",
+      msg: "DNS query to known malware domain",
+      content: "", pcre: "/\\.(xyz|top|club|work)\\b/i",
+      flow: "to_server", classtype: "trojan-activity", priority: "1", sid: "1000014", rev: "1",
+      extra_options: "reference:url,example.com/blocklist",
+      nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "ntlm-relay-smb",
+    name: "NTLM relay / pass-the-hash (SMB)",
+    description: "Detects anomalous SMB session setup patterns associated with relay or PtH attacks.",
+    tags: ["smb", "pth", "lateral"],
+    data: {
+      engine: "snort", action: "alert", protocol: "tcp",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "$HOME_NET", dst_port: "445",
+      msg: "Possible NTLM relay or pass-the-hash via SMB",
+      content: "|00 00 00|", pcre: "/SMB.*Session Setup/i",
+      flow: "to_server,established", classtype: "trojan-activity", priority: "1", sid: "1000015", rev: "1",
+      extra_options: "", nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "mimikatz-lsass",
+    name: "Mimikatz-style LSASS access",
+    description: "Detects attempts to access LSASS process memory via SMB named pipe or remote process API calls.",
+    tags: ["credential-access", "lsass", "mimikatz"],
+    data: {
+      engine: "suricata", action: "alert", protocol: "tcp",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "$HOME_NET", dst_port: "445",
+      msg: "Possible Mimikatz LSASS credential dumping via SMB",
+      content: "lsass", pcre: "",
+      flow: "to_server,established", classtype: "attempted-admin", priority: "1", sid: "1000016", rev: "1",
+      extra_options: "", nocase: true, http_uri: false, http_header: false,
+    },
+  },
+  {
+    id: "outbound-rdp",
+    name: "Outbound RDP (unusual egress)",
+    description: "Detects outbound RDP traffic from internal hosts, an uncommon pattern that may indicate tunneling.",
+    tags: ["rdp", "egress", "tunnel"],
+    data: {
+      engine: "snort", action: "alert", protocol: "tcp",
+      src_ip: "$HOME_NET", src_port: "any", direction: "->", dst_ip: "$EXTERNAL_NET", dst_port: "3389",
+      msg: "Outbound RDP traffic from internal host",
+      content: "", pcre: "",
+      flow: "to_server,established", classtype: "policy-violation", priority: "2", sid: "1000017", rev: "1",
+      extra_options: "", nocase: false, http_uri: false, http_header: false,
+    },
+  },
 ]
 
 export function normalizeIdsPayload(payload = {}) {
@@ -394,6 +523,14 @@ export function reviewIdsRule({ payload = {}, rule = "", result = null }) {
   if (/powershell|downloadstring|encodedcommand/i.test(lowerRule)) mitre.push(candidate("T1059.001", "PowerShell", "Execution", "PowerShell command or download behavior."))
   if (/dns|tunnel|base64|[a-z0-9+/_-]{40,}/i.test(lowerRule)) mitre.push(candidate("T1071.004", "DNS", "Command and Control", "DNS application-layer protocol usage that may need C2/exfil review."))
   if (/callback|gate\.php|beacon|c2|command and control/i.test(lowerRule)) mitre.push(candidate("T1071.001", "Web Protocols", "Command and Control", "HTTP callback or beacon-like pattern."))
+  if (/ldap.*injection|\(&\(objectclass/i.test(lowerRule)) mitre.push(candidate("T1190", "Exploit Public-Facing Application", "Initial Access", "LDAP injection in web layer targeting directory services."))
+  if (/psexec|smb.*lateral|pipe.*svcctl/i.test(lowerRule)) mitre.push(candidate("T1021.002", "SMB/Windows Admin Shares", "Lateral Movement", "PsExec-style remote service creation over SMB."))
+  if (/jndi|log4j|cve.*2021/i.test(lowerRule)) mitre.push(candidate("T1190", "Exploit Public-Facing Application", "Initial Access", "Log4j (CVE-2021-44228) JNDI injection probe."))
+  if (/ssh.*brute|failed password/i.test(lowerRule)) mitre.push(candidate("T1110", "Brute Force", "Credential Access", "SSH brute-force login attempt at elevated rate."))
+  if (/certutil.*urlcache/i.test(lowerRule)) mitre.push(candidate("T1105", "Ingress Tool Transfer", "Command and Control", "LOLBin certutil downloading remote payload."))
+  if (/ntlm.*relay|pass.*hash|pth/i.test(lowerRule)) mitre.push(candidate("T1550.002", "Pass the Hash", "Lateral Movement", "NTLM relay or pass-the-hash detected over SMB."))
+  if (/mimikatz|lsass/i.test(lowerRule)) mitre.push(candidate("T1003.001", "LSASS Memory", "Credential Access", "Mimikatz-style LSASS credential dumping."))
+  if (/outbound.*rdp|egress.*3389/i.test(lowerRule)) mitre.push(candidate("T1041", "Exfiltration Over C2 Channel", "Exfiltration", "Unusual outbound RDP traffic — possible tunneling or exfiltration."))
   if (!mitre.length) mitre.push(candidate("T1082", "System Information Discovery", "Discovery", "Generic placeholder only. Confirm behavior before assigning ATT&CK mapping."))
 
   return {

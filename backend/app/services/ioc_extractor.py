@@ -1,7 +1,29 @@
+import math
 import re
 from urllib.parse import urlparse
 
 URL_RE = re.compile(r'\bhttps?://[^\s<>"\']+', re.IGNORECASE)
+
+SUSPICIOUS_TLDS = {
+    "tk", "ml", "ga", "cf", "gq", "pw", "top", "xyz",
+    "club", "work", "date", "men", "loan", "win", "bid",
+    "trade", "webcam", "download", "review", "stream",
+}
+
+SUSPICIOUS_PATH_KEYWORDS = {
+    "login", "verify", "reset", "secure", "account", "update",
+    "confirm", "signin", "auth", "password", "credential",
+    "banking", "payment", "invoice", "billing", "authenticate",
+    "session", "recover", "unlock", "validate", "chase",
+}
+
+SHORTENER_DOMAINS = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly",
+    "is.gd", "buff.ly", "shorturl.at", "cli.gs", "pic.twitter.com",
+    "tiny.cc", "tr.im", "v.gd", "snipr.com", "x.co",
+    "cutt.ly", "rb.gy", "bl.ink", "short.link", "shrtco.de",
+    "rebrand.ly",
+}
 
 EMAIL_RE = re.compile(
     r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
@@ -112,6 +134,117 @@ def get_domain_from_url(url: str):
         return None
 
     return None
+
+
+def url_path_depth(url: str) -> int:
+    try:
+        parsed = urlparse(url)
+        path = parsed.path.strip("/")
+        if not path:
+            return 0
+        return len(path.split("/"))
+    except Exception:
+        return 0
+
+
+def get_url_path(url: str) -> str:
+    try:
+        return urlparse(url).path
+    except Exception:
+        return ""
+
+
+def has_suspicious_tld(domain: str) -> bool:
+    try:
+        tld = domain.rsplit(".", 1)[-1].lower()
+        return tld in SUSPICIOUS_TLDS
+    except Exception:
+        return False
+
+
+def is_ip_url(url: str) -> bool:
+    try:
+        hostname = urlparse(url).hostname
+        if not hostname:
+            return False
+        return bool(re.match(
+            r'^(?:25[0-5]|2[0-4]\d|1?\d?\d)'
+            r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$',
+            hostname
+        ))
+    except Exception:
+        return False
+
+
+def is_shortener_domain(domain: str) -> bool:
+    return domain.lower() in SHORTENER_DOMAINS
+
+
+def shannon_entropy(text: str) -> float:
+    if not text:
+        return 0.0
+    text = text.lower()
+    length = len(text)
+    freq = {}
+    for c in text:
+        freq[c] = freq.get(c, 0) + 1
+    entropy = -sum(
+        (count / length) * math.log2(count / length)
+        for count in freq.values()
+    )
+    return round(entropy, 2)
+
+
+def find_suspicious_path_keywords(url: str) -> list[str]:
+    path = get_url_path(url).lower()
+    found = []
+    for kw in SUSPICIOUS_PATH_KEYWORDS:
+        if kw in path:
+            found.append(kw)
+    return found
+
+
+def analyze_url(url: str) -> dict:
+    domain = get_domain_from_url(url) or ""
+    path = get_url_path(url)
+    return {
+        "url": url,
+        "domain": domain,
+        "path": path,
+        "depth": url_path_depth(url),
+        "suspicious_tld": has_suspicious_tld(domain),
+        "ip_based": is_ip_url(url),
+        "shortener": is_shortener_domain(domain),
+        "entropy": shannon_entropy(url),
+        "suspicious_path_keywords": find_suspicious_path_keywords(url),
+        "has_port": urlparse(url).port is not None,
+        "scheme": urlparse(url).scheme,
+    }
+
+
+def analyze_urls(urls: list[str]) -> dict:
+    analyzed = [analyze_url(url) for url in urls]
+    return {
+        "total_urls": len(analyzed),
+        "shorteners_detected": sorted(set(
+            a["domain"] for a in analyzed if a["shortener"]
+        )),
+        "suspicious_tld_detected": sorted(set(
+            a["domain"] for a in analyzed if a["suspicious_tld"]
+        )),
+        "ip_based_count": sum(1 for a in analyzed if a["ip_based"]),
+        "ip_based_urls": [a["url"] for a in analyzed if a["ip_based"]],
+        "high_entropy_urls": [a["url"] for a in analyzed if a["entropy"] > 4.5],
+        "deep_path_urls": [a["url"] for a in analyzed if a["depth"] >= 4],
+        "suspicious_path_urls": [
+            {
+                "url": a["url"],
+                "keywords": a["suspicious_path_keywords"],
+            }
+            for a in analyzed if a["suspicious_path_keywords"]
+        ],
+        "urls": analyzed,
+    }
 
 
 def extract_iocs(text: str, refang_first: bool = True) -> dict:

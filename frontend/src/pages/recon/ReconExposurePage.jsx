@@ -24,9 +24,11 @@ import { downloadText } from "../../lib/domUtils"
 import {
   buildExternalReconLinks,
   buildSocQueries,
+  computeExposureScore,
   createReconReport,
   dnsRecordRows,
   extractReconIndicators,
+  generateExposureReport,
   getTargetValue,
   localReconFindings,
   normalizeTargetInput,
@@ -83,6 +85,8 @@ function IndicatorGroups({ indicators, onCopy, onRoute }) {
     ["IPs", indicators.ips, "ip"],
     ["CIDRs", indicators.cidrs, "cidr"],
     ["Emails", indicators.emails, "email"],
+    ["ASNs", indicators.asns, "domain"],
+    ["Hashes", indicators.hashes, "hash"],
   ].filter(([, values]) => values?.length)
   if (!groups.length) return <p className="ba-empty-state">No extra indicators extracted from the current input.</p>
   return (
@@ -214,6 +218,7 @@ export default function ReconExposurePage({ setPage }) {
   const [dnsResult, setDnsResult] = useState(null)
   const [webExposure, setWebExposure] = useState(null)
   const [notice, setNotice] = useState(pending.value ? `Loaded from ${pending.source || "workflow handoff"}.` : "")
+  const [showExposureReport, setShowExposureReport] = useState(false)
 
   const normalized = useMemo(() => normalizeTargetInput(targetInput), [targetInput])
   const primary = normalized.primary
@@ -229,6 +234,12 @@ export default function ReconExposurePage({ setPage }) {
     source: item.source || "HTTP/TLS check",
   })), [webExposure])
   const findings = useMemo(() => [...localFindings, ...backendFindings], [localFindings, backendFindings])
+  const exposureScore = useMemo(() => computeExposureScore(findings), [findings])
+  const exposureReport = useMemo(() => generateExposureReport({
+    findings,
+    target: primary?.host || primary?.normalized || targetValue,
+    domain: primary?.root_domain,
+  }), [findings, primary, targetValue])
   const summary = useMemo(() => summarizeRecon(primary, dnsResult, webExposure, findings), [primary, dnsResult, webExposure, findings])
   const decisionFields = useMemo(() => {
     const http = webExposure?.review?.http || {}
@@ -247,7 +258,7 @@ export default function ReconExposurePage({ setPage }) {
   const socQueries = useMemo(() => buildSocQueries(primary, indicators), [primary, indicators])
   const report = useMemo(() => createReconReport({ primary, indicators, findings, dnsResult, webExposure }), [primary, indicators, findings, dnsResult, webExposure])
   const hasTarget = Boolean(targetInput.trim() && primary?.type && primary.type !== "empty" && primary.type !== "unknown")
-  const indicatorText = [...indicators.urls, ...indicators.domains, ...indicators.ips, ...indicators.cidrs, ...indicators.emails].join("\n")
+  const indicatorText = [...indicators.urls, ...indicators.domains, ...indicators.ips, ...indicators.cidrs, ...indicators.emails, ...(indicators.asns || []), ...(indicators.hashes || [])].join("\n")
 
   async function copy(text, label = "Value") {
     if (!text) return
@@ -489,7 +500,45 @@ export default function ReconExposurePage({ setPage }) {
                 </div>
                 <span className="ba-chip ba-status-info">{findings.length} item(s)</span>
               </div>
+              <div className="space-y-3 rounded-xl border border-white/10 bg-black/40 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Exposure Score</p>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+                    exposureScore.level === "high" ? "bg-red-500/20 text-red-300" :
+                    exposureScore.level === "medium" ? "bg-amber-500/20 text-amber-300" :
+                    exposureScore.level === "low" ? "bg-yellow-500/20 text-yellow-300" :
+                    "bg-blue-500/20 text-blue-300"
+                  }`}>{exposureScore.level}</span>
+                </div>
+                <div className="relative h-2.5 overflow-hidden rounded-full bg-zinc-800">
+                  <div className={`h-full rounded-full transition-all duration-300 ${
+                    exposureScore.level === "high" ? "bg-red-500" :
+                    exposureScore.level === "medium" ? "bg-amber-500" :
+                    exposureScore.level === "low" ? "bg-yellow-500" :
+                    "bg-blue-500"
+                  }`} style={{ width: `${exposureScore.score}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>{exposureScore.score}/100</span>
+                  {exposureScore.breakdown.length > 0 && (
+                    <span>{exposureScore.breakdown.length} contributing factor(s)</span>
+                  )}
+                </div>
+              </div>
               <EvidenceList findings={findings} />
+              <div className="flex flex-wrap gap-2">
+                <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => setShowExposureReport(!showExposureReport)}>
+                  <FileText className="mr-2 inline h-4 w-4" />{showExposureReport ? "Hide" : "Generate"} Exposure Report
+                </button>
+                {showExposureReport && (
+                  <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={async () => { await navigator.clipboard.writeText(exposureReport); setNotice("Exposure report copied.") }}>
+                    <Clipboard className="mr-2 inline h-4 w-4" />Copy report
+                  </button>
+                )}
+              </div>
+              {showExposureReport && (
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/40 p-4 text-sm leading-6 text-zinc-100">{exposureReport}</pre>
+              )}
             </WorkbenchPanel>
           ) : null}
 

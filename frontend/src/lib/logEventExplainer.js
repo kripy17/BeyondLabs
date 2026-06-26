@@ -7,8 +7,10 @@ export function explainLogEvent(text = "", result = null) {
   const topEvent = events[0] || {}
   const severity = signals.find((item) => ["Critical", "High"].includes(item.severity))?.severity || signals[0]?.severity || topEvent.severity || "Info"
 
+  const detectedType = topEvent.event_type || result?.classification?.primary_type || detectType(lower)
+
   const fields = [
-    ["Event type", topEvent.event_type || result?.classification?.primary_type || detectType(lower)],
+    ["Event type", detectedType],
     ["Severity", severity],
     ["Source", topEvent.source || "local parser"],
     ["Host", topEvent.host],

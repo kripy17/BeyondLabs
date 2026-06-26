@@ -22,18 +22,35 @@ from app.services.ioc_extractor import refang_text
 URL_SHORTENERS = {
     "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly",
     "rebrand.ly", "shorturl.at", "s.id", "lnkd.in", "trib.al", "rb.gy", "bitly.com",
+    "tiny.cc", "bl.ink", "clck.ru", "short.link", "shorte.st", "bc.vc", "yourls.org",
+    "adf.ly", "shrinke.me", "kutt.it", "polr.me", "zws.im", "1url.com", "v.gd",
+    "tiny.ie", "xy2.eu", "zip.net", "soo.gd", "gg.gg", "scrnch.me", "urlz.fr",
+}
+
+SUSPICIOUS_TLDS = {
+    "tk", "ml", "ga", "cf", "gq", "xyz", "top", "club", "win", "bid", "trade",
+    "webcam", "download", "review", "site", "men", "stream", "racing", "date",
+    "science", "party", "faith", "mom", "work", "click", "loan", "mobi", "pw",
+    "cc", "info", "buzz", "online", "live", "sbs", "bar", "rest", "cam", "pro",
+    "icu", "cyou", "lol", "gdn", "wang", "help", "city", "today", "news",
 }
 
 BRAND_TERMS = {
     "microsoft", "office365", "office", "outlook", "onedrive", "sharepoint", "google", "gmail",
     "paypal", "apple", "icloud", "amazon", "bank", "sbi", "hdfc", "icici", "axis",
     "netflix", "instagram", "facebook", "whatsapp", "linkedin", "github", "dropbox", "docusign",
+    "adobe", "salesforce", "oracle", "intel", "cisco", "ibm", "cloudflare", "okta",
+    "duo", "auth0", "atlassian", "jira", "confluence", "slack", "teams", "zoom",
+    "chase", "wellsfargo", "capitalone", "amex", "mastercard", "visa", "stripe",
+    "square", "shopify", "etsy", "ebay", "aliexpress", "alibaba", "taobao",
+    "steam", "epicgames", "xbox", "playstation", "nintendo", "roblox", "minecraft",
 }
 
 CREDENTIAL_TERMS = {
     "login", "signin", "sign-in", "verify", "verification", "account", "security", "secure",
     "reset", "password", "passwd", "credential", "mfa", "2fa", "auth", "authenticate", "confirm",
     "update", "unlock", "invoice", "payment", "wallet", "billing", "recover",
+    "authorize", "sso", "session", "token", "otp", "approve", "deny", "challenge",
 }
 
 SUSPICIOUS_EXTENSIONS = {
@@ -51,6 +68,43 @@ TITLE_RE = re.compile(rb"<\s*title[^>]*>(.*?)<\s*/\s*title\s*>", re.IGNORECASE |
 DEFANG_MARKERS = ("hxxp", "[.]", "(.)", "{.}", "[:]", "[@]", "[at]", "(at)")
 MAX_TITLE_BYTES = 131_072
 
+URL_MITRE_MAP = {
+    "phishing": {"id": "T1566", "name": "Phishing", "tactic": "Initial Access"},
+    "punycode": {"id": "T1566.002", "name": "Spearphishing Link", "tactic": "Initial Access"},
+    "url_shortener": {"id": "T1566.002", "name": "Spearphishing Link", "tactic": "Initial Access"},
+    "suspicious_tld": {"id": "T1566", "name": "Phishing", "tactic": "Initial Access"},
+    "ip_address": {"id": "T1071", "name": "Application Layer Protocol", "tactic": "Command and Control"},
+    "encoded_payload": {"id": "T1059", "name": "Command and Scripting Interpreter", "tactic": "Execution"},
+    "open_redirect": {"id": "T1566.002", "name": "Spearphishing Link", "tactic": "Initial Access"},
+    "suspicious_path": {"id": "T1071", "name": "Application Layer Protocol", "tactic": "Command and Control"},
+    "known_malicious": {"id": "T1204", "name": "User Execution", "tactic": "Execution"},
+    "suspected_malicious": {"id": "T1204", "name": "User Execution", "tactic": "Execution"},
+    "defanged": {"id": "T1566", "name": "Phishing", "tactic": "Initial Access"},
+    "redirect_chain": {"id": "T1566.002", "name": "Spearphishing Link", "tactic": "Initial Access"},
+}
+
+SIGNAL_ID_TO_MITRE_KEY = {
+    "defanged_url": "defanged",
+    "punycode_host": "punycode",
+    "unicode_idn_host": "punycode",
+    "mixed_script_domain": "punycode",
+    "ip_hostname": "ip_address",
+    "suspicious_tld": "suspicious_tld",
+    "url_shortener": "url_shortener",
+    "encoded_characters": "encoded_payload",
+    "embedded_urls_in_query": "open_redirect",
+    "path_token_suspicious_extension": "suspicious_path",
+    "suspicious_extension": "suspicious_path",
+    "credential_wording": "phishing",
+    "brand_terms": "phishing",
+    "brand_impersonation_mismatch": "phishing",
+    "email_in_query": "phishing",
+    "base64_query": "encoded_payload",
+    "userinfo_at": "phishing",
+    "excessive_subdomains": "suspicious_path",
+    "redirect_domain_change": "redirect_chain",
+}
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -65,6 +119,18 @@ def _unique(items: list[str]) -> list[str]:
             seen.add(value)
             output.append(value)
     return output
+
+
+def _shannon_entropy(value: str) -> float:
+    if not value:
+        return 0.0
+    lowered = value.lower()
+    length = len(lowered)
+    freq: dict[str, int] = {}
+    for ch in lowered:
+        freq[ch] = freq.get(ch, 0) + 1
+    entropy = -sum((count / length) * (count / length).bit_length() for count in freq.values())
+    return max(0, entropy)
 
 
 def _detect_defanged(value: str) -> bool:
@@ -189,8 +255,8 @@ def _resolve_public_addresses(hostname: str, allow_private_targets: bool = False
     return True, addresses, None
 
 
-def _signal(signal_id: str, label: str, severity: str, evidence: str, explanation: str, source: str = "static") -> dict[str, str]:
-    return {
+def _signal(signal_id: str, label: str, severity: str, evidence: str, explanation: str, source: str = "static", mitre_id: str = "") -> dict[str, str]:
+    result = {
         "id": signal_id,
         "label": label,
         "severity": severity,
@@ -198,6 +264,9 @@ def _signal(signal_id: str, label: str, severity: str, evidence: str, explanatio
         "explanation": explanation,
         "source": source,
     }
+    if mitre_id:
+        result["mitre_id"] = mitre_id
+    return result
 
 
 def _clean_base64_candidate(value: str) -> str:
@@ -348,46 +417,95 @@ def analyze_static_url(url: str) -> dict[str, Any]:
     risk_signals: list[dict[str, str]] = []
 
     if _detect_defanged(input_info["original"]):
-        risk_signals.append(_signal("defanged_url", "Defanged URL detected", "info", input_info["original"], "Defanged links are common in analyst handoffs and should be refanged only inside tools."))
+        risk_signals.append(_signal("defanged_url", "Defanged URL detected", "info", input_info["original"], "Defanged links are common in analyst handoffs and should be refanged only inside tools.", mitre_id="T1564.003"))
     if input_info["inferred_scheme"]:
         risk_signals.append(_signal("scheme_inferred", "URL scheme was inferred", "info", "https:// was added for parsing", "The original input did not include an explicit scheme."))
     if parsed.scheme == "http":
-        risk_signals.append(_signal("http_scheme", "HTTP instead of HTTPS", "medium", parsed.scheme, "Plain HTTP links are easier to tamper with and are common in low-quality phishing infrastructure."))
+        risk_signals.append(_signal("http_scheme", "HTTP instead of HTTPS", "medium", parsed.scheme, "Plain HTTP links are easier to tamper with and are common in low-quality phishing infrastructure.", mitre_id="T1573"))
     if _is_ip_literal(hostname):
-        risk_signals.append(_signal("ip_hostname", "IP address used as hostname", "medium", hostname, "IP-hosted URLs bypass normal domain trust cues and should be reviewed carefully."))
+        risk_signals.append(_signal("ip_hostname", "IP address used as hostname", "medium", hostname, "IP-hosted URLs bypass normal domain trust cues and should be reviewed carefully.", mitre_id="T1566.002"))
         if _ip_is_blocked(hostname):
             risk_signals.append(_signal("private_ip_hostname", "Private/internal IP hostname", "high", hostname, "Private, loopback, reserved, or metadata ranges are blocked from Safe Fetch by default."))
     elif _hostname_is_internal(hostname):
         risk_signals.append(_signal("internal_hostname", "Internal-style hostname", "high", hostname, "Localhost, single-label, .local, .internal, .lan, .home, and .corp destinations are blocked from Safe Fetch by default."))
     if hostname.startswith("xn--") or ".xn--" in hostname:
-        risk_signals.append(_signal("punycode_host", "Punycode / IDN hostname", "medium", hostname, "Internationalized domains can be used for lookalike or homograph attacks."))
+        risk_signals.append(_signal("punycode_host", "Punycode / IDN hostname", "medium", hostname, "Internationalized domains can be used for lookalike or homograph attacks.", mitre_id="T1566.002"))
     try:
         idna = hostname.encode("idna").decode("ascii") if hostname else ""
         if idna and idna != hostname and (idna.startswith("xn--") or ".xn--" in idna):
-            risk_signals.append(_signal("unicode_idn_host", "Unicode IDN hostname", "medium", hostname, "The hostname converts to a punycode representation and may need visual inspection."))
+            risk_signals.append(_signal("unicode_idn_host", "Unicode IDN hostname", "medium", hostname, "The hostname converts to a punycode representation and may need visual inspection.", mitre_id="T1566.002"))
     except Exception:
         pass
+
+    # Detect mixed-script homograph domains (ASCII + non-ASCII in same label)
+    for label in hostname.split("."):
+        ascii_count = sum(1 for ch in label if ord(ch) < 128)
+        non_ascii_count = sum(1 for ch in label if ord(ch) > 127)
+        if ascii_count > 0 and non_ascii_count > 0:
+            risk_signals.append(_signal("mixed_script_domain", "Mixed-script domain label", "high", label, "Mixing ASCII and non-ASCII characters in the same label is a known homograph attack technique.", mitre_id="T1566.002"))
+            break
+
+    # Suspicious TLD detection
+    tld = hostname.rsplit(".", 1)[-1].lower() if "." in hostname else ""
+    is_suspicious_tld = bool(tld and tld in SUSPICIOUS_TLDS)
+    if is_suspicious_tld and not _is_ip_literal(hostname):
+        risk_signals.append(_signal("suspicious_tld", "Suspicious top-level domain", "medium", f".{tld}", "Free/promiscuous TLDs are disproportionately used in phishing and malware campaigns.", mitre_id="T1566.002"))
+
     if hostname in URL_SHORTENERS:
-        risk_signals.append(_signal("url_shortener", "URL shortener domain", "medium", hostname, "Shorteners hide the final destination until redirects are inspected safely."))
+        risk_signals.append(_signal("url_shortener", "URL shortener domain", "medium", hostname, "Shorteners hide the final destination until redirects are inspected safely.", mitre_id="T1090"))
     subdomain_count = max(0, len(hostname.split(".")) - len(root.split("."))) if root and hostname.endswith(root) else 0
     if subdomain_count >= 4:
-        risk_signals.append(_signal("excessive_subdomains", "Excessive subdomains", "low", hostname, "Long subdomain chains can be used to bury the registrable domain."))
+        risk_signals.append(_signal("excessive_subdomains", "Excessive subdomains", "low", hostname, "Long subdomain chains can be used to bury the registrable domain.", mitre_id="T1566.002"))
     if len(normalized) > 180:
         risk_signals.append(_signal("very_long_url", "Very long URL", "low", f"{len(normalized)} characters", "Long URLs may hide tracking, redirect, or token data."))
     if re.search(r"%[0-9a-f]{2}", input_info["refanged"], flags=re.IGNORECASE):
         risk_signals.append(_signal("encoded_characters", "Encoded characters present", "low", "percent-encoded bytes", "Encoding can obscure URL structure or embedded values."))
+
+    # Interesting port detection (non-standard)
+    if parsed.port and parsed.port not in {80, 443, 8080, 8443}:
+        risk_signals.append(_signal("interesting_port", "Non-standard port", "medium", f"port {parsed.port}", "Non-standard HTTP/HTTPS ports can indicate development servers, proxies, or obfuscated services."))
+
+    # Path depth signal
+    path_parts = [p for p in parsed.path.split("/") if p]
+    path_depth = len(path_parts)
+    if path_depth >= 6:
+        risk_signals.append(_signal("deep_path", "Deep URL path", "low", f"{path_depth} segments", "Deep paths can indicate tracking, redirect chains, or directory traversal patterns."))
+
+    # Path token suspicious extension detection (file-like tokens in path)
+    path_lower = unquote(parsed.path).lower()
+    path_token_extensions = [ext for ext in SUSPICIOUS_EXTENSIONS if ext in path_lower]
+    if path_token_extensions:
+        risk_signals.append(_signal("path_token_suspicious_extension", "Suspicious file extension in path", "high", ", ".join(path_token_extensions), "Script, executable, or archive-like tokens in URL paths should not be treated as direct download signals.", mitre_id="T1204.002"))
+
+    # Entropy on path/query segments
+    combined_text = unquote(parsed.path + parsed.query)
+    segment_entropies = []
+    for segment in re.split(r"[./_\-?&=]", combined_text):
+        if len(segment) >= 8:
+            entropy_val = _shannon_entropy(segment)
+            if entropy_val > 4.5:
+                segment_entropies.append((segment[:40], round(entropy_val, 2)))
+    if segment_entropies:
+        evidence = ", ".join(f"{s[0]}({s[1]})" for s in segment_entropies[:3])
+        risk_signals.append(_signal("high_entropy_segment", "High-entropy URL segment", "low", evidence, "High-randomness segments can indicate encoded payloads, session tokens, or beacon identifiers."))
+
+    # Multiple embedded URLs in query
+    query_urls = URL_RE.findall(unquote(parsed.query))
+    if len(query_urls) >= 2:
+        risk_signals.append(_signal("embedded_urls_in_query", "Multiple URLs embedded in query", "medium", f"{len(query_urls)} URLs", "Multiple redirect targets in query parameters can indicate open-redirect abuse or phishing relay chains.", mitre_id="T1566.002"))
+
     base64_values = [value for value in query_values if _looks_base64(unquote(value))]
     if base64_values:
-        risk_signals.append(_signal("base64_query", "Base64-like query value", "medium", base64_values[0][:80], "Encoded query values can hide redirect targets, victim identifiers, or payload markers."))
+        risk_signals.append(_signal("base64_query", "Base64-like query value", "medium", base64_values[0][:80], "Encoded query values can hide redirect targets, victim identifiers, or payload markers.", mitre_id="T1027"))
     emails_in_query = _unique([match.lower() for value in query_values for match in EMAIL_RE.findall(unquote(value))])
     if emails_in_query:
-        risk_signals.append(_signal("email_in_query", "Email address in query string", "medium", ", ".join(emails_in_query), "Phishing kits often track or prefill victim identity through query parameters."))
+        risk_signals.append(_signal("email_in_query", "Email address in query string", "medium", ", ".join(emails_in_query), "Phishing kits often track or prefill victim identity through query parameters.", mitre_id="T1566.002"))
     matched_terms = sorted({term for term in CREDENTIAL_TERMS if term in lowered})
     if matched_terms:
-        risk_signals.append(_signal("credential_wording", "Credential/account wording", "medium", ", ".join(matched_terms), "Login, verification, reset, and account wording is common in credential-harvest lures."))
+        risk_signals.append(_signal("credential_wording", "Credential/account wording", "medium", ", ".join(matched_terms), "Login, verification, reset, and account wording is common in credential-harvest lures.", mitre_id="T1566.002"))
     matched_brands = sorted({term for term in BRAND_TERMS if term in lowered})
     if matched_brands:
-        risk_signals.append(_signal("brand_terms", "Brand or service terms", "low", ", ".join(matched_brands), "Brand-like wording can indicate impersonation when the root domain is unrelated."))
+        risk_signals.append(_signal("brand_terms", "Brand or service terms", "low", ", ".join(matched_brands), "Brand-like wording can indicate impersonation when the root domain is unrelated.", mitre_id="T1566.002"))
         brand_root_match = any(term in root for term in matched_brands if term not in {"bank"})
         if root and not brand_root_match and any(term not in {"bank"} for term in matched_brands):
             severity = "high" if matched_terms else "medium"
@@ -397,12 +515,18 @@ def analyze_static_url(url: str) -> dict[str, Any]:
                 severity,
                 f"brands={', '.join(matched_brands)}; root={root}",
                 "Brand or service wording appears even though the registrable domain does not match that brand. This is a common phishing pattern.",
+                mitre_id="T1566.002",
             ))
     suspicious_extensions = _detect_extensions(parsed)
     if suspicious_extensions:
-        risk_signals.append(_signal("suspicious_extension", "Suspicious file extension", "high", ", ".join(suspicious_extensions), "URLs that point to script, executable, archive, ISO, or HTML payloads need careful handling."))
+        risk_signals.append(_signal("suspicious_extension", "Suspicious file extension", "high", ", ".join(suspicious_extensions), "URLs that point to script, executable, archive, ISO, or HTML payloads need careful handling.", mitre_id="T1204.002"))
     if "@" in parsed.netloc.rsplit("@", 1)[0]:
-        risk_signals.append(_signal("userinfo_at", "Userinfo component in URL", "high", parsed.netloc, "The '@' separator can hide the real destination host."))
+        risk_signals.append(_signal("userinfo_at", "Userinfo component in URL", "high", parsed.netloc, "The '@' separator can hide the real destination host.", mitre_id="T1566.002"))
+
+    for signal in risk_signals:
+        mitre_key = SIGNAL_ID_TO_MITRE_KEY.get(signal.get("id", ""))
+        if mitre_key:
+            signal["mitre_candidates"] = URL_MITRE_MAP[mitre_key]
 
     extracted_iocs = _extract_iocs(normalized, hostname, query_values)
     static_result = {
@@ -803,6 +927,7 @@ def _live_risk_signals(static_result: dict[str, Any], live_result: dict[str, Any
             f"{original_root} -> {final_root}",
             "A different final registrable domain can be normal for CDNs, but it is important in phishing and shortener analysis.",
             source="safe_fetch",
+            mitre_id="T1566.002",
         ))
 
     final_url = live_result.get("final_url") or ""
@@ -815,6 +940,7 @@ def _live_risk_signals(static_result: dict[str, Any], live_result: dict[str, Any
             final_url[:180],
             "The final destination is not protected by HTTPS.",
             source="safe_fetch",
+            mitre_id="T1573",
         ))
 
     title = (live_result.get("page_title") or "").strip()

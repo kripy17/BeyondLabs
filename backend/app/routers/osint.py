@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.services.maigret_service import run_maigret_search
 from app.services.osint_tools import (
     email_osint,
     local_osint_tool_status,
@@ -83,3 +84,8 @@ async def run_local_tool(request: LocalOsintToolRequest):
         limit=request.limit,
         confirm_permission=request.confirm_permission,
     )
+
+
+@router.post("/maigret")
+async def maigret_lookup(request: UsernameRequest):
+    return await asyncio.to_thread(run_maigret_search, request.username)

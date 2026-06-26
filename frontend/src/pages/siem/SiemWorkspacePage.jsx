@@ -9,6 +9,50 @@ import { downloadText } from "../../lib/domUtils.js"
 import { useSessionState } from "../../lib/useSessionState"
 
 const FIELD_PRIORITY = ["timestamp", "_time", "date", "date_hour", "date_minute", "time_bucket", "severity", "sourcetype", "event_type", "source_ip", "destination_ip", "src_ip", "dst_ip", "user", "host", "process_name", "status_code", "action", "outcome"]
+
+const SIEM_EVENT_MITRE = {
+  process_start: "T1059",
+  process_stop: "",
+  process_create: "T1059",
+  network_connection: "T1071",
+  dns_query: "T1071.004",
+  url_request: "T1071.001",
+  windows_event: "",
+  cloudtrail_event: "T1078",
+  edr: "T1059",
+  proxy: "T1071.001",
+  auth: "T1110",
+  dns: "T1071.004",
+}
+
+const SIEM_SOURCETYPE_TACTIC = {
+  process_start: "Execution",
+  process_create: "Execution",
+  network_connection: "Command and Control",
+  dns_query: "Command and Control",
+  url_request: "Command and Control",
+  auth: "Credential Access",
+  firewall: "Discovery",
+  cloudtrail_event: "Initial Access",
+  windows: "Persistence",
+  edr: "Execution",
+  proxy: "Command and Control",
+}
+
+function mitreTacticCoverage(events = []) {
+  const tactics = {}
+  for (const e of events) {
+    const key = e.event_type || e.sourcetype || ""
+    const tid = SIEM_EVENT_MITRE[key] || ""
+    const tactic = SIEM_SOURCETYPE_TACTIC[key] || ""
+    if (tid) {
+      if (!tactics[tactic]) tactics[tactic] = { tactic, techniques: new Set(), count: 0 }
+      tactics[tactic].techniques.add(tid)
+      tactics[tactic].count++
+    }
+  }
+  return Object.values(tactics).sort((a, b) => b.count - a.count).map((t) => ({ ...t, techniques: [...t.techniques] }))
+}
 const DEFAULT_TABLE_COLUMNS = ["timestamp", "host", "source_ip", "sourcetype", "event_type", "user", "message"]
 
 const SAMPLE_LOGS = [
@@ -19,6 +63,9 @@ const SAMPLE_LOGS = [
   '198.51.100.23 - - [14/May/2026:09:12:48 +0000] "POST /login.php HTTP/1.1" 302 421 "https://example.com/login.php" "Mozilla/5.0"',
   '{"timestamp":"2026-05-14T09:13:11Z","sourcetype":"edr","event_type":"process_start","severity":"high","host":"WS-17","user":"aparete","process_name":"powershell.exe","command_line":"powershell -nop -w hidden -enc SQBFAFgA","source_ip":"10.10.5.17","message":"Encoded PowerShell execution observed"}',
   '{"timestamp":"2026-05-14T09:14:02Z","sourcetype":"proxy","event_type":"url_request","severity":"medium","host":"WS-17","user":"aparete","source_ip":"10.10.5.17","url":"http://noterock.xyz/tracker/index.php","uri_path":"/tracker/index.php","action":"allowed","message":"Suspicious URL request from workstation"}',
+  '{"timestamp":"2026-05-14T09:15:00Z","sourcetype":"dns","event_type":"dns_query","severity":"low","host":"WS-17","source_ip":"10.10.5.17","domain":"evil-c2.example.com","query_type":"A","rcode":"NXDOMAIN","message":"DNS NXDOMAIN response for suspicious domain"}',
+  '{"timestamp":"2026-05-14T09:16:00Z","sourcetype":"windows","event_type":"windows_event","severity":"high","host":"DC-01","user":"admin","EventID":"4732","message":"A member was added to a security-enabled local group. Member: CN=krish,CN=Users,DC=corp,DC=local Group: Domain Admins"}',
+  '{"timestamp":"2026-05-14T09:17:00Z","sourcetype":"cloudtrail","event_type":"cloudtrail_event","severity":"medium","host":"AWS","user":"admin","eventName":"ConsoleLogin","sourceIPAddress":"8.8.8.8","awsRegion":"us-east-1","message":"ConsoleLogin on signin.amazonaws.com by admin"}',
 ].join("\n")
 
 function copy(text) {
@@ -198,7 +245,10 @@ function makeMarkdown({ filters, keyword, events, rows, detections }) {
     `Detections: ${detections.length}`,
     "",
     "## Detection summary",
-    ...(detections.length ? detections.slice(0, 10).map((item) => `- **${item.severity?.toUpperCase?.() || "INFO"}** ${item.title}: ${item.detail || item.recommendation || "Review matched events."}`) : ["- No detections generated from this dataset."]),
+    ...(detections.length ? detections.slice(0, 10).map((item) => {
+      const mitre = item.mitre_candidates?.length ? ` [${item.mitre_candidates.join(", ")}]` : ""
+      return `- **${item.severity?.toUpperCase?.() || "INFO"}** ${item.title}: ${item.detail || item.recommendation || "Review matched events."}${mitre}`
+    }) : ["- No detections generated from this dataset."]),
     "",
     "## Matched events",
     ...rows.slice(0, 75).map((row) => `- ${row.timestamp || "-"} [${row.severity || "info"}] ${row.headline || row.message || row.raw}`),
@@ -207,6 +257,49 @@ function makeMarkdown({ filters, keyword, events, rows, detections }) {
 
 function filterId(field, value) {
   return `${field}:${String(value)}`
+}
+
+function generateSiemNarrative(dataset, events, detections) {
+  if (!dataset?.total) return "No data to summarize."
+  const highCount = dataset.highEvents || 0
+  const uniqueSources = [...new Set(events.map((e) => e.source_ip || e.host || "").filter(Boolean))].length
+  const uniqueTypes = [...new Set(events.map((e) => e.event_type || e.sourcetype || "").filter(Boolean))].length
+  const lines = [
+    `## SIEM Dataset Summary`,
+    ``,
+    `**Time Range:** ${dataset.timeRange || "N/A"}`,
+    `**Total Events:** ${dataset.total}`,
+    `**Matched Events:** ${dataset.matched}`,
+    `**Unique Sources:** ${uniqueSources}`,
+    `**Event Types:** ${uniqueTypes}`,
+    `**High-Severity Events:** ${highCount}`,
+    `**Detections Generated:** ${dataset.detections}`,
+    ``,
+  ]
+  if (detections.length) {
+    lines.push(
+      `### Detection Findings`,
+      ``,
+      ...detections.slice(0, 8).map((d, i) => {
+        const m = d.mitre_candidates?.length ? ` [${d.mitre_candidates.join(", ")}]` : ""
+        return `${i + 1}. **${d.severity?.toUpperCase() || "INFO"}** ${d.title}${m} — ${d.detail || d.recommendation || ""}`
+      }),
+      ``
+    )
+  }
+  lines.push(
+    `### Analyst Notes`,
+    ``,
+    highCount >= 3
+      ? "**Alert:** High concentration of high-severity events warrants immediate review. Correlate sources and timelines for incident declaration."
+      : highCount >= 1
+      ? "**Note:** Isolated high-severity events present. Validate against surrounding context before escalation."
+      : "**Note:** No high-severity events in this dataset. Proceed with standard triage workflow.",
+    uniqueSources <= 2 && dataset.total > 10
+      ? "**Observation:** Low source diversity suggests targeted activity from a small number of hosts or IPs."
+      : "",
+  ).filter(Boolean)
+  return lines.join("\n")
 }
 
 export default function SiemWorkspacePage({ setPage }) {
@@ -397,6 +490,7 @@ export default function SiemWorkspacePage({ setPage }) {
                   </div>
                   <div className="ba-siem-final-actions"><button onClick={() => downloadText("siem-results.csv", rowsToCsv(shownRows), "text/csv")}>CSV</button><button onClick={() => copy(JSON.stringify(shownRows, null, 2))}>JSON</button></div>
                 </div>
+                <SiemSummaryPanel dataset={dataset} events={events} detections={detections} />
                 <div className="ba-siem-time-controls">
                   <div className="ba-siem-time-histogram">
                     {timeBuckets.map(([label, count]) => <button key={label} onClick={() => addFilter("time_bucket", label)} title={`${label}: ${count} event(s)`}><i style={{ height: `${Math.max(12, Math.min(100, count / Math.max(...timeBuckets.map(([, c]) => c), 1) * 100))}%` }} /><span>{label}</span></button>)}
@@ -415,15 +509,40 @@ export default function SiemWorkspacePage({ setPage }) {
             </main>
           </section>
 
+          {events.length ? (
+            <details className="ba-siem-final-panel ba-siem-details-final" open>
+              <summary><span><FileText size={16} /> ATT&CK tactic coverage</span><b>{mitreTacticCoverage(events).length} tactic(s)</b></summary>
+              {(() => {
+                const coverage = mitreTacticCoverage(events)
+                return coverage.length ? (
+                  <div className="ba-siem-tactic-grid">
+                    {coverage.map((t) => (
+                      <article key={t.tactic}>
+                        <strong>{t.tactic}</strong>
+                        <span className={`ba-chip ${t.count >= 3 ? "ba-status-danger" : t.count >= 2 ? "ba-status-warning" : "ba-status-info"}`}>{t.count}</span>
+                        <small>{t.techniques.join(", ")}</small>
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="p-4 text-xs text-zinc-500">No event types matched known MITRE mappings.</p>
+              })()}
+            </details>
+          ) : null}
+
           {detections.length ? (
             <details className="ba-siem-final-panel ba-siem-details-final">
               <summary><span><FileText size={16} /> Detection leads</span><b>{detections.length} leads</b></summary>
               <div className="ba-siem-detection-leads">
                 {detections.slice(0, 8).map((item, index) => (
                   <article key={`${item.title || "lead"}-${index}`}>
-                    <strong>{item.title || "Detection lead"}</strong>
+                    <div className="ba-siem-detection-head">
+                      <strong>{item.title || "Detection lead"}</strong>
+                      <span className={`ba-chip ${severityClass(item.severity)}`}>{item.severity || "info"}</span>
+                    </div>
                     <p>{item.detail || item.recommendation || "Review matching events and validate context."}</p>
-                    <span>{item.severity || "info"}</span>
+                    {item.evidence ? <details className="ba-siem-detection-evidence"><summary>Evidence</summary><pre>{JSON.stringify(item.evidence, null, 2)}</pre></details> : null}
+                    {item.mitre_candidates?.length ? <div className="ba-siem-detection-mitre"><span>MITRE:</span> {item.mitre_candidates.map((m) => <span key={m} className="ba-chip ba-status-info">{m}</span>)}</div> : null}
+                    {item.recommendation ? <p className="ba-siem-detection-recommendation"><strong>Next step:</strong> {item.recommendation}</p> : null}
                   </article>
                 ))}
               </div>
@@ -448,6 +567,30 @@ export default function SiemWorkspacePage({ setPage }) {
       )}
       {modal ? <SiemModal modal={modal} close={() => setModal(null)} /> : null}
     </WorkbenchPage>
+  )
+}
+
+function SiemSummaryPanel({ dataset, events, detections }) {
+  const [show, setShow] = useState(false)
+  const narrative = useMemo(() => generateSiemNarrative(dataset, events, detections), [dataset, events, detections])
+  const [copied, setCopied] = useState(false)
+  return (
+    <div style={{ marginTop: "0.75rem" }}>
+      <button className="ba-btn" onClick={() => setShow(!show)} style={{ fontSize: "0.7rem", padding: "0.3rem 0.6rem" }}>
+        {show ? "Hide" : "Generate"} SIEM Summary
+      </button>
+      {show ? (
+        <div style={{ marginTop: "0.5rem", padding: "0.75rem", background: "var(--bg-card)", border: "1px solid var(--bd)", borderRadius: "4px" }}>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.7rem", lineHeight: 1.6, fontFamily: "JetBrains Mono, monospace", margin: 0 }}>{narrative}</pre>
+          <button
+            style={{ marginTop: "0.5rem", fontSize: "0.65rem", padding: "0.25rem 0.5rem", cursor: "pointer" }}
+            onClick={() => { navigator.clipboard?.writeText(narrative); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+          >
+            {copied ? "Copied!" : "Copy Summary"}
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

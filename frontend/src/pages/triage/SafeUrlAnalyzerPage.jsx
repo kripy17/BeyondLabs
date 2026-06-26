@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Swords,
   XCircle,
 } from "lucide-react"
 import { safeAnalyzeUrl } from "../../api/backend"
@@ -35,6 +36,87 @@ import { copyText, downloadText, refangText } from "../../lib/domUtils.js"
 const RECENT_KEY = "beyondarch.safeUrlAnalyzer.recent"
 const PENDING_KEY = "beyondarch.pendingArtifact"
 
+const URL_THREAT_WEIGHTS = {
+  known_phishing: { weight: 30, label: "Known phishing indicator" },
+  suspected_phishing: { weight: 20, label: "Suspected phishing characteristics" },
+  brand_impersonation: { weight: 20, label: "Brand impersonation detected" },
+  suspicious_tld: { weight: 8, label: "Suspicious TLD" },
+  url_shortener: { weight: 6, label: "URL shortener redirect" },
+  encoded_payload: { weight: 15, label: "Encoded payload in URL" },
+  punycode_domain: { weight: 10, label: "Internationalized domain name" },
+  suspicious_path: { weight: 8, label: "Suspicious URL path patterns" },
+  ip_address: { weight: 5, label: "IP address used instead of domain" },
+  redirect_chain: { weight: 12, label: "Open redirect or redirect chain" },
+  defanged_url: { weight: 3, label: "URL was defanged" },
+}
+
+const SIGNAL_TYPE_MAP = {
+  shortener_service: "url_shortener",
+  ip_hosted_url: "ip_address",
+  encoded_param: "encoded_payload",
+  base64_encoded: "encoded_payload",
+  brand_impersonation_mismatch: "brand_impersonation",
+  credential_wording: "suspected_phishing",
+  credential_parameter: "suspected_phishing",
+  fake_captcha: "suspected_phishing",
+  qr_phishing: "suspected_phishing",
+  typosquatting: "suspected_phishing",
+  download_extension: "suspected_phishing",
+  multiple_redirects: "redirect_chain",
+  parked_domain: "suspected_phishing",
+  private_host: "ip_address",
+}
+
+function computeUrlThreatScore(signals = []) {
+  const breakdown = []
+  let total = 0
+  for (const signal of signals) {
+    const type = SIGNAL_TYPE_MAP[signal.id] || signal.id
+    const weight = URL_THREAT_WEIGHTS[type]
+    if (weight) {
+      breakdown.push({ signal: signal.id, score: weight.weight, label: weight.label })
+      total += weight.weight
+    }
+  }
+  const score = Math.min(100, total)
+  let level
+  if (score <= 15) level = "safe"
+  else if (score <= 35) level = "low"
+  else if (score <= 55) level = "medium"
+  else if (score <= 75) level = "high"
+  else level = "critical"
+  return { score, level, breakdown }
+}
+
+function generateThreatReport(url = "", signals = [], score) {
+  const topSignals = [...score.breakdown].sort((a, b) => b.score - a.score).slice(0, 5)
+  const domains = [...new Set(signals.filter((s) => s.evidence && /[a-z0-9.-]+\.[a-z]{2,}/i.test(s.evidence)).map((s) => s.evidence))]
+  const ips = [...new Set(signals.filter((s) => s.evidence && /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(s.evidence)).map((s) => s.evidence))]
+  return [
+    "## Threat Assessment Report",
+    "",
+    `**Threat Level:** ${score.level.toUpperCase()}`,
+    `**Risk Score:** ${score.score}/100`,
+    `**URL:** ${url}`,
+    "",
+    "### Key Signals (Top 5)",
+    ...topSignals.map((s, i) => `${i + 1}. **${s.label}** — ${s.score} pts (signal: \`${s.signal}\`)`),
+    ...(topSignals.length === 0 ? ["No weighted signals detected."] : []),
+    "",
+    "### Analyst Recommendation",
+    score.level === "critical" || score.level === "high"
+      ? "Immediate investigation recommended. Do not interact with this URL. Block at proxy/gateway and search for related indicators."
+      : score.level === "medium"
+        ? "Review with case context. Pivot domains and check for related phishing campaigns."
+        : "Low risk indicators. Verify against known-good behavior before closing.",
+    "",
+    "### IOCs",
+    domains.length ? `**Domains:** ${domains.join(", ")}` : "**Domains:** None extracted",
+    ips.length ? `**IPs:** ${ips.join(", ")}` : "**IPs:** None extracted",
+    `**Total signals detected:** ${signals.length}`,
+  ].join("\n")
+}
+
 const SAMPLE_URLS = {
   credential: "hxxps[:]//secure-gate.login-verify[.]com/oauth/reset?redirect_uri=aHR0cHM6Ly9taWNyb3NvZnQuY29tL2xvZ2lu&user=analyst@example.com",
   shortener: "https://bit.ly/example-login-check",
@@ -42,6 +124,9 @@ const SAMPLE_URLS = {
   query: "https://account-security.example-login.com/auth?client_id=portal&redirect_uri=https%3A%2F%2Flogin.example.com%2Fsession&user=victim%40example.com",
   redirect: "https://example.com/redirect?next=https%3A%2F%2Fsecure-update.example-login.com%2Fauth",
   benign: "https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-id",
+  openRedirect: "https://lgin.verified-acc00nt.com/out?url=https://evil.example.net/steal",
+  fakeCaptcha: "https://secure-verify.captcha-check.com/captcha?sitekey=6Lf&callback=https%3A%2F%2Fphish.example%2Ftoken",
+  qrRedirect: "https://qrco.de/bfWg3?utm_source=qrcode&redirect=login.verify-account.com/reset",
 }
 
 function extractUrlCandidate(value = "") {
@@ -277,6 +362,9 @@ function SampleAndHelpers({ sampleType, setSampleType, onLoadSample, onDefang, o
         <option value="punycode">Punycode domain</option>
         <option value="query">Suspicious query parameters</option>
         <option value="redirect">Redirect chain</option>
+        <option value="openRedirect">Open redirect</option>
+        <option value="fakeCaptcha">Fake CAPTCHA phish</option>
+        <option value="qrRedirect">QR code redirect</option>
         <option value="benign">Benign login URL</option>
       </select>
       <button type="button" onClick={onLoadSample}><Search className="h-4 w-4" /> Load sample</button>
@@ -519,16 +607,17 @@ function decodeURIComponentSafe(value) {
 }
 
 function SuspiciousPatternPanel({ result }) {
-  const signals = allSignals(result)
+  const signals = allSignals(result).map(mapUrlSignalMitre)
   return (
     <section className="url-paper-card">
-      <SectionHeader eyebrow="Risk signals" title="Suspicious pattern review" subtitle="Every signal keeps evidence, reason, source, and confidence boundary visible." icon={AlertTriangle} compact />
+      <SectionHeader eyebrow="Risk signals" title="Suspicious pattern review" subtitle="Every signal keeps evidence, reason, source, MITRE ID, and confidence boundary visible." icon={AlertTriangle} compact />
       <div className="url-signal-list">
         {signals.length ? signals.map((signal, index) => (
           <article key={`${signal.id}-${index}`} className={`is-${toneForSeverity(signal.severity)}`}>
             <div>
               <StatusBadge tone={toneForSeverity(signal.severity)}>{signal.severity || "info"}</StatusBadge>
               <strong>{signal.label || labelize(signal.id || "signal")}</strong>
+              {signal.mitre_id && <StatusBadge tone="violet">MITRE {signal.mitre_id}</StatusBadge>}
             </div>
             <p>{signal.why || signal.reason || "Signal requires analyst review."}</p>
             <code>{signal.evidence || "No evidence text provided"}</code>
@@ -625,21 +714,127 @@ function InventoryPanel({ result, onCopy, setNotice, onNavigate }) {
 }
 
 function EvidenceCards({ result }) {
-  const signals = topSignals(result, 6)
+  const signals = topSignals(result, 6).map(mapUrlSignalMitre)
   return (
     <section className="url-paper-card">
-      <SectionHeader eyebrow="Evidence" title="Evidence cards" subtitle="Case-ready findings with reason, limitation, and suggested action." icon={ShieldAlert} compact />
+      <SectionHeader eyebrow="Evidence" title="Evidence cards" subtitle="Case-ready findings with reason, MITRE ID, limitation, and suggested action." icon={ShieldAlert} compact />
       <div className="url-evidence-grid">
         {signals.length ? signals.map((signal, index) => (
           <article key={`${signal.id}-${index}`} className={`is-${toneForSeverity(signal.severity)}`}>
             <header><span>EV-{String(index + 1).padStart(3, "0")}</span><StatusBadge tone={toneForSeverity(signal.severity)}>{signal.severity}</StatusBadge></header>
             <h3>{signal.label}</h3>
+            {signal.mitre_id && <small className="url-evidence-mitre">MITRE {signal.mitre_id}</small>}
             <p>{signal.why || "Review this signal with case context."}</p>
             <code>{signal.evidence || signal.id}</code>
             <small>Suggested action: {actionForSignal(signal)}</small>
           </article>
         )) : <div className="url-empty-evidence"><strong>No evidence cards generated</strong><p>Run metadata checks or review the source context if the URL came from an email/report.</p></div>}
       </div>
+    </section>
+  )
+}
+
+const URL_SIGNAL_MITRE = {
+  brand_impersonation: "T1566.002",
+  brand_impersonation_mismatch: "T1566.002",
+  credential_wording: "T1566.002",
+  credential_parameter: "T1566.002",
+  redirect_chain: "T1566.001",
+  suspicious_tld: "T1595",
+  punycode_domain: "T1566.002",
+  ip_hosted_url: "T1590.002",
+  shortener_service: "T1566.001",
+  download_extension: "T1204.002",
+  sensitive_param: "T1590",
+  private_host: "T1590.001",
+  encoded_param: "T1027",
+  base64_encoded: "T1027",
+  suspicious_path: "T1566.002",
+  multiple_redirects: "T1566.001",
+  parked_domain: "T1595",
+  typosquatting: "T1566.002",
+  fake_captcha: "T1566.002",
+  qr_phishing: "T1566.002",
+}
+
+function mapUrlSignalMitre(signal) {
+  if (!signal) return signal
+  signal.mitre_id = URL_SIGNAL_MITRE[signal.id] || ""
+  return signal
+}
+
+function TechniqueChainPanel({ result }) {
+  const signals = allSignals(result).map(mapUrlSignalMitre)
+  const mitreMap = {}
+  for (const s of signals) {
+    if (s.mitre_id) {
+      if (!mitreMap[s.mitre_id]) mitreMap[s.mitre_id] = []
+      mitreMap[s.mitre_id].push(s.label || s.id)
+    }
+  }
+  const entries = Object.entries(mitreMap)
+  return (
+    <section className="url-paper-card ba-mitre-chain">
+      <SectionHeader eyebrow="ATT&CK mapping" title="Technique chain" subtitle="MITRE ATT&CK IDs mapped from signals found in this URL." icon={Swords} compact />
+      {entries.length ? (
+        <div className="url-mitre-grid">
+          {entries.map(([tid, labels]) => (
+            <article key={tid}>
+              <strong>{tid}</strong>
+              <p>{labels.join("; ")}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="url-empty-evidence">
+          <strong>No MITRE IDs mapped</strong>
+          <p>Signal IDs did not match known URL-analysis techniques.</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ThreatScorePanel({ result }) {
+  const [showReport, setShowReport] = useState(false)
+  const signals = allSignals(result)
+  const score = useMemo(() => computeUrlThreatScore(signals, result?.input?.normalized || ""), [signals, result])
+  const report = useMemo(
+    () => (showReport ? generateThreatReport(result?.input?.normalized || "", signals, score) : ""),
+    [showReport, result, signals, score]
+  )
+  const levelTone = score.level === "critical" || score.level === "high" ? "rose" : score.level === "medium" ? "amber" : score.level === "low" ? "cyan" : "emerald"
+  const barColor = levelTone === "rose" ? "#f43f5e" : levelTone === "amber" ? "#f59e0b" : levelTone === "cyan" ? "#06b6d4" : "#10b981"
+  return (
+    <section className="url-paper-card">
+      <SectionHeader eyebrow="Threat scoring" title="URL threat score" subtitle="Weighted scoring from detected signals." icon={Shield} compact />
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+        <strong style={{ fontSize: "1.5rem", lineHeight: 1 }}>{score.score}<span style={{ fontSize: "0.875rem", fontWeight: 400, opacity: 0.5 }}>/100</span></strong>
+        <StatusBadge tone={levelTone}>{score.level.toUpperCase()}</StatusBadge>
+      </div>
+      <div style={{ height: 6, background: "var(--bg-subtle, #1a1a2e)", borderRadius: 3, overflow: "hidden", marginBottom: "0.75rem" }}>
+        <div style={{ width: `${score.score}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.3s ease" }} />
+      </div>
+      <details style={{ fontSize: "0.875rem" }}>
+        <summary style={{ cursor: "pointer", opacity: 0.7, marginBottom: "0.25rem" }}>Score breakdown ({score.breakdown.length} signals)</summary>
+        <div className="url-signal-list">
+          {score.breakdown.length ? score.breakdown.sort((a, b) => b.score - a.score).map((item, i) => (
+            <article key={i} className="is-violet" style={{ padding: "0.5rem" }}>
+              <div><strong>{item.label}</strong><StatusBadge tone="violet">+{item.score}</StatusBadge></div>
+              <code>{item.signal}</code>
+            </article>
+          )) : <article className="is-emerald" style={{ padding: "0.5rem" }}><div><StatusBadge tone="emerald">No threat</StatusBadge><strong>No weighted signals detected</strong></div></article>}
+        </div>
+      </details>
+      <button type="button" className="url-primary-button" style={{ marginTop: "0.75rem" }} onClick={() => setShowReport((t) => !t)}>
+        {showReport ? "Hide" : "Generate"} Threat Report
+      </button>
+      {showReport && report ? (
+        <div style={{ marginTop: "0.75rem", position: "relative" }}>
+          <pre style={{ background: "var(--bg-code, #0d0d1a)", padding: "1rem", borderRadius: "6px", fontSize: "0.8125rem", whiteSpace: "pre-wrap", wordBreak: "break-word", border: "1px solid var(--border-color, #1e1e3a)" }}>{report}</pre>
+          <button type="button" onClick={() => copyText(report, null, "Threat report")} style={{ position: "absolute", top: "0.5rem", right: "0.5rem", background: "var(--bg-surface, #16162a)", border: "1px solid var(--border-color, #1e1e3a)", borderRadius: "4px", padding: "0.25rem", cursor: "pointer" }} title="Copy threat report"><Copy size={14} /></button>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -730,10 +925,12 @@ function StaticResults({ result, markdown, rawJson, setNotice, onCopy, onNavigat
           <HostSignalPanel result={result} />
         </div>
         <SuspiciousPatternPanel result={result} />
+        <ThreatScorePanel result={result} />
         <RedirectReview result={result} />
         <InventoryPanel result={result} onCopy={onCopy} setNotice={setNotice} onNavigate={onNavigate} />
         <EvidenceCards result={result} />
         <ReportReadySummary result={result} />
+        <TechniqueChainPanel result={result} />
         <RawDetails rawJson={rawJson} />
       </main>
       <VerdictRail result={result} markdown={markdown} rawJson={rawJson} setNotice={setNotice} onCopy={onCopy} onNavigate={onNavigate} setPage={setPage} />
@@ -833,8 +1030,10 @@ function CompareResults({ result, markdown, rawJson, setNotice, onCopy, onNaviga
         <AgreementConflict result={result} />
         <ConfidenceAssessment result={result} />
         <SuspiciousPatternPanel result={result} />
+        <ThreatScorePanel result={result} />
         <InventoryPanel result={result} onCopy={onCopy} setNotice={setNotice} onNavigate={onNavigate} />
         <AnalystRecommendation result={result} />
+        <TechniqueChainPanel result={result} />
         <RawDetails rawJson={rawJson} />
       </main>
       <VerdictRail result={result} markdown={markdown} rawJson={rawJson} setNotice={setNotice} onCopy={onCopy} onNavigate={onNavigate} setPage={setPage} />

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import (
     checklists,
     detection,
+    hackingtool,
     lab_helpers,
     log_analysis,
     malware,
@@ -84,3 +85,5 @@ app.include_router(network.router, prefix="/api/network", tags=["Network Traffic
 
 
 app.include_router(recon_intel.router, prefix="/api/recon-intel", tags=["Recon Intelligence"])
+
+app.include_router(hackingtool.router, prefix="/api/hackingtool", tags=["Hacking Tools"])

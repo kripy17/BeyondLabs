@@ -70,6 +70,62 @@ const TYPE_META = {
   "Analyst Notes / Unknown Text": { family: "Unknown / Mixed Artifact", priority: 8 },
 }
 
+const TYPE_MITRE_MAP = {
+  "Sigma-like Detection Rule": "T1059",
+  "YARA-like Detection Rule": "T1204",
+  "Snort/Suricata Detection Rule": "T1204",
+  "ATT&CK Mapping": "T1592",
+  "Email / Phishing": "T1566",
+  "Linux Auth Log": "T1110",
+  "Windows Event Log": "T1078",
+  "Web Access Log": "T1071",
+  "Firewall/Proxy Log": "T1046",
+  "DNS Records": "T1071.004",
+  "IOC List": "T1595",
+  "Endpoint Command Line": "T1059",
+  "PowerShell EncodedCommand": "T1059.001",
+  "Base64-looking Payload": "T1059.001",
+  "Analyst Notes / Unknown Text": "T1592",
+  "Analyst Notes / Timeline": "T1592",
+}
+
+const TYPE_CONFIDENCE_WEIGHTS = {
+  "Sigma-like Detection Rule": { weight: 0.95, base: "High confidence — structured rule format" },
+  "YARA-like Detection Rule": { weight: 0.95, base: "High confidence — structured rule format" },
+  "Snort/Suricata Detection Rule": { weight: 0.95, base: "High confidence — structured rule format" },
+  "ATT&CK Mapping": { weight: 0.85, base: "Good confidence — MITRE format detected" },
+  "Email / Phishing": { weight: 0.85, base: "Good confidence — email structure detected" },
+  "Email Headers": { weight: 0.9, base: "High confidence — RFC 5322 header format" },
+  "Linux Auth Log": { weight: 0.85, base: "Good confidence — syslog auth pattern" },
+  "Windows Event Log": { weight: 0.85, base: "Good confidence — Windows event structure" },
+  "Web / Proxy Log": { weight: 0.8, base: "Moderate confidence — web log pattern" },
+  "DNS Log": { weight: 0.8, base: "Moderate confidence — DNS query pattern" },
+  "Firewall / Netflow": { weight: 0.75, base: "Moderate confidence — netflow format" },
+  "IOC List": { weight: 0.7, base: "Moderate confidence — indicator pattern match" },
+  "Malware": { weight: 0.65, base: "Low-Moderate confidence — heuristic match" },
+  "Threat Intel": { weight: 0.7, base: "Moderate confidence — intel format match" },
+  "Base64 / Encoded": { weight: 0.75, base: "Moderate confidence — encoding detection" },
+}
+
+function generateParseSummary(result) {
+  if (!result) return "No types detected."
+  const primary = result.primaryType
+  const secondaryTypes = (result.secondaryTypes || []).map(t => t.type)
+  const output = JSON.stringify(result, null, 2)
+  const confidence = TYPE_CONFIDENCE_WEIGHTS[primary] || { weight: 0.5, base: "Low confidence — generic pattern match" }
+  const lines = [
+    `## Parse Results Summary`,
+    ``,
+    `**Detected Type:** ${primary}`,
+    `**Confidence:** ${Math.round(confidence.weight * 100)}% — ${confidence.base}`,
+    `**Additional Matches:** ${secondaryTypes.join(", ") || "None"}`,
+    `**Output Size:** ${output.length} character(s)`,
+    ``,
+    `**Analyst Note:** This content was parsed by local pattern detection only. No execution, sandbox analysis, or threat intelligence enrichment was performed. Validate parsed fields against source context.`,
+  ]
+  return lines.join("\n")
+}
+
 const SAMPLE_INPUTS = {
   phishing: {
     label: "Raw phishing email",
@@ -225,6 +281,9 @@ function typeMeta(type) {
   return TYPE_META[type] || { family: "Unknown / Mixed Artifact", priority: 8 }
 }
 
+function mitreForType(type) {
+  return TYPE_MITRE_MAP[type] || null
+}
 
 function parseJsonLines(text) {
   const trimmed = text.trim()
@@ -282,7 +341,7 @@ function extractUserAgents(text) {
 }
 
 function extractCommandFields(text) {
-  const commandPattern = /\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?|cmd(?:\.exe)?|rundll32(?:\.exe)?|regsvr32(?:\.exe)?|mshta(?:\.exe)?|wscript(?:\.exe)?|cscript(?:\.exe)?|certutil(?:\.exe)?|bitsadmin(?:\.exe)?|bash|sh)\b[^\n\r]*/gi
+  const commandPattern = /\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?|cmd(?:\.exe)?|rundll32(?:\.exe)?|regsvr32(?:\.exe)?|mshta(?:\.exe)?|wscript(?:\.exe)?|cscript(?:\.exe)?|certutil(?:\.exe)?|bitsadmin(?:\.exe)?|bash|sh|msbuild|installutil|csc\.exe|regini|pcalua|cmstp|msiexec|hh\.exe|forfiles)\b[^\n\r]*/gi
   const commands = uniq((text.match(commandPattern) || []).map((value) => ({ value: value.trim(), normalized: value.trim() })))
   const primaryCommand = commands[0]?.normalized || ""
   return {
@@ -292,7 +351,10 @@ function extractCommandFields(text) {
     hasHiddenWindow: /(?:-w(?:indowstyle)?\s+hidden|\/b\b)/i.test(text),
     hasNoProfile: /-nop(?:rofile)?\b/i.test(text),
     hasDownloadCradle: /\b(iwr|invoke-webrequest|wget|curl|downloadstring|webclient|bitsadmin|certutil\s+-urlcache)\b/i.test(text),
-    hasLolbin: /\b(rundll32|regsvr32|mshta|wscript|cscript|certutil|bitsadmin)\b/i.test(text),
+    hasLolbin: /\b(rundll32|regsvr32|mshta|wscript|cscript|certutil|bitsadmin|msbuild|installutil|csc\.exe|regini|pcalua|cmstp|msiexec|hh\.exe|forfiles)\b/i.test(text),
+    hasAmsiBypass: /(?:amsi|bypass|disable\s*amsi|amsiutils|amsi\.scanbuffer)/i.test(text),
+    hasDownloadExecute: /\b(iwr\s+.*\s*\|?\s*iex|curl\s+.*\s*\|?\s*iex|wget\s+.*\s*\|?\s*iex|(?:invoke-webrequest|wget|curl)\s+.*-outfile|start-bits transfer\s+.*-destination|certutil\s+-urlcache.*-f\s+|bitsadmin\s+\/transfer\s+).*\.(?:exe|ps1|dll|bat|vbs)/im.test(text),
+    hasPipePowerShell: /(?:\||%)\s*(?:\{|\.\s*\()\s*(?:powershell|pwsh|iex|invoke|invoke-expression)/im.test(text) || /\|\s*(?:powershell|pwsh)\s+-\s*/im.test(text),
     base64Blobs: uniq((text.match(/\b[A-Za-z0-9+/]{24,}={0,2}\b/g) || []).map((value) => ({ value, normalized: value }))).slice(0, 10),
   }
 }
@@ -356,6 +418,52 @@ function extractRuleFields(text) {
   return fields
 }
 
+const SUSPICIOUS_TLDS = new Set(["tk", "ml", "ga", "cf", "gq", "pw", "su", "ru", "cn", "top", "xyz", "click", "download", "review", "work", "date", "men", "loan", "win", "bid", "trade", "webcam", "rest", "science", "gdn", "accountant", "bank", "bonus", "cash", "chase", "claim", "credit", "crypto", "free", "gift", "help", "host", "info", "life", "link", "live", "love", "money", "online", "party", "pro", "racing", "renovation", "review", "sale", "sex", "site", "software", "studio", "stream", "support", "tech", "top", "trade", "vip", "wang", "webcam", "website", "win", "work", "xyz"])
+
+const SHORTENER_DOMAINS = new Set(["bit.ly", "tinyurl.com", "goo.gl", "ow.ly", "buff.ly", "shorturl.at", "is.gd", "cli.gs", "pic.gd", "bc.vc", "tiny.cc", "lc.chat", "tr.im", "t.co", "x.co", "budurl.com", "snipurl.com", "shorte.st", "adf.ly", "tiny.ie", "bl.ink", "youtu.be", "rb.gy", "cutt.ly", "t2m.io", "short.link", "lnkd.in"])
+
+const SUSPICIOUS_PATH_KEYWORDS = ["login", "verify", "reset", "update", "confirm", "authenticate", "secure", "account", "signin", "sign-in", "auth", "validate", "password", "recovery", "challenge", "2fa", "mfa", "wallet", "claim", "bonus", "reward", "support", "help", "download", "free", "promo"]
+
+function analyzeUrls(iocUrls) {
+  return iocUrls.map((item) => {
+    const url = item.normalized
+    try {
+      const parsed = new URL(url)
+      const hostname = parsed.hostname
+      const path = parsed.pathname
+      const depth = path.split("/").filter(Boolean).length
+      const tld = hostname.split(".").pop()?.toLowerCase() || ""
+      const isSuspiciousTld = SUSPICIOUS_TLDS.has(tld)
+      const isIpHosted = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)
+      const hasSuspiciousPath = SUSPICIOUS_PATH_KEYWORDS.some((kw) => path.toLowerCase().includes(kw))
+      const isShortener = SHORTENER_DOMAINS.has(hostname)
+      const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80")
+      const searchParams = parsed.search || ""
+      const entropy = shannonEntropy(path)
+      const hasPort = Boolean(parsed.port)
+      const hasCredentials = Boolean(parsed.username)
+
+      return {
+        ...item,
+        analysis: { depth, hostname, tld, isSuspiciousTld, isIpHosted, hasSuspiciousPath, isShortener, port, searchParams, entropy, hasPort, hasCredentials },
+      }
+    } catch {
+      return { ...item, analysis: null }
+    }
+  })
+}
+
+function shannonEntropy(str) {
+  const counts = new Map()
+  for (const char of str) counts.set(char, (counts.get(char) || 0) + 1)
+  let entropy = 0
+  for (const count of counts.values()) {
+    const p = count / str.length
+    if (p > 0) entropy -= p * Math.log2(p)
+  }
+  return Math.round(entropy * 100) / 100
+}
+
 function extractIocs(text) {
   const normalizedText = refang(text)
   const originalAndRefanged = `${text}\n${normalizedText}`
@@ -368,6 +476,11 @@ function extractIocs(text) {
   const cvePattern = /\bCVE-\d{4}-\d{4,7}\b/gi
   const attackPattern = /\bT\d{4}(?:\.\d{3})?\b/gi
   const eventIdPattern = /\b(?:Event\s*ID|EventID|event_id|eventcode|event.code)\D{0,8}(\d{3,5})\b/gi
+  const asnPattern = /\bAS\d{1,6}\b/gi
+  const macPattern = /\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/g
+  const btcPattern = /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g
+  const ethPattern = /\b0x[a-fA-F0-9]{40}\b/g
+  const phonePattern = /\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g
 
   const urls = uniq((originalAndRefanged.match(urlPattern) || []).map((value) => ({
     value,
@@ -407,8 +520,29 @@ function extractIocs(text) {
   }
   eventIds.push(...(normalizedText.match(/\b(?:4624|4625|4688|4672|1102|7045|4768|4769|4104)\b/g) || []).map((value) => ({ value, normalized: value })))
 
+  const asns = uniq((originalAndRefanged.match(asnPattern) || []).map((value) => ({
+    value: value.toUpperCase(),
+    normalized: value.toUpperCase(),
+  })))
+
+  const macs = uniq((originalAndRefanged.match(macPattern) || []).map((value) => ({
+    value: value.toLowerCase(),
+    normalized: value.toLowerCase(),
+  })))
+
+  const btcAddresses = uniq((originalAndRefanged.match(btcPattern) || []).map((value) => ({ value, normalized: value })))
+  const ethAddresses = uniq((originalAndRefanged.match(ethPattern) || []).map((value) => ({ value, normalized: value })))
+
+  const phones = uniq((originalAndRefanged.match(phonePattern) || []).map((value) => ({
+    value,
+    normalized: value.replace(/[-.\s]/g, ""),
+  }))).filter((item) => item.normalized.length >= 7 && item.normalized.length <= 15)
+
+  const urlAnalysis = analyzeUrls(urls)
+
   return {
     urls,
+    urlAnalysis,
     domains,
     ipv4,
     ipv6,
@@ -418,6 +552,11 @@ function extractIocs(text) {
     cves,
     attackTechniques: attack,
     windowsEventIds: uniq(eventIds),
+    asns,
+    macAddresses: macs,
+    btcAddresses,
+    ethAddresses,
+    phones,
   }
 }
 
@@ -434,13 +573,18 @@ function countIocs(iocs) {
     + iocs.cves.length
     + iocs.attackTechniques.length
     + iocs.windowsEventIds.length
+    + iocs.asns.length
+    + iocs.macAddresses.length
+    + iocs.btcAddresses.length
+    + iocs.ethAddresses.length
+    + iocs.phones.length
 }
 
-function addSignal(signals, level, title, detail) {
-  signals.push({ level, title, detail })
+function addSignal(signals, level, title, detail, mitreId) {
+  signals.push({ level, title, detail, mitreId: mitreId || "" })
 }
 
-function buildSignals({ text, normalized, headers, iocs, commandFields, logFields, ruleFields, userAgents, secrets }) {
+function buildSignals({ text, normalized, headers, iocs, urlAnalysis, commandFields, logFields, ruleFields, userAgents, secrets }) {
   const signals = []
   const lower = normalized.toLowerCase()
   const fromDomain = headers.from?.[0]?.match(/@([^>\s]+)/)?.[1]?.toLowerCase()
@@ -460,36 +604,47 @@ function buildSignals({ text, normalized, headers, iocs, commandFields, logField
     addSignal(signals, "Needs Review", "Return-Path domain differs from From", `${fromDomain} differs from ${returnPathDomain}.`)
   }
   if (iocs.urls.length) addSignal(signals, "Informational", "URL content present", `${iocs.urls.length} URL(s) extracted for safe review.`)
-  if (/hxxp|hxxps|\[\.\]|\[:\]/i.test(text)) addSignal(signals, "Informational", "Defanged content present", "Indicators appear intentionally defanged.")
+  if (/hxxp|hxxps|\[\.\]|\[:\]|\[@\]|\(\s*\.\s*\)/i.test(text)) addSignal(signals, "Informational", "Defanged content present", "Indicators appear intentionally defanged.")
 
-  for (const url of iocs.urls) {
-    try {
-      const parsed = new URL(url.normalized)
-      if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(parsed.hostname)) addSignal(signals, "Needs Review", "URL uses IP host", parsed.hostname)
-      if (/(login|reset|verify|update|account|secure)/i.test(parsed.href)) addSignal(signals, "Suspicious", "URL contains account-action keyword", parsed.href)
-      if (parsed.search.length > 80) addSignal(signals, "Suspicious", "Long URL query string", "Long query strings can carry tokens or tracking data.")
-      if (/%[0-9a-f]{2}/i.test(url.value)) addSignal(signals, "Informational", "URL encoded characters present", "CyberChef may help decode safely.")
-    } catch {
-      // Ignore malformed URL fragments.
-    }
+  for (const ua of urlAnalysis) {
+    if (!ua.analysis) continue
+    const a = ua.analysis
+    if (a.isIpHosted) addSignal(signals, "Needs Review", "URL uses IP host", a.hostname)
+    if (a.hasSuspiciousPath) addSignal(signals, "Suspicious", "URL contains account-action keyword", ua.normalized)
+    if (a.isSuspiciousTld) addSignal(signals, "Needs Review", "Suspicious URL TLD", `${a.hostname} uses ${a.tld} TLD`)
+    if (a.isShortener) addSignal(signals, "Suspicious", "Shortened URL detected", `${a.hostname} is a known shortener`)
+    if (a.entropy > 4) addSignal(signals, "Informational", "High-entropy URL path", `Path entropy ${a.entropy} in ${ua.normalized}`)
+    if (a.hasPort && a.port !== "443" && a.port !== "80") addSignal(signals, "Informational", "Non-standard URL port", `${a.hostname}:${a.port}`)
+    if (a.hasCredentials) addSignal(signals, "Needs Review", "URL contains embedded credentials", ua.normalized)
+    if (/%[0-9a-f]{2}/i.test(ua.value)) addSignal(signals, "Informational", "URL encoded characters present", "CyberChef may help decode safely.")
   }
 
   if (/failed password/i.test(normalized)) addSignal(signals, "Suspicious", "Failed login observed", "Authentication log includes failed password activity.")
   if (/invalid user/i.test(normalized)) addSignal(signals, "Suspicious", "Invalid username attempt", "SSH/auth log references an invalid user.")
   if (/accepted password/i.test(normalized)) addSignal(signals, "Needs Review", "Successful login observed", "Review whether this login followed failures or used a privileged account.")
   if (/\b(root|administrator|admin)\b/i.test(normalized)) addSignal(signals, "Needs Review", "Privileged account referenced", "Privileged account activity should be correlated.")
-  if (/(\/\.\.\/|\.\.\/|\/etc\/passwd|union\s+select|select.+from|<script|%27|%22)/i.test(normalized)) addSignal(signals, "Suspicious", "Web attack pattern in path or query", "Traversal, SQLi, or script-like content appears in text.")
-  if (/\b(401|403|404)\b/.test(normalized) && logFields.web_access) addSignal(signals, "Informational", "HTTP error status observed", `Status ${logFields.web_access.status} was parsed from access log.`)
-  if (userAgents.some((item) => /sqlmap|curl|python-requests|wget/i.test(item.normalized))) addSignal(signals, "Suspicious", "Automation or scanning user-agent", "User-Agent suggests scripted or security-tool traffic.")
+    if (/(\/\.\.\/|\.\.\/|\/etc\/passwd|union\s+select|select.+from|<script|%27|%22|["']\s*or\s+["']|["']\s*and\s+["'])/i.test(normalized)) addSignal(signals, "Suspicious", "Web attack pattern in path or query", "Traversal, SQLi, or script-like content appears in text.")
+  if (/['"]\s*\}\s*\)?\s*;?\s*<\/?script/i.test(normalized)) addSignal(signals, "Suspicious", "Reflected XSS pattern", "Possible cross-site scripting attack signature.")
+  if (/\$\{|#\{|template|render|eval\(/i.test(normalized) && /path|param|input|query/i.test(normalized)) addSignal(signals, "Needs Review", "SSTI or injection pattern", "Server-side template injection may be present.")
+  if (/\b(401|403|404|500|502|503)\b/.test(normalized) && logFields.web_access) addSignal(signals, "Informational", "HTTP error status observed", `Status ${logFields.web_access.status} was parsed from access log.`)
+  if (userAgents.some((item) => /sqlmap|curl|python-requests|wget|nikto|nmap|masscan|zgrab/i.test(item.normalized))) addSignal(signals, "Suspicious", "Automation or scanning user-agent", "User-Agent suggests scripted or security-tool traffic.")
   if (/\b4688\b/.test(normalized)) addSignal(signals, "Informational", "Windows process creation event", "Event ID 4688 indicates process creation telemetry.")
   if (/\b7045\b/.test(normalized)) addSignal(signals, "Needs Review", "Windows service creation event", "Event ID 7045 can indicate service installation.")
   if (/\b1102\b/.test(normalized)) addSignal(signals, "Needs Review", "Windows audit log cleared event", "Event ID 1102 should be reviewed promptly.")
+  if (/\b4768\b/.test(normalized)) addSignal(signals, "Needs Review", "Kerberos TGT request", "Event 4768 indicates Kerberos authentication ticket request.")
+  if (/\b4769\b/.test(normalized)) addSignal(signals, "Needs Review", "Kerberos service ticket request", "Event 4769 can indicate Kerberoasting activity.")
+  if (/\b4104\b/.test(normalized)) addSignal(signals, "Informational", "PowerShell script block logging", "Event 4104 captures PowerShell script block execution.")
+  if (/sudo[: ]|su\s+-|su\s+\w+/i.test(normalized) && /failed|authentication failure/i.test(normalized)) addSignal(signals, "Suspicious", "Privilege escalation failure", "Failed sudo/su attempt suggests privilege escalation.")
+  if (/ssh\s+(?:-i\s+\S+|key|authorized_keys)/i.test(normalized)) addSignal(signals, "Informational", "SSH key reference detected", "Key-based SSH authentication referenced.")
 
   if (commandFields.hasEncodedCommand) addSignal(signals, "Needs Review", "PowerShell EncodedCommand", "Decode safely; do not execute.")
   if (commandFields.hasHiddenWindow) addSignal(signals, "Suspicious", "Hidden window flag", "Command line requests hidden execution.")
   if (commandFields.hasNoProfile) addSignal(signals, "Suspicious", "NoProfile flag", "PowerShell profile loading is disabled.")
   if (commandFields.hasDownloadCradle) addSignal(signals, "Needs Review", "Download cradle keyword", "Command includes web retrieval or download keywords.")
   if (commandFields.hasLolbin) addSignal(signals, "Needs Review", "LOLBin-style utility", "Command references a Windows living-off-the-land binary.")
+  if (commandFields.hasAmsiBypass) addSignal(signals, "Suspicious", "AMSI bypass pattern detected", "Command line contains AMSI bypass keywords.")
+  if (commandFields.hasDownloadExecute) addSignal(signals, "Needs Review", "Suspicious download-execute pattern", "Command retrieves and likely runs remote content.")
+  if (commandFields.hasPipePowerShell) addSignal(signals, "Needs Review", "Pipe to PowerShell detected", "Output piped to PowerShell can indicate fileless execution.")
   if (commandFields.base64Blobs.length) addSignal(signals, "Informational", "Base64-looking blob", "CyberChef can decode safely for review.")
   if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(normalized.trim())) addSignal(signals, "Needs Review", "JWT-like token", "Decode header and payload safely; local parsing does not verify trust.")
   if (secrets.length) addSignal(signals, "Needs Review", "Secret-like pattern detected", `${secrets.length} local secret finding(s). Rotate if confirmed exposed.`)
@@ -655,7 +810,7 @@ function detectArtifact(text) {
   const primary = ranked[0]
   const secondary = ranked.slice(1, 5)
   const routeKeys = suggestRoutes(primary.type, secondary.map((item) => item.type), iocs, normalized)
-  const signals = buildSignals({ text: limited, normalized, headers, iocs, commandFields, logFields, ruleFields, userAgents, secrets })
+  const signals = buildSignals({ text: limited, normalized, headers, iocs, urlAnalysis: iocs.urlAnalysis, commandFields, logFields, ruleFields, userAgents, secrets })
   const guidance = buildGuidance({
     primaryType: primary.type,
     family: primary.family,
@@ -775,6 +930,11 @@ function buildNormalizedArtifacts(iocs) {
     cves: iocs.cves.map((item) => item.normalized),
     attackTechniques: iocs.attackTechniques.map((item) => item.normalized),
     windowsEventIds: iocs.windowsEventIds.map((item) => item.normalized),
+    asns: iocs.asns.map((item) => item.normalized),
+    macAddresses: iocs.macAddresses.map((item) => item.normalized),
+    btcAddresses: iocs.btcAddresses.map((item) => item.normalized),
+    ethAddresses: iocs.ethAddresses.map((item) => item.normalized),
+    phones: iocs.phones.map((item) => item.normalized),
   }
 }
 
@@ -850,6 +1010,11 @@ function flattenIocGroups(iocs) {
     CVEs: iocs.cves,
     "ATT&CK": iocs.attackTechniques,
     "Windows Event IDs": iocs.windowsEventIds,
+    "AS Numbers": iocs.asns,
+    "MAC Addresses": iocs.macAddresses,
+    "BTC Addresses": iocs.btcAddresses,
+    "ETH Addresses": iocs.ethAddresses,
+    Phones: iocs.phones,
   }
 }
 
@@ -867,6 +1032,11 @@ function flatIocRows(iocs) {
   for (const item of iocs.cves) rows.push({ type: 'CVE', value: item.normalized, context: 'Vulnerability reference' })
   for (const item of iocs.attackTechniques) rows.push({ type: 'ATT&CK', value: item.normalized, context: 'Technique mapping' })
   for (const item of iocs.windowsEventIds) rows.push({ type: 'Event ID', value: item.normalized, context: 'Windows event' })
+  for (const item of iocs.asns) rows.push({ type: 'ASN', value: item.normalized, context: 'Autonomous system' })
+  for (const item of iocs.macAddresses) rows.push({ type: 'MAC', value: item.normalized, context: 'Hardware address' })
+  for (const item of iocs.btcAddresses) rows.push({ type: 'BTC', value: item.normalized, context: 'Bitcoin address' })
+  for (const item of iocs.ethAddresses) rows.push({ type: 'ETH', value: item.normalized, context: 'Ethereum address' })
+  for (const item of iocs.phones) rows.push({ type: 'Phone', value: item.normalized, context: 'Phone number' })
   return rows
 }
 
@@ -1050,8 +1220,11 @@ function SInput({ input, setInput, fileRef, handleFile, loadSample, parseError, 
 /* ── Results components ─────────────────────────────────────── */
 
 function SVerdict({ result, input }) {
-  const reasons = result.reasons || []
   const firstLine = (input || '').split('\n')[0].trim().slice(0, 60)
+  const primaryType = result.primaryType
+  const confidenceMeta = TYPE_CONFIDENCE_WEIGHTS[primaryType] || { weight: 0.5, base: "Low confidence — generic pattern match" }
+  const confidencePct = Math.round(confidenceMeta.weight * 100)
+  const confidenceBarColor = confidencePct >= 85 ? '#22c55e' : confidencePct >= 70 ? '#eab308' : '#ef4444'
 
   function vectorFromType(type) {
     const t = (type || '').toLowerCase()
@@ -1069,23 +1242,46 @@ function SVerdict({ result, input }) {
           <div className="st-hero-eyebrow">
             <span className="st-hero-badge">VERDICT</span>
             <span className="st-hero-attr">
-              Confidence: {reasons.length > 0 ? 85 + Math.min(reasons.length * 5, 14) : 60}%
+              Confidence: {confidencePct}%
             </span>
           </div>
-          <h1 className="st-hero-title">{result.primaryType} Analysis</h1>
+          <h1 className="st-hero-title">{primaryType} Analysis</h1>
           <div className="st-hero-meta">
             <div className="st-hero-meta-item">
               <span className="st-hero-meta-lbl">Threat Family</span>
-              <span className="st-hero-meta-val">{result.artifactFamily || result.primaryType}</span>
+              <span className="st-hero-meta-val">{result.artifactFamily || primaryType}</span>
             </div>
             <div className="st-hero-meta-item">
               <span className="st-hero-meta-lbl">Primary Vector</span>
-              <span className="st-hero-meta-val">{vectorFromType(result.primaryType)}</span>
+              <span className="st-hero-meta-val">{vectorFromType(primaryType)}</span>
             </div>
+            {mitreForType(primaryType) ? (
+              <div className="st-hero-meta-item">
+                <span className="st-hero-meta-lbl">MITRE ATT&CK</span>
+                <span className="st-hero-meta-val">
+                  <span className="ba-chip ba-status-info">MITRE: {mitreForType(primaryType)}</span>
+                </span>
+              </div>
+            ) : null}
             <div className="st-hero-meta-item">
               <span className="st-hero-meta-lbl">Analyzed Artifact</span>
               <span className="st-hero-meta-val">{firstLine || '—'}</span>
             </div>
+          </div>
+          <div className="st-hero-confidence-bar" style={{
+            marginTop: '0.75rem',
+            height: '4px',
+            borderRadius: '2px',
+            background: 'rgba(255,255,255,0.1)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${confidencePct}%`,
+              height: '100%',
+              background: confidenceBarColor,
+              borderRadius: '2px',
+              transition: 'width 0.6s ease',
+            }} />
           </div>
         </div>
     </div>
@@ -1128,6 +1324,12 @@ function SFindings({ signals }) {
                   <span className="st-finding-footer-lbl">SEVERITY</span>
                   <span className="st-finding-footer-val">{meta.severity}</span>
                 </div>
+                {signal.mitreId ? (
+                  <div className="st-finding-footer-item">
+                    <span className="st-finding-footer-lbl">MITRE</span>
+                    <span className="st-finding-footer-val">{signal.mitreId}</span>
+                  </div>
+                ) : null}
               </div>
             </div>
           )
@@ -1169,6 +1371,8 @@ const LEDGER_CATEGORIES = [
   { label: 'URLs', icon: Globe, types: ['URL'], sev: 'rose' },
   { label: 'FILE HASHES', icon: Fingerprint, types: ['MD5', 'SHA1', 'SHA256'], sev: 'amber' },
   { label: 'REFERENCES', icon: FileSearch, types: ['CVE', 'ATT&CK', 'Event ID', 'Email'], sev: 'cyan' },
+  { label: 'NETWORK', icon: Server, types: ['ASN', 'MAC'], sev: 'amber' },
+  { label: 'WALLET / PHONE', icon: Database, types: ['BTC', 'ETH', 'Phone'], sev: 'cyan' },
 ]
 
 function SIocCards({ result, onCopy }) {
@@ -1226,6 +1430,25 @@ function SIocCards({ result, onCopy }) {
             )
           })}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function SMitreCoverage({ result }) {
+  const allTypes = [result.primaryType, ...(result.secondaryTypes || []).map(t => t.type)]
+  const mitreIds = [...new Set(allTypes.map(mitreForType).filter(Boolean))]
+  if (!mitreIds.length) return null
+
+  return (
+    <div className="st-seg st-hero-animate" style={{ animationDelay: '0.15s' }}>
+      <div className="st-seg-hd">
+        <div className="st-seg-hd-l"><Shield />MITRE ATT&CK COVERAGE</div>
+      </div>
+      <div className="st-mitre-summary" style={{ padding: '0.65rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {mitreIds.map(id => (
+          <span key={id} className="ba-chip ba-status-info">MITRE: {id}</span>
+        ))}
       </div>
     </div>
   )
@@ -1394,6 +1617,7 @@ export default function SmartParserPage({ setPage }) {
   const [notice, setNotice] = useState(() => incomingArtifact ? `Loaded ${incomingArtifact.type || "artifact"} from ${incomingArtifact.source || "another BeyondArch tool"}.` : "")
   const [parseError, setParseError] = useState(() => initialParse.error)
   const [parsing, setParsing] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
   const fileRef = useRef(null)
 
   const markdown = useMemo(() => toMarkdown(result), [result])
@@ -1484,6 +1708,31 @@ export default function SmartParserPage({ setPage }) {
           {parseError ? <div className="s-notice" data-tone="error"><AlertTriangle />{parseError}</div> : null}
           <SActions input={input} setInput={setInput} runParse={runParse} onCopy={copyText} clearInput={clearInput} />
           <SVerdict result={result} input={input} />
+          <SMitreCoverage result={result} />
+          <div className="s-summary-toggle" style={{ padding: '0 0.5rem' }}>
+            <button
+              type="button"
+              className="ba-btn ba-btn-sm"
+              onClick={() => setShowSummary(v => !v)}
+              style={{ fontSize: '0.75rem' }}
+            >
+              {showSummary ? 'Hide Summary' : 'Generate Summary'}
+            </button>
+            {showSummary ? (
+              <pre className="s-summary-content" style={{
+                marginTop: '0.5rem',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.25)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                lineHeight: '1.5',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                color: 'rgba(255,255,255,0.85)',
+              }}>{generateParseSummary(result)}</pre>
+            ) : null}
+          </div>
           <SFindings signals={result.signals} />
           <SIocCards result={result} onCopy={copyText} />
           <div className="s-grid">

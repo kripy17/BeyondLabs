@@ -2749,6 +2749,15 @@ textarea.ba-workbench-field {
 @media (max-width: 1020px) { .ba-log-explainer-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width: 640px) { .ba-log-explainer-head { flex-direction: column; } .ba-log-explainer-grid { grid-template-columns: 1fr; } }
 
+/* Priority section inside explainer */
+.ba-log-priority-section { padding: 0.75rem 1.25rem; background: rgba(255,255,255,.03); border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+.ba-log-priority-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem; }
+.ba-log-priority-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; }
+.ba-log-priority-bar-track { height: 6px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; }
+.ba-log-priority-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+.ba-log-priority-signals { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.ba-log-narrative-block { margin-top: 8px; padding: 12px; background: #030304; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; font-size: 13px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; color: var(--ba-text-soft); }
+
 /* Local Knowledge Base */
 .ba-kb-layout { grid-template-columns: 1fr; }
 .ba-kb-hero { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px, .55fr); align-items: end; gap: 1rem; }

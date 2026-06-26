@@ -12,11 +12,31 @@ import { analyzePowerShell, analyzeWindowsEventText, listWindowsEvents, lookupWi
 import { WorkbenchHeader, WorkbenchPage } from "../../components/layout/WorkbenchShell"
 import { KNOWLEDGE_CATEGORIES, searchKnowledgeBase } from "../../lib/localKnowledgeBase"
 import {
+  EVENT_QUICK_GROUPS,
+  EVENT_MITRE_MAP,
   SPL_OBJECTIVES,
   analyzeCommandLocally,
   buildSplQuery,
   explainSplQuery,
 } from "../../lib/socGuide/socGuideEngine"
+
+function generateQuickReferenceSummary(entries = []) {
+  const cats = {}
+  for (const e of entries) {
+    cats[e.category] = (cats[e.category] || 0) + 1
+  }
+  const lines = [
+    "## SOC Quick Reference Summary",
+    "",
+    `**Total Entries:** ${entries.length}`,
+    `**Categories:** ${Object.keys(cats).length}`,
+    "",
+    ...Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([cat, count]) => `- **${cat}:** ${count} reference(s)`),
+    "",
+    "**Analyst Note:** This guide is a curated reference. Commands should be validated against your environment's approved tooling and change management policy before execution.",
+  ]
+  return lines.join("\n")
+}
 
 function copy(text) {
   navigator.clipboard?.writeText(String(text || ""))
@@ -191,6 +211,7 @@ export default function SocGuidePage({ setPage }) {
 function LocalKnowledgeBase({ setPage }) {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState("all")
+  const [showSummary, setShowSummary] = useState(false)
   const entries = searchKnowledgeBase(query, category)
   const routeMap = {
     "Safe URL Analyzer": "safe-url-analyzer",
@@ -219,6 +240,29 @@ function LocalKnowledgeBase({ setPage }) {
           <select value={category} onChange={(event) => setCategory(event.target.value)}>{KNOWLEDGE_CATEGORIES.map((item) => <option key={item} value={item}>{item === "all" ? "All categories" : item}</option>)}</select>
         </div>
       </div>
+      {entries.length ? (
+        <div className="ba-guide-panel ba-guide-span-2">
+          <div className="ba-guide-section-title">
+            <h2>Reference Summary</h2>
+            <span>{entries.length} entries across {Object.keys(entries.reduce((acc, e) => (acc[e.category] = true, acc), {})).length} categories</span>
+          </div>
+          <div className="ba-guide-button-row">
+            <button type="button" onClick={() => setShowSummary(!showSummary)}>
+              {showSummary ? "Hide Summary" : "Generate Summary"}
+            </button>
+          </div>
+          {showSummary ? (
+            <div className="ba-guide-code-card">
+              <pre style={{whiteSpace: "pre-wrap", lineHeight: "1.5"}}>{generateQuickReferenceSummary(entries)}</pre>
+              <div className="ba-guide-button-row">
+                <button type="button" onClick={() => copy(generateQuickReferenceSummary(entries))}>
+                  <Clipboard className="h-4 w-4" />Copy Summary
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="ba-kb-grid ba-guide-span-2">
         {entries.map((entry) => (
           <article key={entry.id} className="ba-kb-card">
@@ -236,6 +280,26 @@ function LocalKnowledgeBase({ setPage }) {
   )
 }
 
+function SidebarQuickGroups({ onSelect, lookupInput }) {
+  const [group, setGroup] = useState("")
+  return (
+    <section className="ba-guide-quick-groups">
+      <h3>Quick event groups</h3>
+      {EVENT_QUICK_GROUPS.map((g) => (
+        <details key={g.id} open={group === g.id} onToggle={() => setGroup(group === g.id ? "" : g.id)}>
+          <summary>{g.label}</summary>
+          <div className="ba-guide-quick-ids">
+            {g.ids.map((id) => (
+              <button key={id} type="button" className={lookupInput === id ? "is-active" : ""} onClick={() => onSelect(id)}>{id}</button>
+            ))}
+          </div>
+        </details>
+      ))}
+      <p className="ba-guide-subtle">Click an ID to look it up directly. Groups help you find related events fast.</p>
+    </section>
+  )
+}
+
 function EventIdentifier({
   events,
   lookupInput,
@@ -247,12 +311,16 @@ function EventIdentifier({
   setPage,
 }) {
   const knownCount = events.length || 73
+  function quickSelect(id) {
+    setLookupInput(id)
+    onLookup(id)
+  }
   return (
     <section className="ba-guide-layout ba-guide-event-id-only">
       <div className="ba-guide-panel ba-guide-wide-card ba-guide-event-lookup">
         <div className="ba-guide-card-copy">
           <h2>Windows + Sysmon Event ID Identifier</h2>
-          <p>Enter a Windows Event ID or Sysmon ID and get the analyst description, what it indicates, key fields, triage steps, related telemetry, and an SPL starter.</p>
+          <p>Enter a Windows Event ID or Sysmon ID and get the analyst description, what it indicates, key fields, triage steps, related telemetry, MITRE ATT&CK mapping, and an SPL starter.</p>
           <div className="ba-guide-inline-help">
             <span>Windows: 4624, 4625, 4688, 7045</span>
             <span>Sysmon: sysmon:1, sysmon 7, s22</span>
@@ -275,6 +343,7 @@ function EventIdentifier({
           </div>
         </div>
         {lookupError ? <p className="ba-guide-error">{lookupError}</p> : null}
+        <SidebarQuickGroups onSelect={quickSelect} lookupInput={lookupInput} />
       </div>
 
       <div className="ba-guide-panel ba-guide-span-2">
@@ -282,7 +351,7 @@ function EventIdentifier({
           <h2><BookOpen size={16} className="inline mr-1" />Event description</h2>
           <span>{lookupResult?.found ? eventLabel(lookupResult) : "lookup required"}</span>
         </div>
-        {lookupResult ? <EventResult result={lookupResult} setPage={setPage} /> : <EmptyState title="No Event ID selected" body="Enter an Event ID above to view the full BeyondArch local reference entry. Use the Command Explainer for commands and Smart Parser for mixed text or URLs." />}
+        {lookupResult ? <EventResult result={lookupResult} setPage={setPage} /> : <EmptyState title="No Event ID selected" body="Enter an Event ID above or pick from the quick groups to view the full BeyondArch local reference entry including MITRE ATT&CK mapping." />}
       </div>
     </section>
   )
@@ -307,6 +376,11 @@ function eventIndications(result) {
 }
 
 
+function MitreBadge({ mitre }) {
+  if (!mitre) return null
+  return <span className="ba-chip ba-chip-mitre">{mitre.id} {mitre.name}</span>
+}
+
 function EventResult({ result, setPage }) {
   if (result.events_found) {
     return (
@@ -317,12 +391,23 @@ function EventResult({ result, setPage }) {
   }
   if (!result.found) return <EmptyState title="No local entry found" body={result.message || "This Event ID is not in the local BeyondArch reference yet."} />
   const spl = result.sample_spl || `EventCode=${result.event_id} | table _time,host,user,EventCode,message`
+  const eventKey = result.event_source === "Sysmon" ? `sysmon:${result.event_id.replace(/^sysmon[: -]?/i, "")}` : String(result.event_id)
+  const mitreEntry = EVENT_MITRE_MAP[eventKey] || EVENT_MITRE_MAP[result.event_id] || null
   return (
     <div className="ba-guide-result">
       <section className="ba-guide-result-title">
         <h3>{result.event_source === "Sysmon" ? `Sysmon ${result.event_id}` : result.event_id} · {result.title}</h3>
+        {mitreEntry ? <MitreBadge mitre={mitreEntry} /> : null}
         <p>{describeEvent(result)}</p>
       </section>
+      {mitreEntry ? (
+        <div className="ba-guide-mitre-card">
+          <strong>MITRE ATT&CK</strong>
+          <span>{mitreEntry.id}</span>
+          <span>{mitreEntry.name}</span>
+          <small>{mitreEntry.detail}</small>
+        </div>
+      ) : null}
       <div className="ba-guide-kv">
         <article><span>Source</span><strong>{result.event_source}</strong></article>
         <article><span>Category</span><strong>{result.category}</strong></article>
@@ -463,7 +548,7 @@ function CommandExplainer({ commandInput, setCommandInput, result, onExplain, se
               <article><span>Backend PS decode</span><strong>{ps ? "available" : result?.error ? "failed" : "not needed"}</strong></article>
             </div>
             {findings.length ? <PanelBlock title="PowerShell analyzer findings" items={findings.map((item) => `${item.title}: ${item.detail}`)} /> : null}
-            <PanelBlock title="Behavior markers" items={local.observations.length ? local.observations.map((item) => `${item.label} (${item.severity}): ${item.detail}`) : ["No obvious suspicious token identified by the local rough analyzer."]} />
+            <PanelBlock title="Behavior markers" items={local.observations.length ? local.observations.map((item) => `${item.label} (${item.severity})${item.mitre ? ` [${item.mitre}]` : ""}: ${item.detail}`) : ["No obvious suspicious token identified by the local rough analyzer."]} />
             <PanelBlock title="Suggested next checks" items={local.nextSteps} />
             {decoded ? <div className="ba-guide-code-card"><div><strong>Decoded content</strong><small>Review decoded text before any other action.</small></div><code>{decoded}</code><div className="ba-guide-button-row"><button type="button" onClick={() => copy(decoded)}><Clipboard className="h-4 w-4" />Copy decoded</button><button type="button" onClick={() => sendArtifact(setPage, "cyberchef", { type: "decoded-command", content: decoded })}>Send to CyberChef</button></div></div> : null}
           </div>

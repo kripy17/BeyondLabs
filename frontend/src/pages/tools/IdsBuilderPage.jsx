@@ -5,13 +5,8 @@ import IdsRuleBuilderForm from "../../components/ids/IdsRuleBuilderForm"
 import IdsRuleOutput from "../../components/ids/IdsRuleOutput"
 import IdsTemplateLibrary from "../../components/ids/IdsTemplateLibrary"
 import { WorkbenchHeader, WorkbenchPage, WorkbenchPanel } from "../../components/layout/WorkbenchShell"
-import {
-  DEFAULT_IDS_RULE,
-  copyText,
-  normalizeIdsPayload,
-  reviewIdsRule,
-  templatesFromBackend,
-} from "../../lib/idsRuleEngine"
+import { copyText, DEFAULT_IDS_RULE, normalizeIdsPayload, reviewIdsRule, templatesFromBackend } from "../../lib/idsRuleEngine"
+import { downloadText } from "../../lib/domUtils"
 
 const MODES = [
   { id: "build", label: "Build from fields", icon: FileCode2, description: "Draft a Snort or Suricata rule from structured inputs." },
@@ -26,6 +21,19 @@ const LOG_QUERY_PROFILES = {
   auth: { label: "Auth logs", description: "Linux sshd, Windows logon, VPN, IAM, and identity events.", fields: [["username", "Username"], ["src_ip", "Source IP"], ["result", "Result"], ["service", "Service"], ["host", "Host"]], defaults: { result: "failed", service: "sshd" } },
   dns: { label: "DNS logs", description: "Resolver, DNS firewall, and passive DNS query telemetry.", fields: [["query", "Query/domain"], ["record_type", "Record type"], ["rcode", "Response code"], ["client_ip", "Client IP"]], defaults: { record_type: "A", rcode: "NXDOMAIN" } },
   firewall: { label: "Firewall", description: "Firewall, security group, IDS flow, and deny/allow records.", fields: [["src_ip", "Source IP"], ["dst_ip", "Destination IP"], ["dst_port", "Destination port"], ["action", "Action"], ["protocol", "Protocol"]], defaults: { action: "deny", protocol: "tcp", dst_port: "3389" } },
+  email: { label: "Email security", description: "MTA logs, DMARC aggregate/failure reports, spam filter, and mail gateway events.", fields: [["from", "Envelope from"], ["to", "Recipient"], ["src_ip", "Source IP"], ["status", "Status"], ["action", "Action taken"]], defaults: { action: "reject", status: "550" } },
+  windows: { label: "Windows events", description: "Security EventLog (4625, 4688, 4720, 7045) and Sysmon process/network events.", fields: [["event_id", "Event ID"], ["account", "Account name"], ["process", "Process/Image"], ["src_ip", "Source IP"], ["host", "Hostname"]], defaults: { event_id: "4625", account: "Administrator" } },
+  cloud: { label: "Cloud / SaaS logs", description: "CloudTrail, audit logs, AWS GuardDuty, GCP Security Command Center, O365 audit.", fields: [["source", "Cloud/Service"], ["event_name", "Event name"], ["user", "User/ARN"], ["src_ip", "Source IP"], ["status", "Status"]], defaults: { source: "AWS", status: "FAILURE", event_name: "ConsoleLogin" } },
+}
+
+const PROFILE_MITRE_MAP = {
+  web: { id: "T1190", name: "Exploit Public-Facing Application" },
+  auth: { id: "T1110", name: "Brute Force" },
+  dns: { id: "T1071.004", name: "DNS" },
+  firewall: { id: "T1046", name: "Network Service Discovery" },
+  email: { id: "T1566", name: "Phishing" },
+  windows: { id: "T1078", name: "Valid Accounts" },
+  cloud: { id: "T1530", name: "Data from Cloud Storage" },
 }
 
 function buildLogQueries(profile, fields = {}) {
@@ -33,9 +41,19 @@ function buildLogQueries(profile, fields = {}) {
   const spl = entries.length ? `index=* sourcetype=${profile} ${entries.map(([key, value]) => `${key}="${value}"`).join(" ")}` : `index=* sourcetype=${profile}`
   const kql = entries.length ? entries.map(([key, value]) => `${key}: "${value}"`).join(" and ") : "*"
   const sigma = [
-    "selection:",
-    ...(entries.length ? entries.map(([key, value]) => `  ${key}|contains: "${value}"`) : ["  message|exists: true"]),
-    `condition: ${entries.length ? entries.map(([key]) => key).join(" and ") : "selection"}`,
+    "title: BeyondArch Detection Query",
+    `description: ${LOG_QUERY_PROFILES[profile]?.description || profile} log search`,
+    `logsource:`,
+    `  product: ${profile}`,
+    "detection:",
+    "  selection:",
+    ...(entries.length ? entries.map(([key, value]) => `    ${key}: "${value}"`) : ["    event: *"]),
+    "  condition: selection",
+    "fields:",
+    ...(entries.length ? entries.map(([key]) => `  - ${key}`) : ["  - _raw"]),
+    "falsepositives:",
+    "  - Review before promotion",
+    `level: medium`,
   ].join("\n")
   return { spl, kql, sigma }
 }
@@ -55,6 +73,17 @@ function DetectionQueryBuilder({ setNotice }) {
     setFields((current) => ({ ...current, [key]: value }))
   }
 
+  function copyAllQueries() {
+    const text = Object.entries(queries).map(([label, value]) => `=== ${label.toUpperCase()} ===\n${value}`).join("\n\n")
+    copyText(text, "All queries", setNotice)
+  }
+
+  function downloadQueries() {
+    const text = Object.entries(queries).map(([label, value]) => `=== ${label.toUpperCase()} ===\n${value}`).join("\n\n")
+    downloadText(`beyondarch-${profile}-queries.txt`, text, "text/plain")
+    setNotice?.("Queries downloaded.")
+  }
+
   return (
     <WorkbenchPanel className="ba-detection-query-panel">
       <div className="ba-detection-query-head">
@@ -65,7 +94,7 @@ function DetectionQueryBuilder({ setNotice }) {
         </div>
         <div className="ba-detection-query-tabs">
           {Object.entries(LOG_QUERY_PROFILES).map(([key, item]) => (
-            <button key={key} type="button" className={profile === key ? "is-active" : ""} onClick={() => choose(key)}>{item.label}</button>
+            <button key={key} type="button" className={profile === key ? "is-active" : ""} onClick={() => choose(key)}>{item.label} <span className="ba-chip ba-status-info">MITRE: {PROFILE_MITRE_MAP[key]?.id}</span></button>
           ))}
         </div>
       </div>
@@ -79,12 +108,21 @@ function DetectionQueryBuilder({ setNotice }) {
           ))}
         </section>
         <section className="ba-detection-query-output">
+          {PROFILE_MITRE_MAP[profile] ? (
+            <div className="mb-2 text-[11px] font-semibold tracking-wide text-cyan-400">
+              MITRE ATT&amp;CK: {PROFILE_MITRE_MAP[profile].id} — {PROFILE_MITRE_MAP[profile].name}
+            </div>
+          ) : null}
           {Object.entries(queries).map(([label, value]) => (
             <article key={label}>
               <div><strong>{label.toUpperCase()}</strong><button type="button" onClick={() => copyText(value, label.toUpperCase(), setNotice)}>Copy</button></div>
               <pre>{value}</pre>
             </article>
           ))}
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+            <button type="button" className="ba-button-ghost rounded-lg px-2.5 py-1.5 text-[11px] font-black" onClick={copyAllQueries}>Copy all queries</button>
+            <button type="button" className="ba-button-ghost rounded-lg px-2.5 py-1.5 text-[11px] font-black" onClick={downloadQueries}>Download .txt</button>
+          </div>
         </section>
       </div>
     </WorkbenchPanel>

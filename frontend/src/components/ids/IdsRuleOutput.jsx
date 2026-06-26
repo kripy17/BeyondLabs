@@ -52,6 +52,11 @@ export default function IdsRuleOutput({ rule, result, review, mode, setNotice, s
           <div>
             <h3>Generated Rule</h3>
             <p className="mt-1 text-xs text-zinc-400">Draft only. Validate locally before production use.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {result?.profile ? <span className="rounded-md border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">Profile: {result.profile}</span> : null}
+              <span className="rounded-md border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">Mode: {mode}</span>
+              {review?.mitre?.length > 0 ? review.mitre.map((m) => <span key={m.id} className="rounded-md border border-cyan-700/30 bg-cyan-950/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300">MITRE: {m.id} ({m.name})</span>) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="ba-button-ghost rounded-lg px-2 py-1 text-xs font-bold" onClick={() => copyText(rule, "Rule", setNotice)}><Clipboard className="mr-1 inline h-3.5 w-3.5" />Copy rule</button>

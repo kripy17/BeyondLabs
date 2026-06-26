@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import {
   AlertTriangle,
   ArrowRight,
@@ -240,7 +240,7 @@ function EmptyPreview() {
   )
 }
 
-function EmptyTriageState({ rawEmail, setRawEmail, mode, setMode, sampleKey, setSampleKey, loadSample, clearAll, loadFile, fileRef, runAnalysis, loadingMode, error, notice }) {
+function EmptyTriageState({ rawEmail, setRawEmail, mode, setMode, sampleKey, setSampleKey, loadSample, clearAll, runAnalysis, loadingMode, error, notice }) {
   const sampleOptions = Object.keys(PHISHING_SAMPLES)
   return (
     <>
@@ -469,6 +469,7 @@ function EvidenceContext({ result }) {
             <div className="p-evidence-card-hd">
               <span className="p-evidence-ref">EV-{String(index + 1).padStart(3, "0")}</span>
               <Badge tone={severityTone(item.severity)}>{item.confidence || item.severity || "evidence"}</Badge>
+              {item.mitre_id ? <small style={{ fontSize: "0.72rem", color: "var(--p-gold)", fontFamily: "JetBrains Mono, monospace" }}>{item.mitre_id}</small> : null}
             </div>
             <strong>{item.signal || item.name}</strong>
             <p style={{ fontSize: "0.7rem", color: "var(--clr-text-sub)", margin: "0.15rem 0 0" }}>{item.evidence || item.meaning || item.why}</p>
@@ -483,6 +484,9 @@ function EvidenceContext({ result }) {
 function UrlMetadataReview({ result, onSendArtifact }) {
   const enriched = result.url_enrichment || []
   const mismatches = result.body?.mismatched_links || []
+  const brandImp = result.body?.brand_impersonation || []
+  const forms = result.body?.forms_detected || []
+  const tracking = result.body?.tracking_images || []
   return (
     <article className="p-card">
       <div className="p-card-hd"><Scan />URL & Destination Review</div>
@@ -516,6 +520,24 @@ function UrlMetadataReview({ result, onSendArtifact }) {
                 <span className="p-ioc-meta">Visible text and actual destination differ.</span>
               </div>
             ))}
+            {brandImp.map((bi, index) => (
+              <div key={`${bi.href}-${index}`} className="p-ioc-card" data-rose>
+                <span className="p-ioc-value">{bi.brand} → {bi.actual_domain}</span>
+                <span className="p-ioc-meta">Brand "{bi.brand}" in text links to unrelated domain</span>
+              </div>
+            ))}
+            {forms.map((f, index) => (
+              <div key={`form-${index}`} className="p-ioc-card" data-rose>
+                <span className="p-ioc-value">Form → {f.action_domain}</span>
+                <span className="p-ioc-meta">Embedded form in email body</span>
+              </div>
+            ))}
+            {tracking.length ? (
+              <div key="tracking" className="p-ioc-card" data-gold>
+                <span className="p-ioc-value">{tracking.length} tracking pixel(s) detected</span>
+                <span className="p-ioc-meta">Remote image loading can leak open/read status</span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -688,7 +710,7 @@ function ScoreBreakdownPanel({ result }) {
         {rows.length ? rows.map((row, index) => (
           <div key={`${row.signal}-${index}`} className="p-score-row" data-rose={severityTone(row.severity) === "bad" ? "" : undefined} data-gold={severityTone(row.severity) === "warn" ? "" : undefined}>
             <span className="p-score-pts">+{row.points || 0}</span>
-            <span className="p-score-signal">{row.signal}</span>
+            <span className="p-score-signal">{row.signal} {row.mitre_id ? <span style={{fontSize:"0.72rem",color:"var(--clr-text-sub)",fontFamily:"JetBrains Mono, monospace"}}>({row.mitre_id})</span> : null}</span>
             <span className="p-score-note">{row.evidence}</span>
             {row.analyst_note ? <span className="p-score-note" style={{ color: "var(--clr-text-sub)" }}>{row.analyst_note}</span> : null}
           </div>
@@ -757,6 +779,7 @@ function CompleteFindingRegister({ result, limit = null, title = "Finding regist
               <span className="p-evidence-ref">F-{String(index + 1).padStart(2, "0")}</span>
               <Badge tone={severityTone(finding.severity)}>{finding.severity || "signal"}</Badge>
               {finding.source ? <small style={{ fontSize: "0.72rem", color: "var(--clr-text-sub)" }}>{finding.source}</small> : null}
+              {finding.mitre_id ? <small style={{ fontSize: "0.72rem", color: "var(--p-gold)", fontFamily: "JetBrains Mono, monospace" }}>{finding.mitre_id}</small> : null}
             </div>
             <strong>{finding.name}</strong>
             <p style={{ fontSize: "0.7rem", color: "var(--clr-text-sub)", margin: "0.15rem 0 0" }}>{finding.evidence}</p>
@@ -852,6 +875,11 @@ function TechnicalResults({ result, onSendArtifact, onCopy }) {
 function LureSignals({ result }) {
   const themes = result.body.themes || []
   const signals = themes.length ? themes.flatMap((theme) => theme.matches.map((match) => `${theme.theme}: ${match}`)) : []
+  const hasHtml = result.body.has_html
+  const forms = result.body.forms_detected || []
+  const tracking = result.body.tracking_images || []
+  const zw = result.body.zero_width_chars || []
+  const brandImp = result.body.brand_impersonation || []
   return (
     <article className="p-card">
       <div className="p-card-hd"><Radar />Lure Signals</div>
@@ -864,6 +892,16 @@ function LureSignals({ result }) {
         )) : <span style={{ padding: "0.75rem", fontSize: "0.82rem", color: "var(--clr-text-sub)" }}>No strong lure keyword extracted.</span>}
         <FieldRow label="Brand mentions" value={result.body.mentioned_brands?.join(", ") || "None extracted"} />
         <FieldRow label="Attachment mentions" value={result.body.attachment_mentions?.map(itemValue).join(", ") || "None extracted"} />
+        {hasHtml ? <><FieldRow label="HTML structure" value="HTML content detected" note="Email contains HTML markup" />
+          {forms.length ? <FieldRow label="Forms embedded" value={`${forms.length} form(s)`} note={`Action: ${forms[0].action_domain || "(same page)"}`} tone="bad" /> : null}
+          {tracking.length ? <FieldRow label="Tracking pixels" value={`${tracking.length} image(s)`} tone="warn" /> : null}
+        </> : null}
+        {zw.length ? <FieldRow label="Zero-width chars" value={zw.join(", ")} tone="warn" /> : null}
+        {brandImp.length ? brandImp.slice(0, 3).map((bi, i) => (
+          <FieldRow key={i} label={`Brand impersonation: ${bi.brand}`} value={`Links to ${bi.actual_domain}`} tone="bad" />
+        )) : null}
+        {result.body.html_only_no_text ? <FieldRow label="HTML-only (no visible text)" value="No readable text extracted" tone="warn" /> : null}
+        <FieldRow label="Obfuscated content" value={result.body.obfuscation ? "Detected" : "Not detected"} tone={result.body.obfuscation ? "bad" : "good"} />
       </div>
     </article>
   )
@@ -996,24 +1034,11 @@ export default function PhishingTriagePage({ setPage }) {
   const [loadingMode, setLoadingMode] = useState(null)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState(() => incomingArtifact ? `Loaded ${pendingArtifact?.type || "artifact"} from ${pendingArtifact?.source || "BeyondArch"}.` : "")
-  const fileRef = useRef(null)
-
   function loadSample(name) {
     setRawEmail(PHISHING_SAMPLES[name] || PHISHING_SAMPLES.credential)
     setResult(null)
     setNotice("Sample loaded.")
     setError("")
-  }
-
-  async function loadFile(event) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const text = await file.text()
-    setRawEmail(text)
-    setResult(null)
-    setNotice(`${file.name} loaded.`)
-    setError("")
-    event.target.value = ""
   }
 
   async function runAnalysis(nextMode = mode) {
@@ -1092,8 +1117,6 @@ export default function PhishingTriagePage({ setPage }) {
           setSampleKey={setSampleKey}
           loadSample={loadSample}
           clearAll={clearAll}
-          loadFile={loadFile}
-          fileRef={fileRef}
           runAnalysis={runAnalysis}
           loadingMode={loadingMode}
           error={error}
