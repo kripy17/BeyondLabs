@@ -29,13 +29,9 @@ function extractIocs(entries: Entry[]): { ips: string[]; urls: string[]; hashes:
 }
 
 function CasePage() {
-  const [title, setTitle] = useState("BA-2026-0425-1042 · suspected phishing");
-  const [tags, setTags] = useState<string[]>(["phishing", "credential-theft"]);
-  const [entries, setEntries] = useState<Entry[]>([
-    { id: 1, ts: "10:42", kind: "evidence", body: "User forwarded phishing email; SPF/DKIM/DMARC all fail." },
-    { id: 2, ts: "10:45", kind: "decision", body: "Treat sender domain as untrusted; block at gateway." },
-    { id: 3, ts: "10:50", kind: "action", body: "Reset user credentials; revoke active sessions." },
-  ]);
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState<Entry["kind"]>("note");
 
@@ -71,14 +67,14 @@ function CasePage() {
     >
       {/* Verdict Banner */}
       <VerdictBanner
-        verdict={title.split(" ")[0]}
-        tone={score >= 60 ? "destructive" : score >= 30 ? "warning" : "success"}
-        icon={score >= 60 ? AlertTriangle : score >= 30 ? AlertTriangle : ShieldCheck}
-        score={`${score}/100`}
+        verdict={title || "New Case"}
+        tone={entries.length === 0 ? "success" : score >= 60 ? "destructive" : score >= 30 ? "warning" : "success"}
+        icon={entries.length === 0 ? ShieldCheck : score >= 60 ? AlertTriangle : ShieldCheck}
+        score={entries.length === 0 ? undefined : `${score}/100`}
         details={[
-          `tags: ${tags.join(", ") || "—"}`,
-          `${entries.length} entries · ${evidenceCount} evidence · ${actionCount} actions`,
-          findings.find((f) => f.sev === "destructive")?.title ?? "",
+          entries.length === 0 ? "Start documenting your investigation below" : `tags: ${tags.join(", ") || "—"}`,
+          entries.length > 0 ? `${entries.length} entries · ${evidenceCount} evidence · ${actionCount} actions` : "",
+          entries.length > 0 ? (findings.find((f) => f.sev === "destructive")?.title ?? "") : "",
         ].filter(Boolean)}
       />
 
@@ -87,26 +83,30 @@ function CasePage() {
         columns={4}
         metrics={[
           { label: "Entries", value: entries.length, tone: "primary", icon: Notebook },
-          { label: "Evidence", value: evidenceCount, tone: "primary" },
-          { label: "Decisions", value: decisionCount, tone: "warning" },
-          { label: "Actions", value: actionCount, tone: "success" },
-          { label: "Score", value: `${score}/100`, tone: score >= 60 ? "destructive" : score >= 30 ? "warning" : "success", icon: Activity },
-          { label: "State", value: "active", tone: "warning" },
+          { label: "Evidence", value: evidenceCount, tone: evidenceCount > 0 ? "primary" : "default" },
+          { label: "Decisions", value: decisionCount, tone: decisionCount > 0 ? "warning" : "default" },
+          { label: "Actions", value: actionCount, tone: actionCount > 0 ? "success" : "default" },
+          { label: "Score", value: entries.length > 0 ? `${score}/100` : "—", tone: score >= 60 ? "destructive" : score >= 30 ? "warning" : "success", icon: Activity },
+          { label: "State", value: entries.length > 0 ? "active" : "new", tone: entries.length > 0 ? "warning" : "default" },
           { label: "IPs", value: iocs.ips.length },
           { label: "URLs", value: iocs.urls.length },
         ]}
       />
 
-      <RiskScore score={score} label="Case Intensity" confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"} tone={score < 30 ? "success" : score < 60 ? "warning" : "destructive"} />
+      {entries.length > 0 && (
+        <RiskScore score={score} label="Case Intensity" confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"} tone={score < 30 ? "success" : score < 60 ? "warning" : "destructive"} />
+      )}
 
-      {/* Findings */}
-      <CollapsibleSection id="FN" label="Case Assessment" meta={`${findings.length} item(s)`} icon={AlertTriangle}>
-        <div className="grid gap-3 md:grid-cols-2">
-          {findings.map((f, i) => (
-            <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
-          ))}
-        </div>
-      </CollapsibleSection>
+      {/* Findings - only show if there are entries */}
+      {entries.length > 0 && findings.length > 0 && (
+        <CollapsibleSection id="FN" label="Case Assessment" meta={`${findings.length} item(s)`} icon={AlertTriangle}>
+          <div className="grid gap-3 md:grid-cols-2">
+            {findings.map((f, i) => (
+              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
 
       <SectionBar id="IN" label="Intake · new entry" />
       <Panel>

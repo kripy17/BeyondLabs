@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, RiskScore, EvidenceCard, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, Grid3x3, ShieldCheck, ShieldX, Activity } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert, Grid3x3, ShieldCheck, ShieldX, Activity, TriangleAlert as AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
@@ -60,14 +60,22 @@ function MitrePage() {
       description="Coverage matrix — techniques mapped to detection status."
       crumbs={[{ label: "Detection" }, { label: "MITRE" }]}
     >
+      {/* Demo Data Warning */}
+      <Panel title="Sample Data" icon={AlertTriangle}>
+        <p className="text-mono text-[11px] text-muted-foreground">
+          The coverage data shown below is sample data for demonstration purposes. Connect to your detection registry or SIEM to view real coverage metrics for your environment.
+        </p>
+      </Panel>
+
       {/* Verdict Banner */}
       <VerdictBanner
-        verdict={`${pct}% weighted coverage`}
+        verdict={`${pct}% weighted coverage (sample)`}
         tone={pct >= 60 ? "success" : pct >= 30 ? "warning" : "destructive"}
         icon={pct >= 60 ? ShieldCheck : pct >= 30 ? Target : ShieldX}
         details={[
           `${stats.full} full · ${stats.partial} partial · ${stats.none} gaps`,
           `${TACTICS.length} tactics · ${stats.total} techniques`,
+          "Sample data — not from your detection registry",
         ]}
       />
 

@@ -267,10 +267,10 @@ function NmapPage() {
         </div>
       </Panel>
 
-      <SectionBar id="OT" label="Output" meta={realResult ? "live scan" : "synthetic preview"} />
+      <SectionBar id="OT" label="Output" meta={realResult ? "live scan" : "awaiting scan execution"} />
 
       {!has ? (
-        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to preview the scan brief.</p></Panel>
+        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target and execute a scan to see results.</p></Panel>
       ) : (
         <div className="space-y-5">
           {realResult && scanResult ? (
@@ -289,12 +289,11 @@ function NmapPage() {
                     score={`${score}/100`}
                     details={[
                       `${MODES[mode].label} · -${timing}`,
-                      `${open.length} open · ${filt.length} filtered`,
-                      data.osGuess,
+                      "Scan completed successfully",
                     ]}
                   />
                   <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-                  <Panel title="Real scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"} collapsible>
+                  <Panel title="Scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"} collapsible>
                     <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
                       {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
                     </pre>
@@ -303,181 +302,26 @@ function NmapPage() {
               )}
             </>
           ) : (
-            /* Synthetic preview */
-            <>
-              <VerdictBanner
-                verdict={target}
-                tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
-                icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
-                score={`${score}/100`}
-                details={[
-                  `${MODES[mode].label} · -${timing}`,
-                  `${open.length} open · ${filt.length} filtered · ${cls.length} closed`,
-                  `${data.osGuess} (${data.confidence}% conf.)`,
-                  findings.find((f) => f.sev === "destructive")?.title ?? "",
-                ].filter(Boolean)}
-              />
-
-              <MetricGrid
-                columns={4}
-                metrics={[
-                  { label: "Open", value: open.length, tone: "success", icon: Network },
-                  { label: "Filtered", value: filt.length, tone: "warning" },
-                  { label: "Closed", value: cls.length },
-                  { label: "Risk", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success", icon: Activity },
-                  { label: "Probed", value: data.rows.length },
-                  { label: "Hot Ports", value: open.filter((r) => HOT_PORTS.has(r.port)).length, tone: "warning" },
-                  { label: "OS Conf", value: `${data.confidence}%` },
-                  { label: "Mode", value: MODES[mode].risk, tone: MODES[mode].risk === "high" ? "destructive" : MODES[mode].risk === "medium" ? "warning" : "success" },
-                ]}
-              />
-
-              <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-
-              {/* Target info */}
-              <Panel>
-                <KeyFields items={[
-                  { label: "Target",     value: target,             tone: "primary" },
-                  { label: "Profile",    value: MODES[mode].label },
-                  { label: "Timing",     value: `-${timing}` },
-                  { label: "OS guess",   value: data.osGuess,       tone: "primary" },
-                  { label: "Confidence", value: `${data.confidence}%` },
-                  { label: "Risk class", value: MODES[mode].risk,   tone: MODES[mode].risk === "high" ? "destructive" : "warning" },
-                ]} />
-              </Panel>
-
-              {/* Findings */}
-              {findings.length > 0 && (
-                <CollapsibleSection id="FN" label="Findings" meta={`${findings.length} total`} icon={AlertTriangle}>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {findings.map((f, i) => (
-                      <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Synthetic preview — run actual scan to confirm." />
-                    ))}
-                  </div>
-                </CollapsibleSection>
-              )}
-
-              {/* Port Table + Heatmap/OS side-by-side */}
-              <TwoColumnOutput
-                ratio="2:1"
-                left={
-                  <Panel icon={Network} title="Port table" meta={`${data.rows.length} rows · ${open.length} open`}>
-                    <div className="overflow-x-auto rounded border border-border/50">
-                      <table className="w-full text-mono text-[11.5px]">
-                        <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
-                          <tr>
-                            <th className="px-2 py-1 text-left">port</th>
-                            <th className="px-2 py-1 text-left">proto</th>
-                            <th className="px-2 py-1 text-left">state</th>
-                            <th className="px-2 py-1 text-left">service</th>
-                            <th className="px-2 py-1 text-left">product</th>
-                            <th className="px-2 py-1 text-left">cpe</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.rows.map((r, i) => (
-                            <tr key={r.port} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "") + " hover:bg-primary/[0.04]"}>
-                              <td className="px-2 py-1.5 text-foreground/90">{r.port}</td>
-                              <td className="px-2 py-1.5 text-muted-foreground">{r.proto}</td>
-                              <td className="px-2 py-1.5"><Chip tone={r.state === "open" ? "success" : r.state === "filtered" ? "warning" : "default"}>{r.state}</Chip></td>
-                              <td className="px-2 py-1.5 text-foreground/90">{r.svc}</td>
-                              <td className="px-2 py-1.5 text-muted-foreground">{r.state === "open" ? r.product : "—"}</td>
-                              <td className="px-2 py-1.5 text-muted-foreground/80 truncate max-w-[18ch]" title={r.cpe}>{r.state === "open" ? r.cpe : "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Panel>
-                }
-                right={
-                  <div className="space-y-3">
-                    <Panel icon={Gauge} title="Port heatmap" meta="0 – 1023">
-                      <div className="grid grid-cols-[repeat(32,minmax(0,1fr))] gap-[2px]">
-                        {Array.from({ length: 1024 }).map((_, p) => {
-                          const found = data.rows.find((x) => x.port === p);
-                          let c = "bg-background/40";
-                          if (found?.state === "open") c = "bg-success";
-                          else if (found?.state === "filtered") c = "bg-warning/80";
-                          else if (found?.state === "closed") c = "bg-destructive/70";
-                          else if (HOT_PORTS.has(p)) c = "bg-primary/15";
-                          return <span key={p} title={`port ${p}${found ? ` · ${found.state}` : ""}`} className={"aspect-square rounded-[1px] " + c} />;
-                        })}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-mono text-[10px] text-muted-foreground">
-                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-success" /> open</span>
-                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-warning/80" /> filtered</span>
-                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-destructive/70" /> closed</span>
-                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-primary/30" /> well-known</span>
-                      </div>
-                    </Panel>
-
-                    <Panel icon={Cpu} title="OS fingerprint" meta={`${data.confidence}% conf.`}>
-                      <div className="space-y-1.5">
-                        <div className="text-mono text-[12px] text-foreground/90">{data.osGuess}</div>
-                        <div className="h-1.5 w-full overflow-hidden rounded bg-background/60">
-                          <div className="h-full bg-primary/70" style={{ width: `${data.confidence}%` }} />
-                        </div>
-                        <div className="text-mono text-[10px] text-muted-foreground">derived from open service banners</div>
-                      </div>
-                    </Panel>
-                  </div>
-                }
-              />
-            </>
+            /* No scan run yet - show placeholder */
+            <Panel title="Awaiting Scan" icon={Terminal}>
+              <div className="text-center py-8">
+                <Terminal className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                <p className="text-mono text-[12px] text-muted-foreground mb-2">
+                  Configure your scan above and click "Execute scan" to run a real nmap scan.
+                </p>
+                <p className="text-mono text-[10px] text-muted-foreground/70">
+                  You must confirm authorization before the scan will execute.
+                </p>
+              </div>
+            </Panel>
           )}
 
           {/* Report - collapsible */}
-          <Panel title="Report" meta="markdown" collapsible defaultCollapsed actions={
-            <button onClick={() => { const md = genReport(target, mode, timing, data, (scanResult?.stdout as string) || null); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
-          }>
-            <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data, (scanResult?.stdout as string) || null)}</pre>
-          </Panel>
-
-          {/* IOC Inventory */}
-          <CollapsibleSection id="IO" label="IOC Inventory" meta={`${open.length + open.map((r) => r.product).filter((p) => p !== "—").length + 1} indicators`} icon={Database}>
-            <IocInventory groups={[
-              { kind: "Open Ports", items: open.map((r) => `${r.port}/${r.svc}`), tone: "warning" },
-              { kind: "Services", items: open.map((r) => r.product).filter((p) => p !== "—"), tone: "info" },
-              { kind: "OS Guess", items: [data.osGuess] },
-            ]} onSendTo={() => {}} />
-          </CollapsibleSection>
-
-          {/* Pivot services */}
-          {open.length > 0 && (
-            <Panel icon={Send} title="Pivot open services" meta="hand off to another tool">
-              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                {open.slice(0, 9).map((r) => {
-                  const isWeb = r.port === 80 || r.port === 443 || r.port === 8080 || r.port === 8443;
-                  const url = `${r.port === 443 || r.port === 8443 ? "https" : "http"}://${target}${(r.port === 80 || r.port === 443) ? "" : `:${r.port}`}`;
-                  return (
-                    <div key={r.port} className="flex items-center justify-between gap-2 rounded border border-border/60 bg-background/40 px-2.5 py-1.5">
-                      <div className="min-w-0">
-                        <div className="text-mono text-[11.5px] text-foreground/90">:{r.port} · {r.svc}</div>
-                        <div className="truncate text-mono text-[10px] text-muted-foreground">{r.product}</div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {isWeb && (
-                          <button
-                            onClick={() => { sendArtifact({ kind: "url", value: url, source: "/nmap" }); window.location.assign("/url"); }}
-                            className="inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground hover:border-primary/40 hover:text-primary"
-                            title="Open in URL Analyzer"
-                          >
-                            <Globe2 className="h-3 w-3" /> url
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { sendArtifact({ kind: "domain", value: target, source: "/nmap" }); window.location.assign("/osint"); }}
-                          className="inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground hover:border-primary/40 hover:text-primary"
-                          title="OSINT pivot"
-                        >
-                          <Search className="h-3 w-3" /> osint
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {realResult && scanResult && (
+            <Panel title="Report" meta="markdown" collapsible defaultCollapsed actions={
+              <button onClick={() => { const md = genReport(target, mode, timing, data, (scanResult?.stdout as string) || null); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+            }>
+              <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data, (scanResult?.stdout as string) || null)}</pre>
             </Panel>
           )}
         </div>

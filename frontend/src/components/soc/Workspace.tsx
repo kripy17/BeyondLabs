@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Check, Copy, Eraser, Loader2, Play, Upload, ChevronDown,
+  Check, Copy, Eraser, Loader2, Play, Upload, ChevronDown, ChevronRight,
   ArrowDownToLine, ArrowUpFromLine, Clock, Filter, Settings2, Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -735,5 +735,159 @@ export function RiskScore({
         <div className={"h-full transition-all " + barCls} style={{ width: `${pct}%` }} />
       </div>
     </Panel>
+  );
+}
+
+/* ── Verdict Banner — prominent verdict display with collapsible details ── */
+export function VerdictBanner({
+  verdict,
+  tone = "warning",
+  icon: Icon,
+  score,
+  details,
+  collapsible = true,
+}: {
+  verdict: string;
+  tone?: "success" | "warning" | "destructive" | "info";
+  icon?: LucideIcon;
+  score?: string;
+  details?: string[];
+  collapsible?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(!collapsible);
+  const IconEl = Icon ?? (tone === "destructive" ? ChevronDown : tone === "success" ? Check : ChevronRight);
+  const toneCls =
+    tone === "destructive" ? "border-destructive/40 bg-destructive/10 text-destructive" :
+    tone === "success" ? "border-success/40 bg-success/10 text-success" :
+    tone === "warning" ? "border-warning/40 bg-warning/10 text-warning" :
+    "border-info/40 bg-info/10 text-info";
+  return (
+    <div className={"rounded-lg border-2 " + toneCls}>
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <IconEl className="h-5 w-5" />
+          <div>
+            <div className="text-mono text-[12px] font-bold uppercase tracking-widest">{verdict}</div>
+            {score !== undefined && <div className="text-mono text-[10px] opacity-80">score: {score}</div>}
+          </div>
+        </div>
+        {collapsible && <ChevronRight className={"h-4 w-4 transition-transform " + (expanded ? "rotate-90" : "")} />}
+      </button>
+      {expanded && details && details.length > 0 && (
+        <div className="border-t border-current/20 px-4 py-2">
+          <ul className="space-y-1">
+            {details.map((d, i) => (
+              <li key={i} className="text-mono text-[11px] leading-relaxed">• {d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Metric Grid — responsive metric tiles ── */
+export function MetricGrid({
+  metrics,
+  columns = 4,
+}: {
+  metrics: { label: string; value: ReactNode; tone?: "default" | "primary" | "success" | "warning" | "destructive" | "info" | "accent" | "muted"; icon?: LucideIcon }[];
+  columns?: 2 | 3 | 4;
+}) {
+  const gridCls =
+    columns === 2 ? "sm:grid-cols-2" :
+    columns === 3 ? "sm:grid-cols-3" :
+    "sm:grid-cols-2 md:grid-cols-4";
+  return (
+    <div className={"grid gap-2 " + gridCls}>
+      {metrics.map((m, i) => {
+        const toneCls =
+          m.tone === "primary" ? "border-primary/30 text-primary" :
+          m.tone === "success" ? "border-success/30 text-success" :
+          m.tone === "warning" ? "border-warning/30 text-warning" :
+          m.tone === "destructive" ? "border-destructive/30 text-destructive" :
+          m.tone === "info" ? "border-info/30 text-info" :
+          m.tone === "accent" ? "border-accent/30 text-accent" :
+          m.tone === "muted" ? "border-border/30 text-muted-foreground" :
+          "border-border/30 text-foreground";
+        const Icon = m.icon;
+        return (
+          <div key={i} className={"group relative overflow-hidden rounded-md border bg-card/40 px-3 py-2.5 transition-all hover:-translate-y-[1px] hover:shadow-sm " + toneCls}>
+            <span aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] opacity-60 bg-current" />
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-mono text-[9px] uppercase tracking-widest opacity-70">{m.label}</span>
+              {Icon && <Icon className="h-3 w-3 opacity-60" />}
+            </div>
+            <div className="mt-1 text-mono text-lg font-semibold tabular-nums">{m.value}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Two Column Output — side-by-side responsive grid ── */
+export function TwoColumnOutput({
+  left,
+  right,
+  ratio = "1:1",
+}: {
+  left: ReactNode;
+  right: ReactNode;
+  ratio?: "1:1" | "2:1" | "1:2" | "3:2" | "2:3";
+}) {
+  const gridCls =
+    ratio === "2:1" ? "lg:grid-cols-[2fr_1fr]" :
+    ratio === "1:2" ? "lg:grid-cols-[1fr_2fr]" :
+    ratio === "3:2" ? "lg:grid-cols-[3fr_2fr]" :
+    ratio === "2:3" ? "lg:grid-cols-[2fr_3fr]" :
+    "lg:grid-cols-2";
+  return (
+    <div className={"grid gap-3 " + gridCls}>
+      {left}
+      {right}
+    </div>
+  );
+}
+
+/* ── Collapsible Section — full-width collapsible wrapper ── */
+export function CollapsibleSection({
+  id,
+  label,
+  meta,
+  icon: Icon,
+  children,
+  defaultCollapsed = false,
+}: {
+  id: string;
+  label: string;
+  meta?: string;
+  icon?: LucideIcon;
+  children: ReactNode;
+  defaultCollapsed?: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  return (
+    <div className="rounded-md border border-border/70 bg-card/40 overflow-hidden">
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center gap-2 border-b border-border/60 px-3 py-2 text-left hover:bg-accent/30 transition-colors"
+      >
+        {Icon && (
+          <span className="grid h-5 w-5 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
+            <Icon className="h-3 w-3" strokeWidth={2.25} />
+          </span>
+        )}
+        <span className="text-mono text-[11px] uppercase tracking-[0.22em] text-foreground/90">{label}</span>
+        {meta && <span className="text-mono text-[10px] text-muted-foreground">({meta})</span>}
+        <div className="ml-auto">
+          <ChevronRight className={"h-4 w-4 text-muted-foreground transition-transform " + (collapsed ? "" : "rotate-90")} />
+        </div>
+      </button>
+      {!collapsed && <div className="p-3">{children}</div>}
+    </div>
   );
 }
