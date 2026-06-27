@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret } from "@/api/backend";
 import {
   Search, ExternalLink, Globe2, ArrowRight, Zap, Database, Terminal,
   ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check,
@@ -105,6 +106,50 @@ function OsintPage() {
       setPinned(JSON.parse(localStorage.getItem("ba.osint.pinned")   || "[]"));
     } catch {}
   }, []);
+
+  const [osintResult, setOsintResult] = useState<Record<string, unknown> | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<Record<string, unknown> | null>(null);
+  const [toolRunning, setToolRunning] = useState<string | null>(null);
+  const [toolOutput, setToolOutput] = useState<Record<string, unknown> | null>(null);
+  const [maigretResult, setMaigretResult] = useState<Record<string, unknown> | null>(null);
+  const [maigretLoading, setMaigretLoading] = useState(false);
+
+  useEffect(() => {
+    getLocalOsintTools().then(setToolStatus).catch(() => {});
+  }, []);
+
+  async function runOsintLookup() {
+    if (!v.trim()) return;
+    setLookupLoading(true);
+    setOsintResult(null);
+    try {
+      const res = kind === "email" ? await emailOsint(v) : kind === "domain" ? await socialLinksFinder(v) : await usernameOsint(v);
+      setOsintResult(res);
+    } catch { setOsintResult({ error: "API call failed" }); }
+    finally { setLookupLoading(false); }
+  }
+
+  async function runTool(toolId: string) {
+    setToolRunning(toolId);
+    setToolOutput(null);
+    try {
+      const res = await runLocalOsintTool({ toolId, domain: v, source: "duckduckgo", limit: 50 });
+      setToolOutput(res);
+    } catch { setToolOutput({ error: "Tool execution failed" }); }
+    finally { setToolRunning(null); }
+  }
+
+  async function runMaigretLookup() {
+    if (!v.trim()) return;
+    setMaigretLoading(true);
+    setMaigretResult(null);
+    try {
+      const res = await runMaigret(v);
+      setMaigretResult(res);
+    } catch { setMaigretResult({ error: "Maigret lookup failed" }); }
+    finally { setMaigretLoading(false); }
+  }
 
   const kind = classify(v);
   const ready = v.trim().length > 0;
@@ -321,6 +366,80 @@ function OsintPage() {
           ))}
         </ul>
       </Panel>
+
+      {/* ── OSINT Lookup ── */}
+      <SectionBar id="OL" label="Output · OSINT lookup" meta={`${kind} · ${v.trim() ? "ready" : "no target"}`} />
+      <Panel icon={Search} title="OSINT Lookup" meta={lookupLoading ? "loading..." : osintResult ? "done" : "idle"} actions={
+        <button onClick={runOsintLookup} disabled={!ready || lookupLoading} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
+          {lookupLoading ? "looking up..." : "Run OSINT Lookup"}
+        </button>
+      }>
+        {!ready && <div className="text-mono text-[11px] text-muted-foreground/70">Enter a target above to run an OSINT lookup — email → DNS posture, domain → social links, else → username platforms.</div>}
+        {lookupLoading && <div className="text-mono text-[11px] text-muted-foreground animate-pulse">Querying backend…</div>}
+        {osintResult && !lookupLoading && (
+          <div className="rounded border border-border/60 bg-background/40 p-3">
+            <pre className="max-h-80 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(osintResult, null, 2)}</pre>
+          </div>
+        )}
+      </Panel>
+
+      {/* ── Local OSINT Tools ── */}
+      {toolStatus && (toolStatus as any).runnable && (
+        <Panel icon={Terminal} title="Local OSINT Tools" meta={`${(toolStatus as any).available_count ?? "?"}/${(toolStatus as any).total_count ?? "?"} available`} actions={<span className="text-mono text-[9px] uppercase tracking-widest text-muted-foreground">path check only</span>}>
+          {toolOutput && (
+            <div className="mb-3 rounded border border-primary/30 bg-primary/5 p-3">
+              <div className="mb-1 text-mono text-[10px] uppercase tracking-widest text-primary">Last output</div>
+              <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(toolOutput, null, 2)}</pre>
+            </div>
+          )}
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {Object.entries((toolStatus as any).runnable).map(([id, meta]: [string, any]) => (
+              <div key={id} className={"flex items-center justify-between gap-2 rounded border px-2.5 py-1.5 " + (meta.available ? "border-border/60 bg-background/30" : "border-border/30 bg-background/10 opacity-50")}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={"inline-block h-1.5 w-1.5 rounded-full " + (meta.available ? "bg-success" : "bg-muted-foreground/40")} />
+                    <span className="text-mono text-[11px] text-foreground/90">{meta.label}</span>
+                  </div>
+                  {meta.description && <div className="truncate text-mono text-[9px] text-muted-foreground">{meta.description}</div>}
+                </div>
+                <button onClick={() => runTool(id)} disabled={!meta.available || !ready || toolRunning === id} className="shrink-0 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-30">
+                  {toolRunning === id ? "running…" : "run"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {/* ── Maigret ── */}
+      {ready && kind !== "email" && kind !== "ipv4" && (
+        <Panel icon={Search} title="Maigret username search" meta={maigretLoading ? "searching…" : maigretResult ? `${(maigretResult as any).sites_found ?? 0} sites` : "idle"} actions={
+          <button onClick={runMaigretLookup} disabled={maigretLoading} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
+            {maigretLoading ? "searching…" : "Run Maigret"}
+          </button>
+        }>
+          {maigretResult && !maigretLoading && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-mono text-[11px]">
+                <span className="text-muted-foreground">Status:</span>
+                <span className={(maigretResult as any).status === "completed" ? "text-success" : "text-warning"}>{(maigretResult as any).status ?? "unknown"}</span>
+                {(maigretResult as any).sites_found != null && (
+                  <><span className="text-muted-foreground">· Sites:</span><span>{(maigretResult as any).sites_found}</span></>
+                )}
+              </div>
+              {(maigretResult as any).notes && (
+                <div className="text-mono text-[10px] text-muted-foreground">{(maigretResult as any).notes}</div>
+              )}
+              <div className="rounded border border-border/60 bg-background/40 p-3">
+                <pre className="max-h-80 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(maigretResult, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+          {!maigretResult && !maigretLoading && (
+            <div className="text-mono text-[11px] text-muted-foreground/70">Run maigret to search for this target across hundreds of social platforms.</div>
+          )}
+        </Panel>
+      )}
 
       {ready && (
         <Panel icon={Sparkles} title="Send target to" meta="continue the investigation">

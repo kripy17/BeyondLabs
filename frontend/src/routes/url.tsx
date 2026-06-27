@@ -3,9 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
-import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, FileWarning, ChevronRight, History, Lock, MapPin, Network, CornerDownRight, Download, Key, Bug, Crosshair, Hash } from "lucide-react";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, FileWarning, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
 
@@ -56,15 +55,11 @@ const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
   ip_host: [{ id: "T1071", name: "Application Layer Protocol" }],
   high_entropy: [{ id: "T1027", name: "Obfuscated Files or Information" }],
   port_warn: [{ id: "T1571", name: "Non-Standard Port" }],
-  fake_tld: [{ id: "T1583.001", name: "Acquire Infrastructure: Domains" }],
   path_login: [{ id: "T1204", name: "User Execution" }],
 };
 
 function refang(s: string) { return s.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".").replace(/\{\.\}/g, ".").replace(/hxxp/gi, "http").replace(/\[:\]/g, ":"); }
 function defang(s: string) { return s.replace(/\./g, "[.]").replace(/^http/i, "hxxp"); }
-
-function hash(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return Math.abs(h); }
-function pick<T>(arr: T[], seed: number) { return arr[seed % arr.length]; }
 
 function entropy(s: string): number {
   const freq: Record<string, number> = {};
@@ -75,17 +70,6 @@ function entropy(s: string): number {
 function domainEntropy(host: string): number {
   const labels = host.replace(/\./g, "");
   return Math.round(entropy(labels) * 100) / 100;
-}
-
-function guessDomainRegistrant(host: string): string {
-  const h = hash(host);
-  return pick(["Namecheap", "GoDaddy", "Tucows", "NameSilo", "Porkbun", "Alibaba Cloud", "Gandi", "Cloudflare Registrar"], h);
-}
-
-function guessDomainAge(host: string): string {
-  const h = hash(host);
-  const days = h % 720;
-  return days < 30 ? `${days}d (recently registered)` : `${days}d`;
 }
 
 function scanSecrets(t: string): { type: string; value: string }[] {
@@ -100,33 +84,6 @@ function scanSecrets(t: string): { type: string; value: string }[] {
     }
   }
   return found;
-}
-
-function syntheticIntel(host: string) {
-  const h = hash(host);
-  const country = pick(["US", "RU", "DE", "NL", "CN", "SG", "BR", "IN"], h);
-  const city = pick(["Ashburn", "Moscow", "Frankfurt", "Amsterdam", "Beijing", "Singapore", "São Paulo", "Mumbai"], h >> 3);
-  const asn = "AS" + (10000 + (h % 60000));
-  const org = pick(["Cloudflare", "Hetzner", "OVH", "DigitalOcean", "AWS", "Selectel", "Tencent", "Linode"], h >> 5);
-  const tlsAge = (h % 540);
-  const tlsIssuer = pick(["Let's Encrypt", "ZeroSSL", "DigiCert", "GoDaddy", "Sectigo"], h >> 7);
-  const ip = `${(h % 223) + 1}.${(h >> 4) % 255}.${(h >> 8) % 255}.${(h >> 12) % 255}`;
-  return { country, city, asn, org, tlsAge, tlsIssuer, ip };
-}
-
-function syntheticRedirects(parsed: URL) {
-  const host = parsed.hostname;
-  const isShort = /^(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|ow\.ly)$/i.test(host);
-  if (isShort) {
-    return [
-      { code: 301, url: `https://${host}${parsed.pathname}`, note: "shortener entry" },
-      { code: 302, url: "https://cdn.tracker.example/click?id=" + (hash(host) % 9999), note: "click-tracker" },
-      { code: 200, url: "https://login.example-bank.com.evil-host.ru/reset", note: "final landing" },
-    ];
-  }
-  return [
-    { code: 200, url: parsed.href, note: "direct fetch (no redirect)" },
-  ];
 }
 
 function genMarkdownExport(parsed: URL, score: number, findings: { sev: string; t: string; r: string; a: string }[], secrets: { type: string; value: string }[], mitre: { id: string; name: string }[], pathSignals: string[], fileExt: string | null, hasEmbeddedCreds: boolean, hasPathTraversal: boolean, isNumericDomain: boolean, hasNonStandardPort: boolean, portNum: string, suspChars: { char: string; pos: number }[]): string {
@@ -210,8 +167,6 @@ function UrlPage() {
     const domainEnt = domainEntropy(host);
     const tld = host.split(".").pop() || "";
     const isSuspiciousTLD = SUSPICIOUS_TLDS.has(tld);
-    const registrar = guessDomainRegistrant(host);
-    const registered = guessDomainAge(host);
 
     const suspiciousPaths = SUSPICIOUS_PATHS.filter((p) => path.toLowerCase().includes("/" + p));
 
@@ -297,7 +252,7 @@ function UrlPage() {
       }
     }
 
-    return { parsed, findings, score, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, registrar, registered, suspiciousPaths, secrets, mitre };
+    return { parsed, findings, score, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
   }, [committed, trimmed, raw]);
 
   useEffect(() => {
@@ -316,8 +271,6 @@ function UrlPage() {
   const run = () => setRuns((r) => r + 1);
   const clear = () => { setRaw(""); setRuns(0); };
 
-  const intel = analysis?.parsed ? syntheticIntel(analysis.parsed.hostname) : null;
-  const redirects = analysis?.parsed ? syntheticRedirects(analysis.parsed) : [];
   const iocs: { kind: string; value: string }[] = [];
 
   return (
@@ -484,63 +437,11 @@ function UrlPage() {
                 </div>
               </Panel>
 
-              {/* Redirect chain */}
-              <Panel
-                title="Redirect Chain"
-                meta={`${redirects.length} hop${redirects.length === 1 ? "" : "s"}`}
-                icon={CornerDownRight}
-                actions={<PreviewBadge />}
-              >
-                <ol className="space-y-1.5">
-                  {redirects.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-mono text-[11px]">
-                      <span className={"shrink-0 rounded border px-1.5 py-0.5 " + (r.code >= 300 && r.code < 400 ? "border-warning/50 bg-warning/10 text-warning" : "border-success/40 bg-success/10 text-success")}>
-                        {r.code}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <code className="block truncate text-foreground/85">{defang(r.url)}</code>
-                        <span className="text-[10px] text-muted-foreground">{r.note}</span>
-                      </div>
-                      {i < redirects.length - 1 && <ChevronRight className="mt-1 h-3 w-3 text-muted-foreground" />}
-                    </li>
-                  ))}
-                </ol>
-              </Panel>
-
-              {/* Network / TLS / Geo */}
-              {intel && (
-                <div className="grid gap-3 lg:grid-cols-3">
-                  <Panel title="Network" icon={Network} meta={intel.asn} actions={<PreviewBadge label="demo" />}>
-                    <KeyFields items={[
-                      { label: "Resolved IP", value: intel.ip },
-                      { label: "ASN", value: intel.asn },
-                      { label: "Org", value: intel.org },
-                    ]} />
-                  </Panel>
-                  <Panel title="TLS" icon={Lock} meta={`${intel.tlsAge}d old`} actions={<PreviewBadge label="demo" />}>
-                    <KeyFields items={[
-                      { label: "Issuer", value: intel.tlsIssuer },
-                      { label: "Cert age", value: `${intel.tlsAge} days`, tone: intel.tlsAge < 30 ? "warning" : "default" },
-                      { label: "Protocol", value: analysis.isHttp ? "none (HTTP)" : "TLS 1.3", tone: analysis.isHttp ? "destructive" : "default" },
-                    ]} />
-                  </Panel>
-                  <Panel title="Geo" icon={MapPin} meta={intel.country} actions={<PreviewBadge label="demo" />}>
-                    <KeyFields items={[
-                      { label: "Country", value: intel.country },
-                      { label: "City", value: intel.city },
-                      { label: "Hosting", value: intel.org },
-                    ]} />
-                  </Panel>
-                </div>
-              )}
-
               {/* Domain Profile + Secrets grid */}
               <div className="grid gap-3 lg:grid-cols-2">
-                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`} actions={<PreviewBadge label="demo" />}>
+                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`}>
                   <KeyFields items={[
                     { label: "TLD", value: `.${analysis.tld}`, tone: analysis.isSuspiciousTLD ? "warning" : "default" },
-                    { label: "Registrar", value: analysis.registrar },
-                    { label: "Registered", value: analysis.registered, tone: analysis.registered.includes("recently") ? "warning" : "default" },
                     { label: "Domain entropy", value: analysis.domainEnt.toFixed(2), tone: analysis.domainEnt > 4.0 ? "warning" : "default" },
                     { label: "Numeric IP", value: analysis.isNumericDomain ? "yes" : "no", tone: analysis.isNumericDomain ? "warning" : "default" },
                     { label: "Unicode in path", value: analysis.suspiciousChars.filter((c) => c.char !== "@" && c.char !== "%25").length > 0 ? "yes" : "no", tone: "info" },
@@ -637,7 +538,7 @@ function UrlPage() {
                 <KeyFields items={[
                   { label: "URL", value: defang(analysis.parsed.href) },
                   { label: "Domain", value: analysis.parsed.hostname },
-                  { label: "Resolved IP", value: intel?.ip || "\u2014" },
+                  { label: "Resolved IP", value: "\u2014" },
                   { label: "Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".") },
                 ]} />
               </Panel>

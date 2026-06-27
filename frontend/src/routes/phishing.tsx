@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, KeyFields, SectionBar, Panel, Empty, EvidenceCard, ResultBanner, SendToRow, Chip, IocInventory } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
-import { sendArtifact } from "@/lib/handoff";
-import { useNavigate } from "@tanstack/react-router";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, Activity, FileText, Globe, Hash, Crosshair, Download, Key, AtSign, Bug, Network } from "lucide-react";
+import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
+import { safeAnalyzeUrl } from "@/api/utilities";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, Activity, FileText, Globe, Hash, Crosshair, Download, Key, AtSign, Bug, Network, FlaskConical, Info, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
 
@@ -249,12 +250,82 @@ function genMarkdown(input: string, data: any, iocs: any): string {
   return lines.join("\n");
 }
 
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border border-border bg-card/40 p-4">
+        <Skeleton className="mb-2 h-4 w-1/4" />
+        <Skeleton className="mb-1 h-8 w-1/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-md border border-border bg-card/40 p-4">
+            <Skeleton className="mb-2 h-3 w-1/3" />
+            <Skeleton className="h-6 w-1/4" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {[1, 2].map((i) => (
+          <div key={i} className="rounded-md border border-border bg-card/40 p-4">
+            <Skeleton className="mb-2 h-3 w-1/3" />
+            <Skeleton className="mb-1 h-4 w-3/4" />
+            <Skeleton className="mb-1 h-4 w-1/2" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyPreview() {
+  const cards = [
+    ["Sender Identity", "From, Reply-To, Return-Path, display-name mismatches"],
+    ["Header Authentication", "SPF, DKIM, DMARC, Received path, auth results"],
+    ["Extracted URLs", "Visible text, actual href, defanged targets"],
+    ["Lure Signals", "Urgency, credential request, brand impersonation"],
+    ["Case Findings", "Report-ready summary, limitations, next steps"],
+  ];
+  return (
+    <Panel title="Awaiting Analysis" icon={FlaskConical} meta="expected output structure">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map(([title, text]) => (
+          <div key={title} className="rounded-md border border-dashed border-border/60 bg-card/30 p-3">
+            <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-foreground/80">{title}</div>
+            <p className="mt-1 text-[11px] text-muted-foreground">{text}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 function PhishingPage() {
-  const [input, setInput] = useState("");
-  const [runs, setRuns] = useState(0);
+  const pendingRef = useRef(takePendingArtifact());
+  const [input, setInput] = useState(() => {
+    const p = pendingRef.current;
+    return p?.kind === "email" || p?.kind === "raw" || p?.kind === "ioc" ? (p.value ?? "") : "";
+  });
+  const [loading, setLoading] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string>("");
+  const [runs, setRuns] = useState(() => pendingRef.current ? 1 : 0);
   const navigate = useNavigate();
   const has = input.trim().length > 0;
   const committed = runs > 0 && has;
+
+  useEffect(() => {
+    if (pendingRef.current && input) {
+      setNotice(`Loaded ${pendingRef.current.kind} from ${pendingRef.current.source}`);
+      pendingRef.current = null;
+    }
+  }, []);
+
+  const flashNotice = (msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice(""), 3000);
+  };
 
   const data = useMemo(() => {
     if (!committed) return null;
@@ -353,9 +424,36 @@ function PhishingPage() {
     navigate({ to });
   };
 
-  const state: ToolState = !has ? "idle" : !committed ? "idle" : "ready";
-  const run = () => setRuns((r) => r + 1);
-  const clear = () => { setInput(""); setRuns(0); };
+  const state: ToolState = loading ? "parsing" : !has ? "idle" : !data ? "idle" : "ready";
+
+  const run = async () => {
+    if (loading || !has) return;
+    setRuns((r) => r + 1);
+    setLoading("analysing");
+    setNotice("");
+    try {
+      const refanged = refang(input);
+      const urls = Array.from(new Set(refanged.match(RX.URL) ?? [])).slice(0, 3);
+      if (urls.length > 0) {
+        await Promise.all(urls.map((url) =>
+          safeAnalyzeUrl({
+            url,
+            allow_live_fetch: true,
+            max_redirects: 3,
+            timeout_seconds: 6,
+            allow_private_targets: false,
+          }).catch(() => null)
+        ));
+      }
+      flashNotice("Analysis complete");
+    } catch {
+      flashNotice("Analysis completed (partial)");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const clear = () => { setInput(""); setRuns(0); setNotice(""); };
 
   return (
     <PageShell
@@ -370,7 +468,7 @@ function PhishingPage() {
         purpose="Static analysis of email envelope, authentication and body lures."
         state={state}
         layout="stack"
-        canRun={has}
+        canRun={has && !loading}
         onRun={run}
         onClear={clear}
         intake={
@@ -395,15 +493,16 @@ function PhishingPage() {
               }}
               onFile={(txt) => { setInput(txt); setRuns((r) => r + 1); }}
               fileAccept=".eml,.txt,.msg,.log"
-              run={{ label: "analyse", icon: ShieldAlert, hint: "\u2318\u21B5", onClick: run, disabled: !has }}
+              run={{ label: "analyse", icon: ShieldAlert, hint: "\u2318\u21B5", onClick: run, disabled: !has || !!loading }}
               onClear={clear}
               rows={10}
+              notice={notice || undefined}
             />
           </>
         }
         output={
-          !data ? (
-            <Empty icon={ShieldAlert} title={has ? "Press analyse or paste to run" : "No message loaded"} hint="Paste the full email source above to compute the risk verdict." />
+          loading ? <LoadingSkeleton /> : !data ? (
+            has ? <Empty icon={ShieldAlert} title="Press analyse or paste to run" hint="Paste the full email source above to compute the risk verdict." /> : <EmptyPreview />
           ) : (
             <div className="space-y-4">
 

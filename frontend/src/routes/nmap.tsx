@@ -2,21 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, Chip, SendToRow, KeyFields, StatusBar, ResultBanner, RiskScore, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
-import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { runReconNmapScan } from "@/api/backend";
 import {
-  Server, Terminal, ArrowRight, Zap, Database, ShieldAlert, Copy, Check, Play,
-  Gauge, Activity, Network, FileCode2, Cpu, Globe2, Send, Search, Crosshair, Download, Hash,
+  Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
+  Gauge, Network, FileCode2, Cpu, Globe2, Send, Search, Crosshair, Download, Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
 
 const MODES = {
-  discovery: { label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes.",          scripts: [] as string[] },
-  fast:      { label: "Top-100 TCP",       args: "-sS --top-ports 100 -Pn",                    risk: "medium", desc: "SYN scan of the 100 most common TCP ports.",           scripts: [] },
-  service:   { label: "Service & version", args: "-sV -sC --top-ports 1000 -Pn",               risk: "medium", desc: "Version detection + default NSE on common ports.",    scripts: ["http-title","ssh-hostkey","ssl-cert","banner"] },
-  vuln:      { label: "Vuln scripts",      args: "-sV --script vuln --top-ports 200 -Pn",      risk: "high",   desc: "NSE vuln scripts. Noisy — explicit auth only.",       scripts: ["http-vuln-cve2017-5638","smb-vuln-ms17-010","ssl-heartbleed","http-shellshock"] },
-  full:      { label: "Full TCP + OS",     args: "-sS -p- -O -sV -Pn",                         risk: "high",   desc: "Every TCP port + OS fingerprint. Slow and loud.",     scripts: ["smb-os-discovery"] },
+  discovery: { label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes.",          backend: "quick_tcp" },
+  fast:      { label: "Top-100 TCP",       args: "-sS --top-ports 100 -Pn",                    risk: "medium", desc: "SYN scan of the 100 most common TCP ports.",           backend: "quick_tcp" },
+  service:   { label: "Service & version", args: "-sV -sC --top-ports 1000 -Pn",               risk: "medium", desc: "Version detection + default NSE on common ports.",    backend: "service_version" },
+  vuln:      { label: "Safe NSE scripts",  args: "-sV --script default,safe --top-ports 200 -Pn", risk: "high", desc: "Safe NSE scripts. Noisy — explicit auth only.",       backend: "safe_scripts" },
+  full:      { label: "Full TCP + OS",     args: "-sS -p- -O -sV -Pn",                         risk: "high",   desc: "Every TCP port + OS fingerprint. Slow and loud.",     backend: "full_tcp" },
 } as const;
 type ModeKey = keyof typeof MODES;
 
@@ -27,6 +27,8 @@ const TIMINGS = [
   { k: "T5", label: "Insane",      hint: "very loud" },
 ] as const;
 type TimingKey = typeof TIMINGS[number]["k"];
+
+function hash(s: string) { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; } return h; }
 
 const HOT_PORTS = new Set([21,22,23,25,53,80,110,139,143,443,445,587,993,995,1433,1521,2049,3306,3389,5432,5900,6379,8080,8443,9200,11211,27017]);
 const PORT_SVC: Record<number,{svc:string; product:string; cpe:string}> = {
@@ -48,7 +50,6 @@ const PORT_SVC: Record<number,{svc:string; product:string; cpe:string}> = {
   27017:{ svc: "mongod",    product: "MongoDB 7.0",                  cpe: "cpe:/a:mongodb:mongodb:7.0" },
 };
 
-function hash(s: string) { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; } return h; }
 function synth(target: string) {
   if (!target) return { rows: [] as any[], openCount: 0, osGuess: "—", confidence: 0 };
   const h = hash(target);
@@ -69,16 +70,18 @@ function synth(target: string) {
   };
 }
 
-function genReport(target: string, mode: ModeKey, timing: TimingKey, data: ReturnType<typeof synth>): string {
+function genReport(target: string, mode: ModeKey, timing: TimingKey, data: ReturnType<typeof synth>, realOutput: string | null): string {
   return [
     `# Nmap Scan Report`,
     `**Target:** ${target}`,
     `**Profile:** ${MODES[mode].label}`,
     `**Timing:** -${timing}`,
-    `**Open ports:** ${data.openCount}`,
-    `**OS guess:** ${data.osGuess} (${data.confidence}%)`,
-    "", "## Open Ports",
-    ...data.rows.filter((r) => r.state === "open").map((r) => `- ${r.port}/${r.proto}  ${r.svc}  ${r.product}`),
+    ...(realOutput ? [`**Source:** real scan output`] : [`**Open ports:** ${data.openCount}`, `**OS guess:** ${data.osGuess} (${data.confidence}%)`]),
+    "", ...(realOutput
+      ? ["## Raw Output", "```", realOutput.slice(0, 5000), "```"]
+      : ["## Open Ports",
+         ...data.rows.filter((r) => r.state === "open").map((r) => `- ${r.port}/${r.proto}  ${r.svc}  ${r.product}`)]
+    ),
     "", "## Command",
     `nmap ${MODES[mode].args} -${timing} ${target}`,
   ].join("\n");
@@ -89,6 +92,9 @@ function NmapPage() {
   const [mode, setMode] = useState<ModeKey>("service");
   const [timing, setTiming] = useState<TimingKey>("T3");
   const [copied, setCopied] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [realResult, setRealResult] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => { const h = takePendingArtifact(); if (h?.value) setTarget(h.value); }, []);
 
@@ -105,11 +111,31 @@ function NmapPage() {
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1100);
   };
 
+  async function handleExecute() {
+    if (!has) return;
+    setRunning(true);
+    setRealResult(null);
+    try {
+      const res = await runReconNmapScan({
+        target: target.trim(),
+        mode: MODES[mode].backend,
+        confirmPermission: confirmed,
+      });
+      setRealResult(res as Record<string, unknown>);
+    } catch {
+      setRealResult({ error: "Scan request failed" });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const scanResult = realResult?.scan as Record<string, unknown> | undefined;
+
   const findings = useMemo(() => {
     if (!has) return [] as { sev: "destructive" | "warning" | "info"; title: string; reason: string; action: string }[];
     const f: typeof findings = [];
     if (open.some((r) => r.port === 22)) f.push({ sev: "warning", title: "SSH (22) open", reason: "Remote admin service exposed. Check auth method and version.", action: "Verify key-based auth only, disable password login, audit failed attempts." });
-    if (open.some((r) => r.port === 3389)) f.push({ sev: "warning", title: "RDP (3389) open", reason: "Remote Desktop accessible from scan source. High-risk for brute force.", action: "Restrict via firewall, enable NLA, enforce strong passwords." });
+    if (open.some((r) => r.port === 3389)) f.push({ sev: "warning", title: "RDP (3389) open", reason: "Remote Desktop accessible. High-risk for brute force.", action: "Restrict via firewall, enable NLA, enforce strong passwords." });
     if (open.some((r) => r.port === 3306)) f.push({ sev: "destructive", title: "MySQL (3306) exposed", reason: "Database port exposed — potential data exfiltration vector.", action: "Bind to localhost or restrict to trusted IPs." });
     if (open.some((r) => r.port === 6379)) f.push({ sev: "destructive", title: "Redis (6379) exposed", reason: "In-memory data store accessible remotely — common ransomware vector.", action: "Bind to 127.0.0.1, require AUTH, disable CONFIG." });
     if (open.some((r) => r.port === 9200)) f.push({ sev: "destructive", title: "Elasticsearch (9200) exposed", reason: "Data store exposed — cluster manipulation or data exfil risk.", action: "Require auth, restrict to trusted IPs." });
@@ -125,7 +151,7 @@ function NmapPage() {
     <PageShell
       eyebrow="RECON / NMAP"
       title="Nmap Runner"
-      description="Compose bounded nmap commands and preview a deterministic synthetic brief. No scan is executed from this UI."
+      description="Compose bounded nmap commands and scan targets you own or have permission to test."
       crumbs={[{ label: "Recon" }, { label: "Nmap" }]}
     >
       <SectionBar id="IN" label="Intake · target & profile" meta={`${MODES[mode].risk} risk · ${timing}`} />
@@ -143,7 +169,7 @@ function NmapPage() {
           { key: "c", label: "CIDR /24", hint: "10.0.0.0/24" },
         ]}
         onLoadSample={(k) => setTarget(k === "h" ? "scanme.nmap.org" : k === "i" ? "198.51.100.1" : "10.0.0.0/24")}
-        run={{ label: "render brief", icon: Zap, hint: has ? "synthetic" : "enter target", onClick: () => {}, disabled: !has }}
+        run={{ label: "render brief", icon: Zap, hint: has ? "preview" : "enter target", onClick: () => {}, disabled: !has }}
         onClear={() => setTarget("")}
         showCopy
       />
@@ -203,13 +229,36 @@ function NmapPage() {
         { label: "Filtered", value: has ? filt.length : "—", tone: "warning" },
       ]} />
 
-      <SectionBar id="OT" label="Output · generated command" />
+      {/* Permission + Execute row */}
+      {has && (
+        <div className="flex flex-wrap items-center gap-3 rounded border border-border bg-card/40 px-4 py-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="h-4 w-4 accent-accent"
+            />
+            <span className="text-mono text-[11px] text-foreground/80">I own or have permission to scan this target</span>
+          </label>
+          <button
+            onClick={handleExecute}
+            disabled={!confirmed || running}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+            {running ? "scanning…" : "Execute scan"}
+          </button>
+          <span className="text-mono text-[10px] text-muted-foreground">Preview below is deterministic — real scan runs via backend nmap</span>
+        </div>
+      )}
+
+      <SectionBar id="OT" label="Output · command" />
       <Panel icon={Terminal} title="Command" meta={`${MODES[mode].args.split(/\s+/).length + 2} flags`} actions={
         <div className="flex items-center gap-1">
           <button onClick={() => copy(cmd, "cmd")} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase hover:border-primary/40 hover:text-primary">
             {copied === "cmd" ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}
           </button>
-          <PreviewBadge label="not executed" />
         </div>
       }>
         <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12.5px] text-primary"><span className="text-muted-foreground">$ </span>{cmd}</pre>
@@ -219,121 +268,134 @@ function NmapPage() {
             <span key={i} className="rounded border border-border/60 bg-background/60 px-1.5 py-0.5 text-foreground/80">{f}</span>
           ))}
         </div>
-        {MODES[mode].scripts.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-1 text-mono text-[10px] text-muted-foreground">
-            NSE scripts:
-            {MODES[mode].scripts.map((s) => (
-              <span key={s} className="rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-accent">{s}</span>
-            ))}
-          </div>
-        )}
       </Panel>
 
-      <SectionBar id="OT" label="Output · synthetic brief" meta="deterministic from target — not a real scan" />
+      <SectionBar id="OT" label="Output" meta={realResult ? "live scan" : "synthetic preview"} />
 
       {!has ? (
-        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to render the synthetic brief.</p></Panel>
+        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to preview the scan brief.</p></Panel>
       ) : (
         <>
-          <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-          <ResultBanner
-            badge="nmap_preview"
-            title={target}
-            subtitle={`${MODES[mode].label} · -${timing} · ${data.rows.length} probed ports · ${data.osGuess} (${data.confidence}% conf.)`}
-            metrics={[
-              { label: "Open",     value: open.length, tone: "success" },
-              { label: "Filtered", value: filt.length, tone: "warning" },
-              { label: "Closed",   value: cls.length },
-              { label: "Hot svc",  value: open.filter((r) => HOT_PORTS.has(r.port)).length, tone: "primary" },
-            ]}
-          />
+          {realResult && scanResult ? (
+            /* Real scan output */
+            <>
+              {scanResult.error ? (
+                <Panel>
+                  <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{(scanResult as any).error}</div>
+                </Panel>
+              ) : (
+                <>
+                  <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
+                  <Panel title="Real scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"}>
+                    <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
+                      {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
+                    </pre>
+                  </Panel>
+                </>
+              )}
+            </>
+          ) : (
+            /* Synthetic preview */
+            <>
+              <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
+              <ResultBanner
+                badge="nmap_preview"
+                title={target}
+                subtitle={`${MODES[mode].label} · -${timing} · ${data.rows.length} probed ports · ${data.osGuess} (${data.confidence}% conf.)`}
+                metrics={[
+                  { label: "Open",     value: open.length, tone: "success" },
+                  { label: "Filtered", value: filt.length, tone: "warning" },
+                  { label: "Closed",   value: cls.length },
+                  { label: "Hot svc",  value: open.filter((r) => HOT_PORTS.has(r.port)).length, tone: "primary" },
+                ]}
+              />
 
-          <Panel>
-            <KeyFields items={[
-              { label: "Target",     value: target,             tone: "primary" },
-              { label: "Profile",    value: MODES[mode].label },
-              { label: "Timing",     value: `-${timing}` },
-              { label: "OS guess",   value: data.osGuess,       tone: "primary" },
-              { label: "Confidence", value: `${data.confidence}%` },
-              { label: "Risk class", value: MODES[mode].risk,   tone: MODES[mode].risk === "high" ? "destructive" : "warning" },
-            ]} />
-          </Panel>
+              <Panel>
+                <KeyFields items={[
+                  { label: "Target",     value: target,             tone: "primary" },
+                  { label: "Profile",    value: MODES[mode].label },
+                  { label: "Timing",     value: `-${timing}` },
+                  { label: "OS guess",   value: data.osGuess,       tone: "primary" },
+                  { label: "Confidence", value: `${data.confidence}%` },
+                  { label: "Risk class", value: MODES[mode].risk,   tone: MODES[mode].risk === "high" ? "destructive" : "warning" },
+                ]} />
+              </Panel>
 
-          {/* Evidence cards */}
-          <div className="grid gap-3 md:grid-cols-2">
-            {findings.map((f, i) => (
-              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Synthetic preview — run actual scan to confirm." />
-            ))}
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
-            <Panel icon={Network} title="Port table" meta={`${data.rows.length} rows · ${open.length} open`}>
-              <div className="overflow-x-auto rounded border border-border/50">
-                <table className="w-full text-mono text-[11.5px]">
-                  <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
-                    <tr>
-                      <th className="px-2 py-1 text-left">port</th>
-                      <th className="px-2 py-1 text-left">proto</th>
-                      <th className="px-2 py-1 text-left">state</th>
-                      <th className="px-2 py-1 text-left">service</th>
-                      <th className="px-2 py-1 text-left">product</th>
-                      <th className="px-2 py-1 text-left">cpe</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.rows.map((r, i) => (
-                      <tr key={r.port} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "") + " hover:bg-primary/[0.04]"}>
-                        <td className="px-2 py-1.5 text-foreground/90">{r.port}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground">{r.proto}</td>
-                        <td className="px-2 py-1.5"><Chip tone={r.state === "open" ? "success" : r.state === "filtered" ? "warning" : "default"}>{r.state}</Chip></td>
-                        <td className="px-2 py-1.5 text-foreground/90">{r.svc}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground">{r.state === "open" ? r.product : "—"}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground/80 truncate max-w-[18ch]" title={r.cpe}>{r.state === "open" ? r.cpe : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid gap-3 md:grid-cols-2">
+                {findings.map((f, i) => (
+                  <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Synthetic preview — run actual scan to confirm." />
+                ))}
               </div>
-            </Panel>
 
-            <div className="space-y-3">
-              <Panel icon={Activity} title="Port heatmap" meta="0 – 1023">
-                <div className="grid grid-cols-[repeat(32,minmax(0,1fr))] gap-[2px]">
-                  {Array.from({ length: 1024 }).map((_, p) => {
-                    const found = data.rows.find((x) => x.port === p);
-                    let c = "bg-background/40";
-                    if (found?.state === "open") c = "bg-success";
-                    else if (found?.state === "filtered") c = "bg-warning/80";
-                    else if (found?.state === "closed") c = "bg-destructive/70";
-                    else if (HOT_PORTS.has(p)) c = "bg-primary/15";
-                    return <span key={p} title={`port ${p}${found ? ` · ${found.state}` : ""}`} className={"aspect-square rounded-[1px] " + c} />;
-                  })}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-mono text-[10px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-success" /> open</span>
-                  <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-warning/80" /> filtered</span>
-                  <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-destructive/70" /> closed</span>
-                  <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-primary/30" /> well-known</span>
-                </div>
-              </Panel>
-
-              <Panel icon={Cpu} title="OS fingerprint" meta={`${data.confidence}% conf.`}>
-                <div className="space-y-1.5">
-                  <div className="text-mono text-[12px] text-foreground/90">{data.osGuess}</div>
-                  <div className="h-1.5 w-full overflow-hidden rounded bg-background/60">
-                    <div className="h-full bg-primary/70" style={{ width: `${data.confidence}%` }} />
+              <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
+                <Panel icon={Network} title="Port table" meta={`${data.rows.length} rows · ${open.length} open`}>
+                  <div className="overflow-x-auto rounded border border-border/50">
+                    <table className="w-full text-mono text-[11.5px]">
+                      <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
+                        <tr>
+                          <th className="px-2 py-1 text-left">port</th>
+                          <th className="px-2 py-1 text-left">proto</th>
+                          <th className="px-2 py-1 text-left">state</th>
+                          <th className="px-2 py-1 text-left">service</th>
+                          <th className="px-2 py-1 text-left">product</th>
+                          <th className="px-2 py-1 text-left">cpe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.rows.map((r, i) => (
+                          <tr key={r.port} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "") + " hover:bg-primary/[0.04]"}>
+                            <td className="px-2 py-1.5 text-foreground/90">{r.port}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground">{r.proto}</td>
+                            <td className="px-2 py-1.5"><Chip tone={r.state === "open" ? "success" : r.state === "filtered" ? "warning" : "default"}>{r.state}</Chip></td>
+                            <td className="px-2 py-1.5 text-foreground/90">{r.svc}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground">{r.state === "open" ? r.product : "—"}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground/80 truncate max-w-[18ch]" title={r.cpe}>{r.state === "open" ? r.cpe : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="text-mono text-[10px] text-muted-foreground">derived from open service banners</div>
-                </div>
-              </Panel>
-            </div>
-          </div>
+                </Panel>
 
-          {/* Report export */}
+                <div className="space-y-3">
+                  <Panel icon={Gauge} title="Port heatmap" meta="0 – 1023">
+                    <div className="grid grid-cols-[repeat(32,minmax(0,1fr))] gap-[2px]">
+                      {Array.from({ length: 1024 }).map((_, p) => {
+                        const found = data.rows.find((x) => x.port === p);
+                        let c = "bg-background/40";
+                        if (found?.state === "open") c = "bg-success";
+                        else if (found?.state === "filtered") c = "bg-warning/80";
+                        else if (found?.state === "closed") c = "bg-destructive/70";
+                        else if (HOT_PORTS.has(p)) c = "bg-primary/15";
+                        return <span key={p} title={`port ${p}${found ? ` · ${found.state}` : ""}`} className={"aspect-square rounded-[1px] " + c} />;
+                      })}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-success" /> open</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-warning/80" /> filtered</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-destructive/70" /> closed</span>
+                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-primary/30" /> well-known</span>
+                    </div>
+                  </Panel>
+
+                  <Panel icon={Cpu} title="OS fingerprint" meta={`${data.confidence}% conf.`}>
+                    <div className="space-y-1.5">
+                      <div className="text-mono text-[12px] text-foreground/90">{data.osGuess}</div>
+                      <div className="h-1.5 w-full overflow-hidden rounded bg-background/60">
+                        <div className="h-full bg-primary/70" style={{ width: `${data.confidence}%` }} />
+                      </div>
+                      <div className="text-mono text-[10px] text-muted-foreground">derived from open service banners</div>
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            </>
+          )}
+
           <Panel title="Report" meta="markdown" actions={
-            <button onClick={() => { const md = genReport(target, mode, timing, data); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+            <button onClick={() => { const md = genReport(target, mode, timing, data, (scanResult?.stdout as string) || null); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
           }>
-            <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data)}</pre>
+            <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data, (scanResult?.stdout as string) || null)}</pre>
           </Panel>
 
           <IocInventory groups={[
@@ -384,8 +446,8 @@ function NmapPage() {
       <SendToRow targets={[
         { label: "Recon Exposure", to: "/recon",     icon: ArrowRight },
         { label: "Detection",      to: "/detection", icon: ShieldAlert },
-        { label: "Case Notebook",  to: "/case",      icon: Database },
-        { label: "OSINT pivot",    to: "/osint",     icon: Server },
+        { label: "Case Notebook",  to: "/case",      icon: Server },
+        { label: "OSINT pivot",    to: "/osint",     icon: Globe2 },
       ]} />
     </PageShell>
   );

@@ -245,6 +245,7 @@ function applyToDOM(p: Prefs) {
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [prefs, setState] = useState<Prefs>(DEFAULT);
+  const [loaded, setLoaded] = useState(false);
   const { theme } = useTheme();
   const lastTheme = useRef<string | null>(null);
 
@@ -263,6 +264,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
         setState(merged);
       }
     } catch { /* ignore */ }
+    setLoaded(true);
   }, []);
 
   // When the theme changes (after first paint), clear any manual accent override
@@ -281,8 +283,9 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyToDOM(prefs);
+    if (!loaded) return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
-  }, [prefs, theme]);
+  }, [prefs, theme, loaded]);
 
 
   const setPrefs = useCallback((patch: Partial<Prefs>) => {

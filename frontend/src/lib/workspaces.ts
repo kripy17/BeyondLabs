@@ -4,14 +4,6 @@ import {
   LayoutDashboard, Settings, Terminal, Swords,
 } from "lucide-react";
 
-export type WorkspaceItem = {
-  title: string;
-  url: string;
-  icon: typeof Inbox;
-  desc: string;
-  group: string;
-};
-
 export type WorkspaceGroup = {
   label: string;
   items: WorkspaceItem[];

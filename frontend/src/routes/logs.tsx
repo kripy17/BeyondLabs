@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
@@ -7,7 +7,7 @@ import {
 } from "@/components/soc/Workspace";
 import {
   Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter,
-  Download, X, Clock, Crosshair, Bug, Hash,
+  Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/logs")({ component: LogsPage });
@@ -89,11 +89,45 @@ const TOK_CLASS: Record<Tok["k"], string> = {
 };
 
 type Field = "ip" | "user" | "proc" | "host" | "sig";
-type FilterChip = { field: Field; value: string };
+type FilterChip = { field: string; value: string };
 
 const TS_RE = /\b\d{2}:\d{2}:\d{2}\b/;
 type Range = "5m" | "15m" | "1h" | "all";
 const RANGE_SEC: Record<Range, number> = { "5m": 300, "15m": 900, "1h": 3600, all: Number.POSITIVE_INFINITY };
+
+const LOCALSTORE_CHIPS = "beyondarch.logs.chips";
+const LOCALSTORE_RANGE = "beyondarch.logs.range";
+
+function loadPersist<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch { return fallback; }
+}
+
+function savePersist(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+function readInitialPrefill(): string {
+  try {
+    const direct = localStorage.getItem("beyondarch.logs.prefill") || "";
+    if (direct) {
+      localStorage.removeItem("beyondarch.logs.prefill");
+      return direct;
+    }
+    const raw = localStorage.getItem("beyondarch.pendingArtifact");
+    if (!raw) return "";
+    const pending = JSON.parse(raw);
+    const target = String(pending?.target || pending?.page || pending?.destination || "").toLowerCase();
+    const shouldLoad = target.includes("logs") || target.includes("alert") || pending?.type === "log" || pending?.type === "alert" || pending?.type === "event";
+    if (!shouldLoad) return "";
+    localStorage.removeItem("beyondarch.pendingArtifact");
+    const value = pending?.content || pending?.text || pending?.raw_input || pending?.value || pending?.query || pending?.rule || pending?.event;
+    if (typeof value === "string") return value;
+    return value ? JSON.stringify(value, null, 2) : "";
+  } catch { return ""; }
+}
 
 function tsToSec(t: string): number | null {
   const m = t.match(TS_RE);
@@ -110,12 +144,22 @@ function download(name: string, body: string, mime = "text/csv") {
   URL.revokeObjectURL(url);
 }
 
+function copy(val: string) {
+  navigator.clipboard?.writeText(val ?? "");
+}
+
 /* ── Analysis engine ── */
 
 interface Finding { sev: "destructive" | "warning" | "info"; title: string; reason: string; action: string; }
 interface MitreMap { id: string; name: string; }
 
-function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { findings: Finding[]; mitre: MitreMap[]; score: number } {
+const TACTIC_FROM_ID: Record<string, string> = {
+  T1110: "Credential Access", T1078: "Defense Evasion", T1190: "Initial Access",
+  T1572: "Command and Control", T1059: "Execution", T1021: "Lateral Movement",
+  T1204: "Execution", T1505: "Persistence", T1105: "Command and Control",
+};
+
+function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { findings: Finding[]; mitre: MitreMap[]; tacticCoverage: { tactic: string; techniques: string[]; count: number }[]; score: number } {
   const findings: Finding[] = [];
   const mitreSet = new Map<string, MitreMap>();
   let score = 0;
@@ -136,8 +180,21 @@ function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { f
 
   if (!findings.length) findings.push({ sev: "info", title: "No notable findings", reason: "Log slice does not match any detection rules.", action: "Widen the sample or adjust filters." });
 
+  const tacticMap = new Map<string, { techniques: Set<string>; count: number }>();
+  for (const m of mitreSet.values()) {
+    const baseId = m.id.split(".")[0];
+    const tactic = TACTIC_FROM_ID[baseId] ?? "Other";
+    if (!tacticMap.has(tactic)) tacticMap.set(tactic, { techniques: new Set(), count: 0 });
+    const entry = tacticMap.get(tactic)!;
+    entry.techniques.add(m.id);
+    entry.count++;
+  }
+  const tacticCoverage = Array.from(tacticMap.entries())
+    .map(([tactic, data]) => ({ tactic, techniques: Array.from(data.techniques), count: data.count }))
+    .sort((a, b) => b.count - a.count);
+
   const total = Math.min(100, score);
-  return { findings, mitre: Array.from(mitreSet.values()), score: total };
+  return { findings, mitre: Array.from(mitreSet.values()), tacticCoverage, score: total };
 }
 
 interface ParsedLog {
@@ -193,9 +250,26 @@ function genMarkdown(parsed: ParsedLog, findings: Finding[], mitre: MitreMap[], 
 }
 
 function LogsPage() {
-  const [input, setInput] = useState("");
-  const [chips, setChips] = useState<FilterChip[]>([]);
-  const [range, setRange] = useState<Range>("all");
+  const [input, setInput] = useState(() => readInitialPrefill());
+  const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
+  const [range, setRange] = useState<Range>(() => loadPersist<Range>(LOCALSTORE_RANGE, "all"));
+  const [notice, setNotice] = useState("");
+  const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
+  const [expandedLine, setExpandedLine] = useState<number | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const flash = (msg: string) => {
+    setNotice(msg);
+    clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(""), 4000);
+  };
+
+  useEffect(() => {
+    if (input) flash("Loaded pending artifact from handoff — review and filter below.");
+  }, []);
+
+  useEffect(() => { savePersist(LOCALSTORE_RANGE, range); }, [range]);
+  useEffect(() => { savePersist(LOCALSTORE_CHIPS, chips); }, [chips]);
 
   const parsed = useMemo(() => parseInput(input), [input]);
 
@@ -213,14 +287,14 @@ function LogsPage() {
       });
   }, [parsed, chips, range]);
 
-  const addChip = (field: Field, value: string) => {
+  const addChip = (field: string, value: string) => {
     setChips((prev) => (prev.some((c) => c.field === field && c.value === value) ? prev : [...prev, { field, value }]));
   };
   const removeChip = (i: number) => setChips((prev) => prev.filter((_, j) => j !== i));
 
   const fieldSummary = useMemo(() => {
     if (!parsed) return [];
-    const groups: { field: Field; items: string[] }[] = [
+    const groups: { field: string; items: string[] }[] = [
       { field: "ip",   items: parsed.ips   },
       { field: "user", items: parsed.users },
       { field: "proc", items: parsed.procs },
@@ -236,7 +310,20 @@ function LogsPage() {
     });
   }, [parsed, input]);
 
-  const { findings, mitre, score } = useMemo(() => parsed ? deriveFindings(parsed) : { findings: [] as Finding[], mitre: [] as MitreMap[], score: 0 }, [parsed]);
+  const { findings, mitre, tacticCoverage, score } = useMemo(() => parsed ? deriveFindings(parsed) : { findings: [] as Finding[], mitre: [] as MitreMap[], tacticCoverage: [] as { tactic: string; techniques: string[]; count: number }[], score: 0 }, [parsed]);
+
+  const handleSendTo = (page: string) => {
+    try {
+      localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({
+        type: "log_analysis",
+        content: input,
+        target: page,
+        source: "Logs & Alerts",
+        created_at: new Date().toISOString(),
+      }));
+    } catch {}
+    flash(`Sent to ${page}`);
+  };
 
   const exportCsv = () => {
     if (!parsed) return;
@@ -264,11 +351,20 @@ function LogsPage() {
         rows={8}
         samples={Object.keys(SAMPLES).map((k) => ({ key: k, label: k }))}
         onLoadSample={(k) => setInput(SAMPLES[k])}
-        onFile={(txt) => setInput(txt)}
+        onFile={(txt) => { setInput(txt); flash(`Loaded file — ${txt.length.toLocaleString()} chars`); }}
         fileAccept=".log,.txt,.json,.csv"
         run={{ label: "parse", icon: Zap, hint: "⌘↵", onClick: () => {}, disabled: !input.trim() }}
         onClear={() => { setInput(""); setChips([]); }}
       />
+
+      {/* Notice banner */}
+      {notice && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          <span className="flex-1 text-mono text-[11px] text-primary">{notice}</span>
+          <button onClick={() => setNotice("")} className="text-primary/60 hover:text-primary" aria-label="dismiss"><X className="h-3 w-3" /></button>
+        </div>
+      )}
 
       {parsed && (
         <Panel title="Filter strip" icon={ListFilter} meta={`${filteredLines.length} / ${parsed.allLines.length} lines`} actions={
@@ -319,12 +415,13 @@ function LogsPage() {
             badge="log_decision"
             caseId={`BA-LG-${parsed.allLines.length}`}
             title={parsed.classification}
-            subtitle={`Routing lead: ${parsed.mitre} · Score: ${score}/100`}
+            subtitle={`Routing lead: ${parsed.mitre} · Score: ${score}/100 · ${findings.length} detection(s)`}
             reasons={[
               parsed.failures > 0 ? `${parsed.failures} authentication failure(s)` : "",
               parsed.events.length ? parsed.events.join(", ") : "",
               parsed.urls.length ? `${parsed.urls.length} URL(s) extracted` : "",
               parsed.sigs[0] ?? "",
+              findings.find((f) => f.sev === "destructive") ? `Critical finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
             ].filter(Boolean) as string[]}
             metrics={[
               { label: "IPs", value: parsed.ips.length, tone: "primary" },
@@ -342,22 +439,45 @@ function LogsPage() {
             tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"}
           />
 
-          {/* Painted viewer */}
+          {/* Painted viewer with line expansion */}
           <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}>
             <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
               {filteredLines.length === 0 ? (
                 <div className="text-muted-foreground">No lines match the active filters.</div>
-              ) : filteredLines.map(({ ln, i }) => (
-                <div key={i} className="flex gap-3">
-                  <span className="select-none text-right text-muted-foreground/60" style={{ minWidth: 30 }}>{i + 1}</span>
-                  <span className="flex-1">
-                    {paint(ln).map((tk, j) => <span key={j} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
-                  </span>
-                </div>
-              ))}
+              ) : filteredLines.map(({ ln, i }) => {
+                const isExpanded = expandedLine === i;
+                return (
+                  <div key={i}>
+                    <div
+                      className={`flex cursor-pointer gap-3 rounded-sm transition-colors hover:bg-primary/[0.04] ${isExpanded ? "bg-primary/5" : ""}`}
+                      onClick={() => setExpandedLine(isExpanded ? null : i)}
+                    >
+                      <span className="flex select-none items-start gap-1 pt-0.5 text-right text-muted-foreground/60" style={{ minWidth: 42 }}>
+                        <span className="text-[10px]">{isExpanded ? <ChevronDown className="inline h-3 w-3" /> : <ChevronRight className="inline h-3 w-3" />}</span>
+                        <span>{i + 1}</span>
+                      </span>
+                      <span className="flex-1">
+                        {paint(ln).map((tk, j) => <span key={j} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
+                      </span>
+                    </div>
+                    {isExpanded && (
+                      <div className="ml-10 mb-2 mt-1 rounded border border-border/50 bg-card/40 p-2.5">
+                        <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Line {i + 1} · Actions</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <button onClick={() => addChip("ip", input.match(IPV4_RE)?.[0] ?? ln)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Filter IP</button>
+                          <button onClick={() => { copy(ln); flash("Line copied"); }} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy</button>
+                          <button onClick={() => setModal({ title: "Line Detail", subtitle: `Line ${i + 1}`, data: { line_number: i + 1, text: ln, entities: { ips: ln.match(IPV4_RE) ?? [] } } })} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
+                          <button onClick={() => handleSendTo("siem")} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Send to SIEM</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </pre>
             <div className="mt-2 flex flex-wrap gap-2 text-mono text-[10px] text-muted-foreground">
               legend: <span className="text-info">IP</span> <span className="text-accent">port N</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
+              <span className="ml-auto text-[10px]">click a line to expand</span>
             </div>
           </Panel>
 
@@ -411,9 +531,30 @@ function LogsPage() {
             ))}
           </div>
 
-          {/* MITRE ATT&CK */}
+          {/* MITRE ATT&CK — grouped by tactic */}
+          {tacticCoverage.length > 0 && (
+            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`}>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {tacticCoverage.map((t) => (
+                  <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-mono text-[11px] font-semibold text-foreground/90">{t.tactic}</span>
+                      <Chip tone={t.count >= 3 ? "destructive" : t.count >= 2 ? "warning" : "info"}>{t.count}</Chip>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {t.techniques.map((tid) => (
+                        <span key={tid} className="rounded border border-border/50 bg-background/40 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground">{tid}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {/* MITRE flat list */}
           {mitre.length > 0 && (
-            <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
+            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
               <div className="flex flex-wrap gap-2">
                 {mitre.map((m) => (
                   <span key={m.id} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
@@ -455,6 +596,29 @@ function LogsPage() {
           ]} />
         </div>
       )}
+
+      {/* Modal */}
+      {modal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm" onMouseDown={() => setModal(null)}>
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-5 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-mono text-[10px] uppercase tracking-widest text-primary">Details</div>
+                <h2 className="text-mono text-[14px] font-semibold text-foreground">{modal.title}</h2>
+                {modal.subtitle && <p className="text-mono text-[11px] text-muted-foreground">{modal.subtitle}</p>}
+              </div>
+              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground" aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <pre className="mt-4 overflow-x-auto rounded border border-border/60 bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(modal.data, null, 2)}</pre>
+            <div className="mt-3 flex justify-end gap-2">
+              <button onClick={() => { copy(JSON.stringify(modal.data, null, 2)); flash("JSON copied"); }} className="rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy JSON</button>
+              <button onClick={() => setModal(null)} className="rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   );
 }
+
+const IPV4_RE = /\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b/;

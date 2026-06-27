@@ -28,22 +28,21 @@ const DEFAULT: ThemeId = "terminal-noir";
 type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void };
 const ThemeCtx = createContext<Ctx>({ theme: DEFAULT, setTheme: () => {} });
 
+function getInitialTheme(): ThemeId {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
+    if (stored && THEMES.some((t) => t.id === stored)) return stored;
+  } catch { /* ignore */ }
+  return DEFAULT;
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>(DEFAULT);
+  const [theme, setThemeState] = useState<ThemeId>(getInitialTheme);
 
   useEffect(() => {
-    const stored = (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) as ThemeId | null;
-    if (stored && THEMES.some((t) => t.id === stored)) {
-      setThemeState(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      const isLight = THEMES.find((t) => t.id === theme)?.isLight ?? false;
-      document.documentElement.setAttribute("data-theme", theme);
-      document.documentElement.classList.toggle("dark", !isLight);
-    }
+    const isLight = THEMES.find((t) => t.id === theme)?.isLight ?? false;
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.toggle("dark", !isLight);
   }, [theme]);
 
   const setTheme = (t: ThemeId) => {
