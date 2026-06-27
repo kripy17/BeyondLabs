@@ -4,11 +4,9 @@ import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
   Empty, KeyFields, IocInventory, Chip, RiskScore, EvidenceCard,
+  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import {
-  Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter,
-  Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight,
-} from "lucide-react";
+import { Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter, Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight, ShieldCheck, ShieldX, TriangleAlert as AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/logs")({ component: LogsPage });
 
@@ -410,37 +408,38 @@ function LogsPage() {
       {!parsed ? (
         <Empty icon={Database} title="No log loaded" hint="Paste a few lines or load a sample to extract entities and a detection lead." />
       ) : (
-        <div className="space-y-3">
-          <ResultBanner
-            badge="log_decision"
-            caseId={`BA-LG-${parsed.allLines.length}`}
-            title={parsed.classification}
-            subtitle={`Routing lead: ${parsed.mitre} · Score: ${score}/100 · ${findings.length} detection(s)`}
-            reasons={[
+        <div className="space-y-5">
+          {/* Verdict Banner */}
+          <VerdictBanner
+            verdict={parsed.classification}
+            tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
+            icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
+            score={`${score}/100`}
+            details={[
               parsed.failures > 0 ? `${parsed.failures} authentication failure(s)` : "",
               parsed.events.length ? parsed.events.join(", ") : "",
               parsed.urls.length ? `${parsed.urls.length} URL(s) extracted` : "",
-              parsed.sigs[0] ?? "",
-              findings.find((f) => f.sev === "destructive") ? `Critical finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
-            ].filter(Boolean) as string[]}
+              findings.find((f) => f.sev === "destructive")?.title ?? "",
+            ].filter(Boolean)}
+          />
+
+          {/* Metrics Overview */}
+          <MetricGrid
+            columns={4}
             metrics={[
-              { label: "IPs", value: parsed.ips.length, tone: "primary" },
-              { label: "Users", value: parsed.users.length },
-              { label: "Procs", value: parsed.procs.length, tone: parsed.procs.length ? "warning" : "default" },
-              { label: "Score", value: `${score}/100`, tone: score >= 50 ? "warning" : score >= 25 ? "warning" : "success" },
+              { label: "IPs", value: parsed.ips.length, tone: "primary", icon: Database },
+              { label: "Users", value: parsed.users.length, tone: parsed.users.length > 0 ? "warning" : "default" },
+              { label: "Processes", value: parsed.procs.length, tone: parsed.procs.length > 0 ? "warning" : "default" },
+              { label: "Risk", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success", icon: Activity },
+              { label: "Lines", value: parsed.allLines.length },
+              { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
+              { label: "URLs", value: parsed.urls.length },
+              { label: "Window", value: range },
             ]}
           />
 
-          {/* Risk Score */}
-          <RiskScore
-            score={score}
-            label="Log Risk"
-            confidence={score < 15 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"}
-            tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"}
-          />
-
-          {/* Painted viewer with line expansion */}
-          <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}>
+          {/* Log Viewer */}
+          <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`} collapsible defaultCollapsed={filteredLines.length > 20}>
             <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
               {filteredLines.length === 0 ? (
                 <div className="text-muted-foreground">No lines match the active filters.</div>
@@ -476,64 +475,72 @@ function LogsPage() {
               })}
             </pre>
             <div className="mt-2 flex flex-wrap gap-2 text-mono text-[10px] text-muted-foreground">
-              legend: <span className="text-info">IP</span> <span className="text-accent">port N</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
+              legend: <span className="text-info">IP</span> <span className="text-accent">port</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
               <span className="ml-auto text-[10px]">click a line to expand</span>
             </div>
           </Panel>
 
-          <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-            <Panel title="Decision" icon={Activity}>
-              <KeyFields items={[
-                { label: "Classification", value: parsed.classification, tone: "primary" },
-                { label: "MITRE lead", value: parsed.mitre, tone: parsed.mitre !== "—" ? "warning" : "default" },
-                { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
-                { label: "URLs", value: parsed.urls.length, tone: parsed.urls.length ? "warning" : "default" },
-                { label: "Events", value: parsed.events.join(", ") || "—" },
-              ]} />
-            </Panel>
-
-            <Panel title="Field summary" icon={ListFilter} meta="top values per field">
-              <div className="space-y-3">
-                {fieldSummary.map((f) => (
-                  <div key={f.field}>
-                    <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                      <span>{f.field}</span>
-                      <span>{f.unique} unique</span>
+          {/* Decision + Field Summary */}
+          <TwoColumnOutput
+            ratio="2:1"
+            left={
+              <Panel title="Classification" icon={Activity}>
+                <KeyFields items={[
+                  { label: "Type", value: parsed.classification, tone: "primary" },
+                  { label: "MITRE lead", value: parsed.mitre, tone: parsed.mitre !== "—" ? "warning" : "default" },
+                  { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
+                  { label: "URLs", value: parsed.urls.length, tone: parsed.urls.length ? "warning" : "default" },
+                  { label: "Events", value: parsed.events.join(", ") || "—" },
+                  { label: "Score", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success" },
+                ]} />
+              </Panel>
+            }
+            right={
+              <Panel title="Field summary" icon={ListFilter} meta="top values per field">
+                <div className="space-y-3">
+                  {fieldSummary.map((f) => (
+                    <div key={f.field}>
+                      <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        <span>{f.field}</span>
+                        <span>{f.unique} unique</span>
+                      </div>
+                      <ul className="mt-1 space-y-1">
+                        {f.top.length === 0 ? (
+                          <li className="text-mono text-[11px] text-muted-foreground/60">—</li>
+                        ) : f.top.map(({ v, n }) => {
+                          const max = f.top[0].n || 1;
+                          return (
+                            <li key={v} className="space-y-0.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <button onClick={() => addChip(f.field, v)} className="truncate text-mono text-[11px] text-foreground/90 hover:text-primary" title={v}>{v}</button>
+                                <span className="text-mono text-[10px] text-muted-foreground tabular-nums">{n}</span>
+                              </div>
+                              <div className="h-1 overflow-hidden rounded-sm bg-border/40">
+                                <div className="h-full bg-primary/70" style={{ width: `${(n / max) * 100}%` }} />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
-                    <ul className="mt-1 space-y-1">
-                      {f.top.length === 0 ? (
-                        <li className="text-mono text-[11px] text-muted-foreground/60">—</li>
-                      ) : f.top.map(({ v, n }) => {
-                        const max = f.top[0].n || 1;
-                        return (
-                          <li key={v} className="space-y-0.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <button onClick={() => addChip(f.field, v)} className="truncate text-mono text-[11px] text-foreground/90 hover:text-primary" title={v}>{v}</button>
-                              <span className="text-mono text-[10px] text-muted-foreground tabular-nums">{n}</span>
-                            </div>
-                            <div className="h-1 overflow-hidden rounded-sm bg-border/40">
-                              <div className="h-full bg-primary/70" style={{ width: `${(n / max) * 100}%` }} />
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          </div>
+                  ))}
+                </div>
+              </Panel>
+            }
+          />
 
           {/* Evidence cards */}
-          <div className="grid gap-3 md:grid-cols-2">
-            {findings.map((f, i) => (
-              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
-            ))}
-          </div>
+          <CollapsibleSection id="EV" label="Detection Findings" meta={`${findings.length} total`} icon={AlertTriangle}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {findings.map((f, i) => (
+                <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
+              ))}
+            </div>
+          </CollapsibleSection>
 
           {/* MITRE ATT&CK — grouped by tactic */}
           {tacticCoverage.length > 0 && (
-            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`}>
+            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible defaultCollapsed={tacticCoverage.length > 3}>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {tacticCoverage.map((t) => (
                   <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
@@ -554,7 +561,7 @@ function LogsPage() {
 
           {/* MITRE flat list */}
           {mitre.length > 0 && (
-            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
+            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible>
               <div className="flex flex-wrap gap-2">
                 {mitre.map((m) => (
                   <span key={m.id} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
@@ -570,7 +577,7 @@ function LogsPage() {
 
           {/* URLs extracted */}
           {parsed.urls.length > 0 && (
-            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`}>
+            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`} collapsible defaultCollapsed={parsed.urls.length > 3}>
               <ul className="space-y-1">
                 {parsed.urls.map((u) => (
                   <li key={u} className="border-b border-border/40 py-1 text-mono text-[11px] text-foreground/90">{u}</li>
@@ -579,14 +586,16 @@ function LogsPage() {
             </Panel>
           )}
 
-          <IocInventory groups={[
-            { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
-            { kind: "User", items: parsed.users, tone: "info" as const },
-            { kind: "Process", items: parsed.procs, tone: "warning" as const },
-            { kind: "Host", items: parsed.hosts },
-            { kind: "Signature", items: parsed.sigs },
-            { kind: "URL", items: parsed.urls, tone: "warning" as const },
-          ]} onSendTo={() => {}} />
+          <CollapsibleSection id="IO" label="IOC Inventory" meta={`${parsed.ips.length + parsed.users.length + parsed.procs.length + parsed.hosts.length} indicators`} icon={Database}>
+            <IocInventory groups={[
+              { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
+              { kind: "User", items: parsed.users, tone: "info" as const },
+              { kind: "Process", items: parsed.procs, tone: "warning" as const },
+              { kind: "Host", items: parsed.hosts },
+              { kind: "Signature", items: parsed.sigs },
+              { kind: "URL", items: parsed.urls, tone: "warning" as const },
+            ]} onSendTo={() => {}} />
+          </CollapsibleSection>
 
           <SendToRow targets={[
             { label: "SIEM Workspace", to: "/siem", icon: Database },

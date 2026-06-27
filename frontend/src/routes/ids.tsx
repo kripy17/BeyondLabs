@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { StatusBar, SectionBar, Panel, SendToRow, Chip, KeyFields, ResultBanner, RiskScore, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
-import { Shield, ArrowRight, Copy, Database, Check, Download } from "lucide-react";
+import { StatusBar, SectionBar, Panel, SendToRow, Chip, KeyFields, ResultBanner, RiskScore, EvidenceCard, IocInventory, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { Shield, ArrowRight, Copy, Database, Check, Download, ShieldCheck, TriangleAlert as AlertTriangle, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/ids")({ component: IdsPage });
 
@@ -148,70 +148,95 @@ function IdsPage() {
       ]} />
 
       <SectionBar id="OT" label="Output · rule" />
-      <RiskScore score={score} label="Rule Severity" confidence={severity === "high" ? "very high" : "moderate"} tone={severity === "high" ? "warning" : "success"} />
-      <ResultBanner
-        badge={`template · ${key}`}
-        caseId={`BA-IDS-${sid}`}
-        title={t.msg}
-        subtitle={`Suricata-style rule targeting ${t.classtype} · MITRE ${t.mitre}`}
-        reasons={issues.slice(0, 3).map((it) => `${it.label.toUpperCase()} — ${it.msg}`)}
-        metrics={[
-          { label: "Proto", value: proto.toUpperCase(), tone: "primary" },
-          { label: "Port",  value: String(t.port),       tone: "default" },
-          { label: "MITRE", value: t.mitre,              tone: "warning" },
-          { label: "Lint",  value: issues.some((i) => i.tone === "destructive") ? "FAIL" : issues.some((i) => i.tone === "warning") ? "WARN" : "OK",
-            tone: issues.some((i) => i.tone === "destructive") ? "destructive" : issues.some((i) => i.tone === "warning") ? "warning" : "success" },
-        ]}
-      />
 
-      <Panel title="Generated rule" icon={Shield} actions={
-        <div className="flex items-center gap-1">
-          <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase hover:border-primary/40 hover:text-primary">
-            {copied ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}
-          </button>
-          <button onClick={() => { const md = genReport(key, rule, sid); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `ids-${key}-${sid}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
-        </div>
-      }>
-        <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12.5px] leading-relaxed">
-          {toks.map((tk, i) => <span key={i} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
-        </pre>
-      </Panel>
+      <div className="space-y-5">
+        {/* Verdict Banner */}
+        <VerdictBanner
+          verdict={t.msg}
+          tone={severity === "high" ? "warning" : "success"}
+          icon={severity === "high" ? AlertTriangle : ShieldCheck}
+          score={`${score}/100`}
+          details={[
+            `Template: ${key} · Suricata-style`,
+            `MITRE ${t.mitre} · ${t.classtype}`,
+            issues.some((i) => i.tone === "destructive") ? "Lint errors detected" : undefined,
+          ].filter(Boolean)}
+        />
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Panel title="Lint" className="lg:col-span-2">
-          <ul className="space-y-1">
-            {issues.map((it, i) => (
-              <li key={i} className="flex items-start gap-2 rounded border border-border/50 bg-background/30 px-2 py-1.5">
-                <Chip tone={it.tone}>{it.label}</Chip>
-                <span className="text-[11.5px] text-foreground/85">{it.msg}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel title="Summary">
-          <KeyFields items={[
-            { label: "Message",   value: t.msg,       tone: "primary" },
+        {/* Metrics */}
+        <MetricGrid
+          columns={4}
+          metrics={[
+            { label: "Proto", value: proto.toUpperCase(), tone: "primary" },
+            { label: "Port", value: String(t.port) },
+            { label: "MITRE", value: t.mitre, tone: "warning" },
+            { label: "Severity", value: severity, tone: severity === "high" ? "destructive" : "success", icon: Activity },
+            { label: "SID", value: sid },
             { label: "Classtype", value: t.classtype },
-            { label: "Flow",      value: t.flow },
-            { label: "Content",   value: t.content || "—" },
-            { label: "MITRE",     value: t.mitre,     tone: "warning" },
-            { label: "SID · rev", value: `${sid} · 1` },
-          ]} />
+            { label: "Lint", value: issues.some((i) => i.tone === "destructive") ? "FAIL" : issues.some((i) => i.tone === "warning") ? "WARN" : "OK", tone: issues.some((i) => i.tone === "destructive") ? "destructive" : issues.some((i) => i.tone === "warning") ? "warning" : "success" },
+            { label: "Template", value: key, tone: "primary" },
+          ]}
+        />
+
+        <RiskScore score={score} label="Rule Severity" confidence={severity === "high" ? "very high" : "moderate"} tone={severity === "high" ? "warning" : "success"} />
+
+        {/* Generated Rule */}
+        <Panel title="Generated rule" icon={Shield} actions={
+          <div className="flex items-center gap-1">
+            <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase hover:border-primary/40 hover:text-primary">
+              {copied ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}
+            </button>
+            <button onClick={() => { const md = genReport(key, rule, sid); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `ids-${key}-${sid}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+          </div>
+        }>
+          <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12.5px] leading-relaxed">
+            {toks.map((tk, i) => <span key={i} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
+          </pre>
         </Panel>
-      </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <EvidenceCard severity="warning" title={t.msg} reason={`${t.classtype} · port ${t.port} · MITRE ${t.mitre}`} action="Deploy to testing sensor before production. Tune threshold to reduce FP." limitation="Template-based — adjust content match for your environment." />
-        {mitreMeta && (
-          <EvidenceCard severity="info" title={`MITRE ${t.mitre} — ${mitreMeta.name}`} reason={`Tactic: ${mitreMeta.tactic}. Coverage: enabled via this IDS rule.`} action="Cross-reference with detection editor for additional coverage layers." limitation="One rule per technique — recommend multiple detection layers." />
-        )}
-      </div>
+        {/* Lint + Summary side-by-side */}
+        <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
+          <Panel title="Lint" className="lg:col-span-1">
+            <ul className="space-y-1">
+              {issues.map((it, i) => (
+                <li key={i} className="flex items-start gap-2 rounded border border-border/50 bg-background/30 px-2 py-1.5">
+                  <Chip tone={it.tone}>{it.label}</Chip>
+                  <span className="text-[11.5px] text-foreground/85">{it.msg}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+          <Panel title="Summary">
+            <KeyFields items={[
+              { label: "Message",   value: t.msg,       tone: "primary" },
+              { label: "Classtype", value: t.classtype },
+              { label: "Flow",      value: t.flow },
+              { label: "Content",   value: t.content || "—" },
+              { label: "MITRE",     value: t.mitre,     tone: "warning" },
+              { label: "SID · rev", value: `${sid} · 1` },
+            ]} />
+          </Panel>
+        </div>
 
-      <IocInventory groups={[
-        { kind: "MITRE ID", items: [t.mitre], tone: "warning" },
-        { kind: "Classtype", items: [t.classtype], tone: "info" },
-        { kind: "Content match", items: [t.content || "—"], tone: t.content ? "warning" : "default" },
-      ]} onSendTo={() => {}} />
+        {/* Evidence Cards */}
+        <CollapsibleSection id="EV" label="Evidence Cards" meta="2 insights" icon={AlertTriangle}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <EvidenceCard severity="warning" title={t.msg} reason={`${t.classtype} · port ${t.port} · MITRE ${t.mitre}`} action="Deploy to testing sensor before production. Tune threshold to reduce FP." limitation="Template-based — adjust content match for your environment." />
+            {mitreMeta && (
+              <EvidenceCard severity="info" title={`MITRE ${t.mitre} — ${mitreMeta.name}`} reason={`Tactic: ${mitreMeta.tactic}. Coverage: enabled via this IDS rule.`} action="Cross-reference with detection editor for additional coverage layers." limitation="One rule per technique — recommend multiple detection layers." />
+            )}
+          </div>
+        </CollapsibleSection>
+
+        {/* IOC Inventory */}
+        <CollapsibleSection id="IO" label="IOC Inventory" meta="3 items" icon={Database}>
+          <IocInventory groups={[
+            { kind: "MITRE ID", items: [t.mitre], tone: "warning" },
+            { kind: "Classtype", items: [t.classtype], tone: "info" },
+            { kind: "Content match", items: [t.content || "—"], tone: t.content ? "warning" : "default" },
+          ]} onSendTo={() => {}} />
+        </CollapsibleSection>
+      </div>
 
       <SendToRow targets={[
         { label: "Detection & MITRE", to: "/detection", icon: ArrowRight },

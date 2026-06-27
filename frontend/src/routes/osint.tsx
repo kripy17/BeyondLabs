@@ -1,15 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip } from "@/components/soc/Workspace";
+import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret } from "@/api/backend";
-import {
-  Search, ExternalLink, Globe2, ArrowRight, Zap, Database, Terminal,
-  ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check,
-  Send, Pin, PinOff, Hash, AtSign, Server, FileText, Sparkles,
-} from "lucide-react";
+import { Search, ExternalLink, Globe as Globe2, ArrowRight, Zap, Database, Terminal, ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check, Send, Pin, PinOff, Hash, AtSign, Server, FileText, Sparkles, ShieldCheck, Activity } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/osint")({ component: OsintPage });
@@ -235,17 +231,31 @@ function OsintPage() {
       ]} />
 
       {ready && (
-        <ResultBanner
-          badge={`pivot · ${KIND_META[kind].label}`}
-          title={v}
-          subtitle={`${applicable.length} services match this target type. Click any service to inspect — no API call is made from BeyondArch.`}
-          metrics={[
-            { label: "Categories",  value: Array.from(new Set(applicable.map((t) => t.cat))).length, tone: "primary" },
-            { label: "Reputation",  value: applicable.filter((t) => t.cat === "Reputation").length, tone: "warning" },
-            { label: "Exposure",    value: applicable.filter((t) => t.cat === "Exposure").length,   tone: "primary" },
-            { label: "Other",       value: applicable.filter((t) => !["Reputation","Exposure"].includes(t.cat)).length },
-          ]}
-        />
+        <>
+          <VerdictBanner
+            verdict={`${KIND_META[kind].label} · ${applicable.length} pivots`}
+            tone="success"
+            icon={ShieldCheck}
+            details={[
+              `${applicable.length} services match this target type`,
+              `categories: ${Array.from(new Set(applicable.map((t) => t.cat))).join(", ")}`,
+              "Click any service to inspect — no API call is made from BeyondArch",
+            ].filter(Boolean)}
+          />
+          <MetricGrid
+            columns={4}
+            metrics={[
+              { label: "Categories", value: Array.from(new Set(applicable.map((t) => t.cat))).length, tone: "primary", icon: Network },
+              { label: "Reputation", value: applicable.filter((t) => t.cat === "Reputation").length, tone: "warning" },
+              { label: "Exposure", value: applicable.filter((t) => t.cat === "Exposure").length, tone: "info" },
+              { label: "Other", value: applicable.filter((t) => !["Reputation", "Exposure"].includes(t.cat)).length },
+              { label: "Detected", value: KIND_META[kind].label, tone: KIND_META[kind].tone as any },
+              { label: "CLI cmds", value: cli.length },
+              { label: "History", value: history.length },
+              { label: "Pinned", value: pinned.length, tone: pinned.length > 0 ? "primary" : "default" },
+            ]}
+          />
+        </>
       )}
 
       {(pinned.length > 0 || history.length > 0) && (
@@ -276,96 +286,102 @@ function OsintPage() {
       )}
 
       <SectionBar id="OT" label="Output · external pivots" meta={`${applicable.length} matching · ${cats.length} categories`} />
-      <div className="grid gap-3 lg:grid-cols-2">
-        {cats.map((c) => {
-          const items = TOOLS.filter((t) => t.cat === c);
-          const meta = CAT_META[c] ?? { icon: Globe2, tone: "primary" as const };
-          const matching = items.filter((t) => t.supports.includes(kind)).length;
-          return (
-            <Panel
-              key={c}
-              title={c}
-              icon={meta.icon}
-              meta={ready ? `${matching}/${items.length} match` : `${items.length} svc`}
-              actions={<Chip tone={meta.tone}>{c.toLowerCase()}</Chip>}
-            >
-              <ul className="space-y-1.5">
-                {items.map((t) => {
-                  const supported = t.supports.includes(kind);
-                  const enabled = ready && supported;
-                  return (
-                    <li key={t.id}>
-                      <div className={"group flex items-start justify-between gap-2 rounded border border-border/60 bg-background/30 px-2.5 py-1.5 transition-all " + (enabled ? "hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5" : "opacity-50")}>
-                        <button
-                          type="button"
-                          disabled={!enabled}
-                          onClick={() => openOne(t)}
-                          className="flex min-w-0 flex-1 items-start gap-2 text-left disabled:cursor-not-allowed"
-                          title={enabled ? `open ${t.label}` : !ready ? "Enter a target first" : `${t.label} does not support ${KIND_META[kind].label}`}
-                        >
-                          <ExternalLink className={"mt-[3px] h-3 w-3 shrink-0 " + (enabled ? "text-muted-foreground group-hover:text-primary" : "text-muted-foreground/60")} />
-                          <div className="min-w-0">
-                            <div className="text-mono text-[11.5px] text-foreground/90 group-hover:text-primary">{t.label}</div>
-                            <div className="truncate text-mono text-[10px] text-muted-foreground">{t.tagline}</div>
-                          </div>
-                        </button>
-                        {!supported && ready && (
-                          <span className="mt-0.5 rounded border border-border/60 bg-background/60 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">n/a</span>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-          );
-        })}
-      </div>
+
+      <CollapsibleSection id="PV" label="External Service Pivots" meta={`${applicable.length} services · ${cats.length} categories`} icon={ExternalLink}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {cats.map((c) => {
+            const items = TOOLS.filter((t) => t.cat === c);
+            const meta = CAT_META[c] ?? { icon: Globe2, tone: "primary" as const };
+            const matching = items.filter((t) => t.supports.includes(kind)).length;
+            return (
+              <Panel
+                key={c}
+                title={c}
+                icon={meta.icon}
+                meta={ready ? `${matching}/${items.length} match` : `${items.length} svc`}
+                actions={<Chip tone={meta.tone}>{c.toLowerCase()}</Chip>}
+              >
+                <ul className="space-y-1.5">
+                  {items.map((t) => {
+                    const supported = t.supports.includes(kind);
+                    const enabled = ready && supported;
+                    return (
+                      <li key={t.id}>
+                        <div className={"group flex items-start justify-between gap-2 rounded border border-border/60 bg-background/30 px-2.5 py-1.5 transition-all " + (enabled ? "hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5" : "opacity-50")}>
+                          <button
+                            type="button"
+                            disabled={!enabled}
+                            onClick={() => openOne(t)}
+                            className="flex min-w-0 flex-1 items-start gap-2 text-left disabled:cursor-not-allowed"
+                            title={enabled ? `open ${t.label}` : !ready ? "Enter a target first" : `${t.label} does not support ${KIND_META[kind].label}`}
+                          >
+                            <ExternalLink className={"mt-[3px] h-3 w-3 shrink-0 " + (enabled ? "text-muted-foreground group-hover:text-primary" : "text-muted-foreground/60")} />
+                            <div className="min-w-0">
+                              <div className="text-mono text-[11.5px] text-foreground/90 group-hover:text-primary">{t.label}</div>
+                              <div className="truncate text-mono text-[10px] text-muted-foreground">{t.tagline}</div>
+                            </div>
+                          </button>
+                          {!supported && ready && (
+                            <span className="mt-0.5 rounded border border-border/60 bg-background/60 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">n/a</span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Panel>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
 
       <SectionBar id="CL" label="Output · local CLI snippets" meta={`tuned for ${KIND_META[kind].label}`} />
-      <Panel
-        icon={Terminal}
-        title="Suggested CLI"
-        meta={`${cli.length} commands`}
-        actions={
-          <div className="flex items-center gap-1">
-            <PreviewBadge label="copy & run locally" />
-            <button
-              onClick={() => copy(cli.map((l) => l.cmd).join("\n"), "all")}
-              className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-primary"
-            >
-              {copied === "all" ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-              {copied === "all" ? "copied" : "copy all"}
-            </button>
-          </div>
-        }
-      >
-        <ul className="divide-y divide-border/40 overflow-hidden rounded border border-border/60 bg-background/40">
-          {cli.map((line, i) => (
-            <li key={i} className="group grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 py-1.5">
-              <span className="rounded border border-border/60 bg-background/70 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{line.label}</div>
-                <div className={"truncate text-mono text-[11.5px] " + (ready ? "text-foreground/90" : "text-muted-foreground/60")}>
-                  <span className="select-none text-muted-foreground/60">$ </span>{line.cmd}
-                </div>
-              </div>
+
+      <CollapsibleSection id="CLI" label="Suggested CLI Commands" meta={`${cli.length} commands`} icon={Terminal}>
+        <Panel
+          icon={Terminal}
+          title="Suggested CLI"
+          meta={`${cli.length} commands`}
+          actions={
+            <div className="flex items-center gap-1">
+              <PreviewBadge label="copy & run locally" />
               <button
-                onClick={() => copy(line.cmd, `c-${i}`)}
-                disabled={!ready}
-                className="opacity-0 transition group-hover:opacity-100 disabled:opacity-30"
-                title="copy command"
+                onClick={() => copy(cli.map((l) => l.cmd).join("\n"), "all")}
+                className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-primary"
               >
-                {copied === `c-${i}`
-                  ? <Check className="h-3.5 w-3.5 text-success" />
-                  : <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />}
+                {copied === "all" ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                {copied === "all" ? "copied" : "copy all"}
               </button>
-            </li>
-          ))}
-        </ul>
-      </Panel>
+            </div>
+          }
+        >
+          <ul className="divide-y divide-border/40 overflow-hidden rounded border border-border/60 bg-background/40">
+            {cli.map((line, i) => (
+              <li key={i} className="group grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 py-1.5">
+                <span className="rounded border border-border/60 bg-background/70 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{line.label}</div>
+                  <div className={"truncate text-mono text-[11.5px] " + (ready ? "text-foreground/90" : "text-muted-foreground/60")}>
+                    <span className="select-none text-muted-foreground/60">$ </span>{line.cmd}
+                  </div>
+                </div>
+                <button
+                  onClick={() => copy(line.cmd, `c-${i}`)}
+                  disabled={!ready}
+                  className="opacity-0 transition group-hover:opacity-100 disabled:opacity-30"
+                  title="copy command"
+                >
+                  {copied === `c-${i}`
+                    ? <Check className="h-3.5 w-3.5 text-success" />
+                    : <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </CollapsibleSection>
 
       {/* ── OSINT Lookup ── */}
       <SectionBar id="OL" label="Output · OSINT lookup" meta={`${kind} · ${v.trim() ? "ready" : "no target"}`} />

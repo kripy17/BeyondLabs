@@ -4,12 +4,9 @@ import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, KeyFields, SectionBar,
   Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
+  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import {
-  Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Eraser,
-  Server, Lock, FileSearch, Link2, AlertTriangle, Crosshair,
-  Bug, ExternalLink, Download, Hash, Network, Cpu,
-} from "lucide-react";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Eraser, Server, Lock, FileSearch, Link2, TriangleAlert as AlertTriangle, Crosshair, Bug, ExternalLink, Download, Hash, Network, Cpu, ShieldCheck, ShieldX, Activity } from "lucide-react";
 import { passiveRecon } from "@/api/recon";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });
@@ -221,21 +218,38 @@ function ReconPage() {
       )}
 
       {result && !loading && (
-        <div className="space-y-4">
-          <ResultBanner
-            badge="passive_recon"
-            caseId={`BA-RC-${target.length}`}
-            title={result.target.hostname || target}
-            subtitle={result.target.type === "domain" ? `Root: ${result.target.root_domain}` : `Type: ${result.target.type}`}
-            reasons={signals.slice(0, 3).map((s) => s.t)}
+        <div className="space-y-5">
+          {/* Verdict Banner */}
+          <VerdictBanner
+            verdict={result.target.hostname || target}
+            tone={analysis?.tone ?? "success"}
+            icon={analysis?.tone === "destructive" ? ShieldX : analysis?.tone === "warning" ? AlertTriangle : ShieldCheck}
+            score={analysis ? `${analysis.score}/100` : undefined}
+            details={[
+              result.target.type === "domain" ? `Root: ${result.target.root_domain}` : `Type: ${result.target.type}`,
+              dns ? `${Object.values(dns).flat().length} DNS records` : "",
+              ssl ? "TLS certificate present" : "",
+              http ? `HTTP ${http.status_code}` : "",
+              signals.some((s) => s.sev === "destructive" || s.sev === "warning") ? `${signals.filter((s) => s.sev === "destructive" || s.sev === "warning").length} risk signal(s)` : "",
+            ].filter(Boolean)}
+          />
+
+          {/* Metrics Overview */}
+          <MetricGrid
+            columns={4}
             metrics={[
-              { label: "DNS RRs", value: dns ? Object.values(dns).flat().length : 0 },
-              { label: "TLS", value: ssl ? "ok" : "—", tone: ssl ? "success" : "muted" },
-              { label: "HTTP", value: http ? http.status_code : "—", tone: http && http.status_code < 400 ? "success" : http ? "warning" : "muted" },
-              { label: "Signals", value: signals.length, tone: signals.some((s) => s.sev === "destructive" || s.sev === "warning") ? "warning" : "default" },
+              { label: "DNS RRs", value: dns ? Object.values(dns).flat().length : 0, tone: "primary", icon: Network },
+              { label: "TLS", value: ssl ? "Valid" : "None", tone: ssl ? "success" : "muted", icon: Lock },
+              { label: "HTTP", value: http ? http.status_code : "—", tone: http && http.status_code < 400 ? "success" : http ? "warning" : "default", icon: Server },
+              { label: "Signals", value: signals.length, tone: signals.some((s) => s.sev === "destructive" || s.sev === "warning") ? "warning" : "default", icon: Activity },
+              { label: "IPv4", value: dns?.A?.length ?? 0 },
+              { label: "IPv6", value: dns?.AAAA?.length ?? 0, tone: dns?.AAAA?.length ? "success" : "default" },
+              { label: "MX", value: dns?.MX?.length ?? 0 },
+              { label: "SANs", value: ssl?.subject_alt_names?.length ?? 0 },
             ]}
           />
 
+          {/* Risk Score */}
           {analysis && (
             <RiskScore score={analysis.score} label="Exposure Risk" confidence={analysis.confidence} tone={analysis.tone} />
           )}
@@ -252,9 +266,47 @@ function ReconPage() {
             </Panel>
           )}
 
-          {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && (
+          {/* DNS + TLS side-by-side */}
+          {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && ssl && (
+            <TwoColumnOutput
+              ratio="1:1"
+              left={
+                <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`}>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
+                      <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <Chip tone="primary">{rr}</Chip>
+                          <span className="text-mono text-[10px] text-muted-foreground">×{vals.length}</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {(vals as string[]).map((v) => (
+                            <div key={v} className="text-mono text-[10.5px] text-foreground/85 leading-snug">{v}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              }
+              right={
+                <Panel title="TLS Certificate" icon={Lock} meta={`${(ssl.subject_alt_names || []).length} SANs`}>
+                  <KeyFields items={[
+                    { label: "Issuer", value: Object.entries(ssl.issuer).map(([k, v]) => `${k}=${v}`).join(", ") },
+                    { label: "Subject", value: Object.entries(ssl.subject).map(([k, v]) => `${k}=${v}`).join(", ") },
+                    { label: "Valid from", value: ssl.not_before },
+                    { label: "Valid to", value: ssl.not_after, tone: ssl.not_after && new Date(ssl.not_after).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 ? "warning" : "default" },
+                    { label: "SANs", value: (ssl.subject_alt_names || []).map(([, v]) => v).join(", "), tone: "muted" },
+                  ]} />
+                </Panel>
+              }
+            />
+          )}
+
+          {/* DNS-only panel if no TLS */}
+          {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && !ssl && (
             <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`}>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
                   <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
                     <div className="mb-1 flex items-center gap-1.5">
@@ -268,12 +320,12 @@ function ReconPage() {
                     </div>
                   </div>
                 ))}
-                {Object.values(dns).flat().length === 0 && <p className="text-mono text-[11px] text-muted-foreground col-span-2 py-2">No DNS records returned.</p>}
               </div>
             </Panel>
           )}
 
-          {ssl && (
+          {/* TLS-only panel if no DNS */}
+          {ssl && !(dns && (dns.A.length > 0 || dns.AAAA.length > 0)) && (
             <Panel title="TLS Certificate" icon={Lock} meta={`${(ssl.subject_alt_names || []).length} SANs`}>
               <KeyFields items={[
                 { label: "Issuer", value: Object.entries(ssl.issuer).map(([k, v]) => `${k}=${v}`).join(", ") },
@@ -285,8 +337,9 @@ function ReconPage() {
             </Panel>
           )}
 
+          {/* HTTP Headers - collapsible for long lists */}
           {http && (
-            <Panel title="HTTP Headers" icon={Server} meta={`${http.status_code} · ${http.server || "unknown"}`}>
+            <Panel title="HTTP Headers" icon={Server} meta={`${http.status_code} · ${http.server || "unknown"}`} collapsible defaultCollapsed={Object.keys(http.headers).length > 10}>
               <KeyFields items={[
                 { label: "URL", value: http.url },
                 { label: "Status", value: http.status_code, tone: http.status_code < 400 ? "success" : "warning" },
@@ -299,27 +352,34 @@ function ReconPage() {
             </Panel>
           )}
 
+          {/* IOC Inventory */}
           {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && (
-            <IocInventory
-              groups={[
-                { kind: "Domain", items: [target], tone: "primary" as const },
-                ...(dns.A.length ? [{ kind: "IPv4", items: dns.A, tone: "warning" as const }] : []),
-                ...(dns.AAAA.length ? [{ kind: "IPv6", items: dns.AAAA, tone: "info" as const }] : []),
-                ...(dns.MX.length ? [{ kind: "Mail", items: dns.MX, tone: "default" as const }] : []),
-                ...(dns.NS.length ? [{ kind: "Nameserver", items: dns.NS, tone: "default" as const }] : []),
-              ]}
-              onSendTo={() => {}}
-            />
+            <CollapsibleSection id="IO" label="IOC Inventory" meta={`${(dns.A.length + dns.AAAA.length + dns.MX.length + dns.NS.length + 1)} indicators`} icon={Database}>
+              <IocInventory
+                groups={[
+                  { kind: "Domain", items: [target], tone: "primary" as const },
+                  ...(dns.A.length ? [{ kind: "IPv4", items: dns.A, tone: "warning" as const }] : []),
+                  ...(dns.AAAA.length ? [{ kind: "IPv6", items: dns.AAAA, tone: "info" as const }] : []),
+                  ...(dns.MX.length ? [{ kind: "Mail", items: dns.MX, tone: "default" as const }] : []),
+                  ...(dns.NS.length ? [{ kind: "Nameserver", items: dns.NS, tone: "default" as const }] : []),
+                ]}
+                onSendTo={() => {}}
+              />
+            </CollapsibleSection>
           )}
 
+          {/* Signals */}
           {signals.length > 0 && (
-            <div className="grid gap-3 md:grid-cols-2">
-              {signals.map((s, i) => (
-                <EvidenceCard key={i} severity={s.sev} title={s.t} reason={s.r} action={s.a} limitation="Passive snapshot — re-verify before any action." />
-              ))}
-            </div>
+            <CollapsibleSection id="SG" label="Risk Signals" meta={`${signals.length} signal(s)`} icon={AlertTriangle}>
+              <div className="grid gap-3 md:grid-cols-2">
+                {signals.map((s, i) => (
+                  <EvidenceCard key={i} severity={s.sev} title={s.t} reason={s.r} action={s.a} limitation="Passive snapshot — re-verify before any action." />
+                ))}
+              </div>
+            </CollapsibleSection>
           )}
 
+          {/* Export */}
           {result.target.hostname && (
             <Panel title="Export" icon={Download}>
               <div className="flex flex-wrap gap-2">

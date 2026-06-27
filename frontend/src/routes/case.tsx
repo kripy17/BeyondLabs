@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow, RiskScore, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
-import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash, Activity } from "lucide-react";
+import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash, Activity, TriangleAlert as AlertTriangle, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/case")({ component: CasePage });
 
@@ -69,25 +69,44 @@ function CasePage() {
       description="Append-only timeline that captures evidence, decisions, and actions in one place."
       crumbs={[{ label: "Case" }]}
     >
-      <RiskScore score={score} label="Case Intensity" confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"} tone={score < 30 ? "success" : score < 60 ? "warning" : "destructive"} />
-      <ResultBanner
-        badge="case_open"
-        caseId={title.split(" ")[0]}
-        title={title}
-        subtitle={`tags: ${tags.join(", ") || "—"}`}
+      {/* Verdict Banner */}
+      <VerdictBanner
+        verdict={title.split(" ")[0]}
+        tone={score >= 60 ? "destructive" : score >= 30 ? "warning" : "success"}
+        icon={score >= 60 ? AlertTriangle : score >= 30 ? AlertTriangle : ShieldCheck}
+        score={`${score}/100`}
+        details={[
+          `tags: ${tags.join(", ") || "—"}`,
+          `${entries.length} entries · ${evidenceCount} evidence · ${actionCount} actions`,
+          findings.find((f) => f.sev === "destructive")?.title ?? "",
+        ].filter(Boolean)}
+      />
+
+      {/* Metrics */}
+      <MetricGrid
+        columns={4}
         metrics={[
-          { label: "Entries", value: entries.length, tone: "primary" },
-          { label: "Evidence", value: evidenceCount },
+          { label: "Entries", value: entries.length, tone: "primary", icon: Notebook },
+          { label: "Evidence", value: evidenceCount, tone: "primary" },
           { label: "Decisions", value: decisionCount, tone: "warning" },
           { label: "Actions", value: actionCount, tone: "success" },
+          { label: "Score", value: `${score}/100`, tone: score >= 60 ? "destructive" : score >= 30 ? "warning" : "success", icon: Activity },
+          { label: "State", value: "active", tone: "warning" },
+          { label: "IPs", value: iocs.ips.length },
+          { label: "URLs", value: iocs.urls.length },
         ]}
       />
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {findings.map((f, i) => (
-          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
-        ))}
-      </div>
+      <RiskScore score={score} label="Case Intensity" confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"} tone={score < 30 ? "success" : score < 60 ? "warning" : "destructive"} />
+
+      {/* Findings */}
+      <CollapsibleSection id="FN" label="Case Assessment" meta={`${findings.length} item(s)`} icon={AlertTriangle}>
+        <div className="grid gap-3 md:grid-cols-2">
+          {findings.map((f, i) => (
+            <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
+          ))}
+        </div>
+      </CollapsibleSection>
 
       <SectionBar id="IN" label="Intake · new entry" />
       <Panel>
@@ -117,31 +136,41 @@ function CasePage() {
         )}
       </Panel>
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-        <Panel title="Case metadata">
-          <KeyFields items={[
-            { label: "Title", value: title, tone: "primary" },
-            { label: "Tags", value: tags.join(", ") },
-            { label: "Opened", value: "today 10:42" },
-            { label: "State", value: "active", tone: "warning" },
-          ]} />
-        </Panel>
-        <Panel title="IOCs in case" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
-          <KeyFields items={[
-            { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
-            { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
-            { label: "Hashes", value: iocs.hashes.length ? iocs.hashes.join(", ") : "—" },
-          ]} />
-        </Panel>
-      </div>
+      {/* Case Metadata + IOCs side-by-side */}
+      <TwoColumnOutput
+        ratio="2:1"
+        left={
+          <Panel title="Case metadata">
+            <KeyFields items={[
+              { label: "Title", value: title, tone: "primary" },
+              { label: "Tags", value: tags.join(", ") },
+              { label: "Opened", value: "today 10:42" },
+              { label: "State", value: "active", tone: "warning" },
+            ]} />
+          </Panel>
+        }
+        right={
+          <Panel title="IOCs in case" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
+            <KeyFields items={[
+              { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
+              { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
+              { label: "Hashes", value: iocs.hashes.length ? iocs.hashes.join(", ") : "—" },
+            ]} />
+          </Panel>
+        }
+      />
 
-      <IocInventory groups={[
-        { kind: "IPv4", items: iocs.ips, tone: "warning" },
-        { kind: "URL", items: iocs.urls, tone: "warning" },
-        { kind: "Hash", items: iocs.hashes, tone: "warning" },
-      ]} onSendTo={() => {}} />
+      {/* IOC Inventory */}
+      <CollapsibleSection id="IO" label="IOC Inventory" meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} indicators`} icon={Database}>
+        <IocInventory groups={[
+          { kind: "IPv4", items: iocs.ips, tone: "warning" },
+          { kind: "URL", items: iocs.urls, tone: "warning" },
+          { kind: "Hash", items: iocs.hashes, tone: "warning" },
+        ]} onSendTo={() => {}} />
+      </CollapsibleSection>
 
-      <Panel title="Report (markdown)" actions={
+      {/* Report */}
+      <Panel title="Report (markdown)" collapsible defaultCollapsed actions={
         <div className="flex items-center gap-1">
           <button onClick={() => navigator.clipboard.writeText(report)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
           <button onClick={() => { const blob = new Blob([report], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `case-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>

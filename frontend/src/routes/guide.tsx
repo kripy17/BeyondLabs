@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip, SendToRow, ResultBanner } from "@/components/soc/Workspace";
-import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CheckCircle2, Circle, AlertTriangle, ShieldOff, Mail, FileWarning, Activity, KeyRound, Filter } from "lucide-react";
+import { SectionBar, Panel, Chip, SendToRow, ResultBanner, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
+import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
 
@@ -92,15 +92,25 @@ function GuidePage() {
       description="Bite-sized response playbooks — pick a scenario, work the steps, pivot into the right tool."
       crumbs={[{ label: "Detection" }, { label: "Guide" }]}
     >
-      <ResultBanner
-        badge="playbooks"
-        title={`${PLAYBOOKS.length} bundled playbooks`}
-        subtitle="Linear, actionable, and wired into the rest of the workbench."
+      {/* Verdict Banner */}
+      <VerdictBanner
+        verdict={`${PLAYBOOKS.length} bundled playbooks`}
+        tone="success"
+        icon={ShieldCheck}
+        details={[
+          `${counts.P1} P1 critical · ${counts.P2} P2 high · ${counts.P3} P3 medium`,
+          "Linear, actionable, and wired into the rest of the workbench",
+        ]}
+      />
+
+      {/* Metrics */}
+      <MetricGrid
+        columns={4}
         metrics={[
+          { label: "Total", value: PLAYBOOKS.length, tone: "primary", icon: BookOpen },
           { label: "P1 critical", value: counts.P1, tone: "destructive" },
           { label: "P2 high", value: counts.P2, tone: "warning" },
           { label: "P3 medium", value: counts.P3 },
-          { label: "Total", value: PLAYBOOKS.length, tone: "primary" },
         ]}
       />
 

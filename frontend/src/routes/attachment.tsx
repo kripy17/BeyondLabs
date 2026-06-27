@@ -4,12 +4,9 @@ import { PageShell } from "@/components/PageShell";
 import {
   StatusBar, ResultBanner, KeyFields, SectionBar,
   Panel, EvidenceCard, SendToRow, Empty, Chip, RiskScore,
+  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import {
-  FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink,
-  Upload, Eraser, Download, Sigma, Binary,
-  AlertTriangle,
-} from "lucide-react";
+import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity } from "lucide-react";
 import { uploadMalwareFile } from "@/api/analysis";
 
 export const Route = createFileRoute("/attachment")({ component: AttachmentPage });
@@ -117,25 +114,35 @@ function AttachmentPage() {
       )}
 
       {result && !loading && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <SectionBar id="OT" label="Output · signals & findings" meta={`${result.summary.total_findings} findings · ${result.suspicious_strings.length} suspicious strings`} />
 
-          <ResultBanner
-            badge="static_review"
-            caseId={`BA-AT-${result.hashes.sha256.slice(0, 6).toUpperCase()}`}
-            title={result.metadata.filename}
-            subtitle={`${result.file_type.magic_type} · ${formatSize(result.metadata.size_bytes)} — no detonation performed`}
-            reasons={[
-              `Hashes computed: MD5, SHA-1, SHA-256, SHA-512.`,
-              `Strings extracted: ${result.strings_preview.length} found.`,
-              `${result.suspicious_strings.length} suspicious string(s) detected.`,
-              result.summary.note || "Static analysis only. No execution performed.",
-            ]}
+          {/* Verdict Banner */}
+          <VerdictBanner
+            verdict={result.summary.rating}
+            tone={result.summary.score >= 70 ? "destructive" : result.summary.score >= 40 ? "warning" : "success"}
+            icon={result.summary.score >= 70 ? ShieldX : result.summary.score >= 40 ? AlertTriangle : ShieldCheck}
+            score={`${result.summary.score}/100`}
+            details={[
+              result.metadata.filename,
+              `${result.file_type.magic_type} · ${formatSize(result.metadata.size_bytes)}`,
+              result.suspicious_strings.length > 0 ? `${result.suspicious_strings.length} suspicious string(s)` : "",
+              result.summary.note || "Static analysis only — no detonation performed.",
+            ].filter(Boolean)}
+          />
+
+          {/* Metrics */}
+          <MetricGrid
+            columns={4}
             metrics={[
-              { label: "Score", value: `${result.summary.score}/100`, tone: result.summary.score < 40 ? "success" : result.summary.score < 70 ? "warning" : "destructive" },
+              { label: "Score", value: `${result.summary.score}/100`, tone: result.summary.score < 40 ? "success" : result.summary.score < 70 ? "warning" : "destructive", icon: Activity },
               { label: "Rating", value: result.summary.rating, tone: result.summary.rating === "High Risk" || result.summary.rating === "Known Malicious" ? "destructive" : result.summary.rating === "Suspicious" ? "warning" : "success" },
               { label: "Findings", value: result.summary.total_findings, tone: result.summary.total_findings > 0 ? "warning" : "default" },
-              { label: "Entropy", value: result.entropy.toFixed(1), tone: result.entropy >= 7.2 ? "warning" : "default" },
+              { label: "Entropy", value: result.entropy.toFixed(1), tone: result.entropy >= 7.2 ? "warning" : "default", icon: Binary },
+              { label: "Size", value: formatSize(result.metadata.size_bytes) },
+              { label: "Strings", value: result.strings_preview.length },
+              { label: "Suspicious", value: result.suspicious_strings.length, tone: result.suspicious_strings.length > 0 ? "warning" : "default" },
+              { label: "Detonation", value: "never", tone: "success" },
             ]}
           />
 
@@ -146,6 +153,7 @@ function AttachmentPage() {
             tone={result.summary.score < 40 ? "success" : result.summary.score < 70 ? "warning" : "destructive"}
           />
 
+          {/* Cryptographic Identity */}
           <Panel title="Cryptographic Identity" icon={Hash} meta="4 algorithms">
             <div className="grid gap-2 md:grid-cols-4">
               {([
@@ -170,18 +178,34 @@ function AttachmentPage() {
             </div>
           </Panel>
 
-          <Panel title="File Identity" icon={FileWarning} meta={result.file_type.magic_type}>
-            <KeyFields items={[
-              { label: "Name", value: result.metadata.filename },
-              { label: "Type", value: result.file_type.magic_type, tone: "primary" },
-              { label: "Size", value: formatSize(result.metadata.size_bytes) },
-              { label: "Extension", value: result.file_type.extension || "—" },
-              { label: "Detonation", value: "never", tone: "muted" },
-            ]} />
-          </Panel>
+          {/* File Identity + External References side-by-side */}
+          <TwoColumnOutput
+            ratio="2:1"
+            left={
+              <Panel title="File Identity" icon={FileWarning} meta={result.file_type.magic_type}>
+                <KeyFields items={[
+                  { label: "Name", value: result.metadata.filename },
+                  { label: "Type", value: result.file_type.magic_type, tone: "primary" },
+                  { label: "Size", value: formatSize(result.metadata.size_bytes) },
+                  { label: "Extension", value: result.file_type.extension || "—" },
+                  { label: "Detonation", value: "never", tone: "muted" },
+                ]} />
+              </Panel>
+            }
+            right={
+              <Panel title="External References" meta="manual reputation">
+                <div className="flex flex-col gap-2">
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://www.virustotal.com/gui/file/${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> VirusTotal</a>
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://bazaar.abuse.ch/sample/${result.hashes.sha256}/`}><ExternalLink className="h-3 w-3" /> MalwareBazaar</a>
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://hybrid-analysis.com/search?query=${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> Hybrid Analysis</a>
+                </div>
+              </Panel>
+            }
+          />
 
+          {/* Suspicious Strings - collapsible */}
           {result.suspicious_strings.length > 0 && (
-            <Panel title="Suspicious Strings" icon={Binary} meta={`${result.suspicious_strings.length} keyword(s)`}>
+            <CollapsibleSection id="SS" label="Suspicious Strings" meta={`${result.suspicious_strings.length} keyword(s)`} icon={Binary}>
               <ul className="space-y-1">
                 {result.suspicious_strings.map((s) => (
                   <li key={s.keyword} className="flex items-center justify-between gap-2 border-b border-border/40 py-1 text-mono text-[11px]">
@@ -190,11 +214,12 @@ function AttachmentPage() {
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </CollapsibleSection>
           )}
 
+          {/* Strings Preview - collapsible */}
           {result.strings_preview.length > 0 && (
-            <Panel title="Strings Preview" icon={Binary} meta={`${result.strings_preview.length} shown`}>
+            <Panel title="Strings Preview" icon={Binary} meta={`${result.strings_preview.length} shown`} collapsible defaultCollapsed={result.strings_preview.length > 20}>
               <div className="max-h-48 overflow-y-auto">
                 <ul className="space-y-0.5">
                   {result.strings_preview.map((s, i) => (
@@ -205,29 +230,25 @@ function AttachmentPage() {
             </Panel>
           )}
 
+          {/* Findings */}
           {result.findings.length > 0 && (
-            <div className="grid gap-3 md:grid-cols-2">
-              {result.findings.map((f, i) => (
-                <EvidenceCard
-                  key={i}
-                  severity={f.severity === "high" ? "destructive" : f.severity === "medium" ? "warning" : "info"}
-                  title={f.title}
-                  reason={f.detail}
-                  action={f.recommendation}
-                  limitation="Static analysis indicator — requires analyst validation."
-                />
-              ))}
-            </div>
+            <CollapsibleSection id="FN" label="Findings" meta={`${result.findings.length} total`} icon={AlertTriangle}>
+              <div className="grid gap-3 md:grid-cols-2">
+                {result.findings.map((f, i) => (
+                  <EvidenceCard
+                    key={i}
+                    severity={f.severity === "high" ? "destructive" : f.severity === "medium" ? "warning" : "info"}
+                    title={f.title}
+                    reason={f.detail}
+                    action={f.recommendation}
+                    limitation="Static analysis indicator — requires analyst validation."
+                  />
+                ))}
+              </div>
+            </CollapsibleSection>
           )}
 
-          <Panel title="External References" meta="manual reputation only">
-            <div className="flex flex-wrap gap-2">
-              <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://www.virustotal.com/gui/file/${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> VirusTotal</a>
-              <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://bazaar.abuse.ch/sample/${result.hashes.sha256}/`}><ExternalLink className="h-3 w-3" /> MalwareBazaar</a>
-              <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://hybrid-analysis.com/search?query=${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> Hybrid Analysis</a>
-            </div>
-          </Panel>
-
+          {/* Export */}
           <Panel title="Export" icon={Download}>
             <div className="flex flex-wrap gap-2">
               <button

@@ -1,13 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { IntakeCard, SectionBar, Panel, Chip, SendToRow, KeyFields, StatusBar, ResultBanner, RiskScore, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, Chip, SendToRow, KeyFields, StatusBar, ResultBanner, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { runReconNmapScan } from "@/api/backend";
-import {
-  Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
-  Gauge, Network, FileCode2, Cpu, Globe2, Send, Search, Crosshair, Download, Loader2,
-} from "lucide-react";
+import { Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check, Gauge, Network, FileCode as FileCode2, Cpu, Globe as Globe2, Send, Search, Crosshair, Download, Loader as Loader2, ShieldCheck, ShieldX, TriangleAlert as AlertTriangle, Activity, Database } from "lucide-react";
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
 
@@ -275,7 +272,7 @@ function NmapPage() {
       {!has ? (
         <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to preview the scan brief.</p></Panel>
       ) : (
-        <>
+        <div className="space-y-5">
           {realResult && scanResult ? (
             /* Real scan output */
             <>
@@ -285,8 +282,19 @@ function NmapPage() {
                 </Panel>
               ) : (
                 <>
+                  <VerdictBanner
+                    verdict={target}
+                    tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
+                    icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
+                    score={`${score}/100`}
+                    details={[
+                      `${MODES[mode].label} · -${timing}`,
+                      `${open.length} open · ${filt.length} filtered`,
+                      data.osGuess,
+                    ]}
+                  />
                   <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-                  <Panel title="Real scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"}>
+                  <Panel title="Real scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"} collapsible>
                     <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
                       {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
                     </pre>
@@ -297,19 +305,36 @@ function NmapPage() {
           ) : (
             /* Synthetic preview */
             <>
-              <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-              <ResultBanner
-                badge="nmap_preview"
-                title={target}
-                subtitle={`${MODES[mode].label} · -${timing} · ${data.rows.length} probed ports · ${data.osGuess} (${data.confidence}% conf.)`}
+              <VerdictBanner
+                verdict={target}
+                tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
+                icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
+                score={`${score}/100`}
+                details={[
+                  `${MODES[mode].label} · -${timing}`,
+                  `${open.length} open · ${filt.length} filtered · ${cls.length} closed`,
+                  `${data.osGuess} (${data.confidence}% conf.)`,
+                  findings.find((f) => f.sev === "destructive")?.title ?? "",
+                ].filter(Boolean)}
+              />
+
+              <MetricGrid
+                columns={4}
                 metrics={[
-                  { label: "Open",     value: open.length, tone: "success" },
+                  { label: "Open", value: open.length, tone: "success", icon: Network },
                   { label: "Filtered", value: filt.length, tone: "warning" },
-                  { label: "Closed",   value: cls.length },
-                  { label: "Hot svc",  value: open.filter((r) => HOT_PORTS.has(r.port)).length, tone: "primary" },
+                  { label: "Closed", value: cls.length },
+                  { label: "Risk", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success", icon: Activity },
+                  { label: "Probed", value: data.rows.length },
+                  { label: "Hot Ports", value: open.filter((r) => HOT_PORTS.has(r.port)).length, tone: "warning" },
+                  { label: "OS Conf", value: `${data.confidence}%` },
+                  { label: "Mode", value: MODES[mode].risk, tone: MODES[mode].risk === "high" ? "destructive" : MODES[mode].risk === "medium" ? "warning" : "success" },
                 ]}
               />
 
+              <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
+
+              {/* Target info */}
               <Panel>
                 <KeyFields items={[
                   { label: "Target",     value: target,             tone: "primary" },
@@ -321,89 +346,104 @@ function NmapPage() {
                 ]} />
               </Panel>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                {findings.map((f, i) => (
-                  <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Synthetic preview — run actual scan to confirm." />
-                ))}
-              </div>
-
-              <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
-                <Panel icon={Network} title="Port table" meta={`${data.rows.length} rows · ${open.length} open`}>
-                  <div className="overflow-x-auto rounded border border-border/50">
-                    <table className="w-full text-mono text-[11.5px]">
-                      <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
-                        <tr>
-                          <th className="px-2 py-1 text-left">port</th>
-                          <th className="px-2 py-1 text-left">proto</th>
-                          <th className="px-2 py-1 text-left">state</th>
-                          <th className="px-2 py-1 text-left">service</th>
-                          <th className="px-2 py-1 text-left">product</th>
-                          <th className="px-2 py-1 text-left">cpe</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.rows.map((r, i) => (
-                          <tr key={r.port} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "") + " hover:bg-primary/[0.04]"}>
-                            <td className="px-2 py-1.5 text-foreground/90">{r.port}</td>
-                            <td className="px-2 py-1.5 text-muted-foreground">{r.proto}</td>
-                            <td className="px-2 py-1.5"><Chip tone={r.state === "open" ? "success" : r.state === "filtered" ? "warning" : "default"}>{r.state}</Chip></td>
-                            <td className="px-2 py-1.5 text-foreground/90">{r.svc}</td>
-                            <td className="px-2 py-1.5 text-muted-foreground">{r.state === "open" ? r.product : "—"}</td>
-                            <td className="px-2 py-1.5 text-muted-foreground/80 truncate max-w-[18ch]" title={r.cpe}>{r.state === "open" ? r.cpe : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {/* Findings */}
+              {findings.length > 0 && (
+                <CollapsibleSection id="FN" label="Findings" meta={`${findings.length} total`} icon={AlertTriangle}>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {findings.map((f, i) => (
+                      <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Synthetic preview — run actual scan to confirm." />
+                    ))}
                   </div>
-                </Panel>
+                </CollapsibleSection>
+              )}
 
-                <div className="space-y-3">
-                  <Panel icon={Gauge} title="Port heatmap" meta="0 – 1023">
-                    <div className="grid grid-cols-[repeat(32,minmax(0,1fr))] gap-[2px]">
-                      {Array.from({ length: 1024 }).map((_, p) => {
-                        const found = data.rows.find((x) => x.port === p);
-                        let c = "bg-background/40";
-                        if (found?.state === "open") c = "bg-success";
-                        else if (found?.state === "filtered") c = "bg-warning/80";
-                        else if (found?.state === "closed") c = "bg-destructive/70";
-                        else if (HOT_PORTS.has(p)) c = "bg-primary/15";
-                        return <span key={p} title={`port ${p}${found ? ` · ${found.state}` : ""}`} className={"aspect-square rounded-[1px] " + c} />;
-                      })}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-mono text-[10px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-success" /> open</span>
-                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-warning/80" /> filtered</span>
-                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-destructive/70" /> closed</span>
-                      <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-primary/30" /> well-known</span>
+              {/* Port Table + Heatmap/OS side-by-side */}
+              <TwoColumnOutput
+                ratio="2:1"
+                left={
+                  <Panel icon={Network} title="Port table" meta={`${data.rows.length} rows · ${open.length} open`}>
+                    <div className="overflow-x-auto rounded border border-border/50">
+                      <table className="w-full text-mono text-[11.5px]">
+                        <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
+                          <tr>
+                            <th className="px-2 py-1 text-left">port</th>
+                            <th className="px-2 py-1 text-left">proto</th>
+                            <th className="px-2 py-1 text-left">state</th>
+                            <th className="px-2 py-1 text-left">service</th>
+                            <th className="px-2 py-1 text-left">product</th>
+                            <th className="px-2 py-1 text-left">cpe</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.rows.map((r, i) => (
+                            <tr key={r.port} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "") + " hover:bg-primary/[0.04]"}>
+                              <td className="px-2 py-1.5 text-foreground/90">{r.port}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{r.proto}</td>
+                              <td className="px-2 py-1.5"><Chip tone={r.state === "open" ? "success" : r.state === "filtered" ? "warning" : "default"}>{r.state}</Chip></td>
+                              <td className="px-2 py-1.5 text-foreground/90">{r.svc}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{r.state === "open" ? r.product : "—"}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground/80 truncate max-w-[18ch]" title={r.cpe}>{r.state === "open" ? r.cpe : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </Panel>
-
-                  <Panel icon={Cpu} title="OS fingerprint" meta={`${data.confidence}% conf.`}>
-                    <div className="space-y-1.5">
-                      <div className="text-mono text-[12px] text-foreground/90">{data.osGuess}</div>
-                      <div className="h-1.5 w-full overflow-hidden rounded bg-background/60">
-                        <div className="h-full bg-primary/70" style={{ width: `${data.confidence}%` }} />
+                }
+                right={
+                  <div className="space-y-3">
+                    <Panel icon={Gauge} title="Port heatmap" meta="0 – 1023">
+                      <div className="grid grid-cols-[repeat(32,minmax(0,1fr))] gap-[2px]">
+                        {Array.from({ length: 1024 }).map((_, p) => {
+                          const found = data.rows.find((x) => x.port === p);
+                          let c = "bg-background/40";
+                          if (found?.state === "open") c = "bg-success";
+                          else if (found?.state === "filtered") c = "bg-warning/80";
+                          else if (found?.state === "closed") c = "bg-destructive/70";
+                          else if (HOT_PORTS.has(p)) c = "bg-primary/15";
+                          return <span key={p} title={`port ${p}${found ? ` · ${found.state}` : ""}`} className={"aspect-square rounded-[1px] " + c} />;
+                        })}
                       </div>
-                      <div className="text-mono text-[10px] text-muted-foreground">derived from open service banners</div>
-                    </div>
-                  </Panel>
-                </div>
-              </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-success" /> open</span>
+                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-warning/80" /> filtered</span>
+                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-destructive/70" /> closed</span>
+                        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-[1px] bg-primary/30" /> well-known</span>
+                      </div>
+                    </Panel>
+
+                    <Panel icon={Cpu} title="OS fingerprint" meta={`${data.confidence}% conf.`}>
+                      <div className="space-y-1.5">
+                        <div className="text-mono text-[12px] text-foreground/90">{data.osGuess}</div>
+                        <div className="h-1.5 w-full overflow-hidden rounded bg-background/60">
+                          <div className="h-full bg-primary/70" style={{ width: `${data.confidence}%` }} />
+                        </div>
+                        <div className="text-mono text-[10px] text-muted-foreground">derived from open service banners</div>
+                      </div>
+                    </Panel>
+                  </div>
+                }
+              />
             </>
           )}
 
-          <Panel title="Report" meta="markdown" actions={
+          {/* Report - collapsible */}
+          <Panel title="Report" meta="markdown" collapsible defaultCollapsed actions={
             <button onClick={() => { const md = genReport(target, mode, timing, data, (scanResult?.stdout as string) || null); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
           }>
             <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data, (scanResult?.stdout as string) || null)}</pre>
           </Panel>
 
-          <IocInventory groups={[
-            { kind: "Open Ports", items: open.map((r) => `${r.port}/${r.svc}`), tone: "warning" },
-            { kind: "Services", items: open.map((r) => r.product).filter((p) => p !== "—"), tone: "info" },
-            { kind: "OS Guess", items: [data.osGuess] },
-          ]} onSendTo={() => {}} />
+          {/* IOC Inventory */}
+          <CollapsibleSection id="IO" label="IOC Inventory" meta={`${open.length + open.map((r) => r.product).filter((p) => p !== "—").length + 1} indicators`} icon={Database}>
+            <IocInventory groups={[
+              { kind: "Open Ports", items: open.map((r) => `${r.port}/${r.svc}`), tone: "warning" },
+              { kind: "Services", items: open.map((r) => r.product).filter((p) => p !== "—"), tone: "info" },
+              { kind: "OS Guess", items: [data.osGuess] },
+            ]} onSendTo={() => {}} />
+          </CollapsibleSection>
 
+          {/* Pivot services */}
           {open.length > 0 && (
             <Panel icon={Send} title="Pivot open services" meta="hand off to another tool">
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -440,7 +480,7 @@ function NmapPage() {
               </div>
             </Panel>
           )}
-        </>
+        </div>
       )}
 
       <SendToRow targets={[

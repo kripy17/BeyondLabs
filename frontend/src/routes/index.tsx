@@ -7,10 +7,12 @@ import { usePrefs } from "@/lib/prefs";
 import { NumberTicker } from "@/components/magic/NumberTicker";
 import { Marquee } from "@/components/magic/Marquee";
 import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
+import { MetricGrid } from "@/components/soc/Workspace";
 import {
   ArrowRight, Plus, ArrowUpRight, Wand2, Radar, Target, Pin, Clock,
   Keyboard, ChevronRight, ShieldCheck, Zap, Eraser, Activity,
   Cpu, WifiOff, CircleDot, Compass, LayoutGrid, type LucideIcon,
+  Database, Terminal,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -82,7 +84,18 @@ function Dashboard() {
       {/* 1 · Command strip — live status, session id, env, palette hint */}
       <CommandStrip />
 
-      {/* 2 · Continue + quick actions — single tight row */}
+      {/* 2 · Dashboard metrics */}
+      <MetricGrid
+        columns={4}
+        metrics={[
+          { label: "Modules", value: allModules.length, tone: "primary", icon: LayoutGrid },
+          { label: "Groups", value: groupCount, tone: "info" },
+          { label: "Tracks", value: TRACKS.length, tone: "accent" },
+          { label: "Recent", value: recents.length, tone: recents.length > 0 ? "warning" : "default", icon: Clock },
+        ]}
+      />
+
+      {/* 3 · Continue + quick actions — single tight row */}
       <ContinueRow item={recentItems[0]} />
 
       {/* 3 · Pinned chips (if any) */}

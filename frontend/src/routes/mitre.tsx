@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { ResultBanner, SectionBar, Panel, SendToRow, Chip, RiskScore, EvidenceCard } from "@/components/soc/Workspace";
+import { ResultBanner, SectionBar, Panel, SendToRow, Chip, RiskScore, EvidenceCard, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, Grid3x3 } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert, Grid3x3, ShieldCheck, ShieldX, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
@@ -60,24 +60,41 @@ function MitrePage() {
       description="Coverage matrix — techniques mapped to detection status."
       crumbs={[{ label: "Detection" }, { label: "MITRE" }]}
     >
-      <RiskScore score={pct} label="Coverage Score" confidence={pct < 30 ? "low" : pct < 60 ? "moderate" : pct < 80 ? "high" : "very high"} tone={pct < 30 ? "destructive" : pct < 60 ? "warning" : "success"} />
-      <ResultBanner
-        badge="coverage"
-        title={`${pct}% weighted coverage`}
-        subtitle={`${stats.full} full · ${stats.partial} partial · ${stats.none} none`}
-        metrics={[
-          { label: "Tactics",    value: TACTICS.length, tone: "primary" },
-          { label: "Techniques", value: stats.total },
-          { label: "Full",       value: stats.full, tone: "success" },
-          { label: "Gaps",       value: stats.none, tone: "warning" },
+      {/* Verdict Banner */}
+      <VerdictBanner
+        verdict={`${pct}% weighted coverage`}
+        tone={pct >= 60 ? "success" : pct >= 30 ? "warning" : "destructive"}
+        icon={pct >= 60 ? ShieldCheck : pct >= 30 ? Target : ShieldX}
+        details={[
+          `${stats.full} full · ${stats.partial} partial · ${stats.none} gaps`,
+          `${TACTICS.length} tactics · ${stats.total} techniques`,
         ]}
       />
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {gapFindings.map((f, i) => (
-          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Manual coverage ratings — may not reflect in-production detection state." />
-        ))}
-      </div>
+      {/* Metrics */}
+      <MetricGrid
+        columns={4}
+        metrics={[
+          { label: "Coverage", value: `${pct}%`, tone: pct >= 60 ? "success" : pct >= 30 ? "warning" : "destructive", icon: Activity },
+          { label: "Tactics", value: TACTICS.length, tone: "primary", icon: Target },
+          { label: "Techniques", value: stats.total },
+          { label: "Full", value: stats.full, tone: "success" },
+          { label: "Partial", value: stats.partial, tone: "warning" },
+          { label: "Gaps", value: stats.none, tone: stats.none > 0 ? "destructive" : "default" },
+          { label: "Weighted", value: `${Math.round((stats.full + stats.partial * 0.5) / stats.total * 100)}%` },
+        ]}
+      />
+
+      <RiskScore score={pct} label="Coverage Score" confidence={pct < 30 ? "low" : pct < 60 ? "moderate" : pct < 80 ? "high" : "very high"} tone={pct < 30 ? "destructive" : pct < 60 ? "warning" : "success"} />
+
+      {/* Findings */}
+      <CollapsibleSection id="FN" label="Coverage Findings" meta={`${gapFindings.length} item(s)`} icon={Target}>
+        <div className="grid gap-3 md:grid-cols-2">
+          {gapFindings.map((f, i) => (
+            <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Manual coverage ratings — may not reflect in-production detection state." />
+          ))}
+        </div>
+      </CollapsibleSection>
 
       {/* Kill-chain ribbon */}
       <Panel title="Kill-chain coverage" icon={Target} meta="tactics left → right">

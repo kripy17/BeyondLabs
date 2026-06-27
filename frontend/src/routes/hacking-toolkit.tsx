@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
-import { Loader2, Terminal, Bug, AlertTriangle, Copy, X, Search, Check } from "lucide-react";
+import { SectionBar, Panel, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
+import { Loader as Loader2, Terminal, Bug, TriangleAlert as AlertTriangle, Copy, X, Search, Check, ShieldCheck, Activity, Database } from "lucide-react";
 
 export const Route = createFileRoute("/hacking-toolkit")({
   component: HackingToolkitPage,
@@ -170,27 +171,55 @@ function HackingToolkitPage() {
       title="Hacking Toolkit"
       subtitle="Offensive security tools — fetched from your local environment"
     >
-      {loading ? (
-        <div className="flex items-center gap-2 rounded border border-border bg-card/40 px-4 py-3 text-mono text-[11px] text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Checking local tool environment…
-        </div>
-      ) : !cats ? (
-        <div className="rounded border border-warning/40 bg-warning/10 px-4 py-3 text-mono text-[11px]">
-          <span className="font-semibold text-warning">Cannot reach backend.</span> Start the server to check locally installed tools.
-        </div>
-      ) : !(cats as any).installed ? (
-        <div className="rounded border border-warning/40 bg-warning/10 px-4 py-3 text-mono text-[11px] space-y-1">
-          <div className="flex items-center gap-2 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> hackingtool directory not found</div>
-          <div className="text-muted-foreground">{(cats as any).note}</div>
-        </div>
-      ) : (
-        <div className="mb-4 flex items-center gap-2 rounded border border-border bg-card/40 px-3 py-2 text-mono text-[11px] text-muted-foreground">
-          <Terminal className="h-3.5 w-3.5 text-primary" />
-          <span><strong className="text-foreground">{installedCount}/{totalCount}</strong> tools available on this host</span>
-        </div>
+      {/* Verdict Banner */}
+      {!loading && cats && (cats as any).installed && (
+        <VerdictBanner
+          verdict={`${installedCount}/${totalCount} tools available`}
+          tone={installedCount >= totalCount * 0.8 ? "success" : installedCount >= totalCount * 0.5 ? "warning" : "destructive"}
+          icon={ShieldCheck}
+          details={[
+            installedCount === totalCount ? "All tools installed" : `${totalCount - installedCount} tools missing`,
+            "Run tools locally against authorised targets only",
+          ]}
+        />
       )}
 
+      {/* Metrics */}
+      {!loading && cats && (cats as any).installed && (
+        <MetricGrid
+          columns={4}
+          metrics={[
+            { label: "Available", value: installedCount, tone: "success", icon: Terminal },
+            { label: "Total", value: totalCount, tone: "primary" },
+            { label: "Categories", value: allCats.length, tone: "info" },
+            { label: "Missing", value: totalCount - installedCount, tone: totalCount - installedCount > 0 ? "warning" : "success" },
+          ]}
+        />
+      )}
+
+      {loading ? (
+        <Panel>
+          <div className="flex items-center gap-2 text-mono text-[11px] text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Checking local tool environment…
+          </div>
+        </Panel>
+      ) : !cats ? (
+        <Panel>
+          <div className="text-mono text-[11px]">
+            <span className="font-semibold text-warning">Cannot reach backend.</span> Start the server to check locally installed tools.
+          </div>
+        </Panel>
+      ) : !(cats as any).installed ? (
+        <Panel title="hackingtool directory not found" icon={AlertTriangle}>
+          <div className="text-mono text-[11px] space-y-1">
+            <div className="flex items-center gap-2 text-warning"><AlertTriangle className="h-3.5 w-3.5" /> hackingtool directory not found</div>
+            <div className="text-muted-foreground">{(cats as any).note}</div>
+          </div>
+        </Panel>
+      ) : null}
+
+      {/* Search */}
       <div className="mb-4">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

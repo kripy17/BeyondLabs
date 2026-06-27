@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { ResultBanner, SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
-import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, FileCode2, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash } from "lucide-react";
+import { ResultBanner, SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, FileCode as FileCode2, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, ShieldX, TriangleAlert as AlertTriangle, Activity } from "lucide-react";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
 
@@ -269,42 +269,65 @@ function DetectionPage() {
 
       <SectionBar id="OT" label="Output · verdict & mapping" meta={result.hit ? "rule would fire" : "rule does not match"} />
 
-      <RiskScore
-        score={score}
-        label="Detection Confidence"
-        confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 80 ? "high" : "very high"}
-        tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"}
-      />
+      <div className="space-y-5">
+        {/* Verdict Banner */}
+        <VerdictBanner
+          verdict={result.hit ? "Rule matches event" : "No match"}
+          tone={result.hit ? "warning" : "success"}
+          icon={result.hit ? AlertTriangle : ShieldCheck}
+          score={`${score}/100`}
+          details={[
+            result.hit ? `${result.hits.length} token(s): ${result.hits.join(", ")}` : "",
+            `${fmt.toUpperCase()} · ${tpl.severity} severity`,
+            tpl.technique.id,
+          ].filter(Boolean)}
+        />
 
-      <ResultBanner
-        badge={result.hit ? "rule_fires" : "no_match"}
-        caseId={tpl.technique.id}
-        title={result.hit ? "Rule would fire on this event" : "Rule does not match this event"}
-        subtitle="Static evaluation only — confirm at scale by deploying to your SIEM / EDR."
-        reasons={result.hit ? [`Tokens matched: ${result.hits.join(" + ")}`, `Confidence: heuristic on ${fmt.toUpperCase()}`] : ["No required tokens were observed in the event."]}
-        metrics={[
-          { label: "Format", value: fmt.toUpperCase(), tone: "primary" },
-          { label: "Verdict", value: result.hit ? "MATCH" : "—", tone: result.hit ? "destructive" : "default" },
-          { label: "MITRE", value: tpl.technique.id, tone: "warning" },
-          { label: "Severity", value: tpl.severity, tone: tpl.severity === "high" ? "warning" : "default" },
-        ]}
-      />
+        {/* Metrics */}
+        <MetricGrid
+          columns={4}
+          metrics={[
+            { label: "Format", value: fmt.toUpperCase(), tone: "primary", icon: FileCode2 },
+            { label: "Verdict", value: result.hit ? "MATCH" : "NO MATCH", tone: result.hit ? "destructive" : "success" },
+            { label: "MITRE", value: tpl.technique.id, tone: "warning", icon: Crosshair },
+            { label: "Severity", value: tpl.severity, tone: tpl.severity === "critical" || tpl.severity === "high" ? "destructive" : tpl.severity === "medium" ? "warning" : "default" },
+            { label: "Tokens", value: result.hits.length },
+            { label: "Confidence", value: `${score}%`, tone: score >= 60 ? "warning" : "success", icon: Activity },
+            { label: "Platform", value: tpl.technique.platform.split("/")[0] },
+            { label: "Tactic", value: tpl.technique.tactic },
+          ]}
+        />
 
-      <Panel title="MITRE ATT&CK mapping" icon={Crosshair}>
-        <KeyFields items={[
-          { label: "Technique", value: `${tpl.technique.id} — ${tpl.technique.name}`, tone: "primary" },
-          { label: "Tactic", value: tpl.technique.tactic },
-          { label: "Platform", value: tpl.technique.platform },
-          { label: "Data source", value: tpl.technique.source },
-        ]} />
-      </Panel>
+        <RiskScore
+          score={score}
+          label="Detection Confidence"
+          confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 80 ? "high" : "very high"}
+          tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"}
+        />
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-        {(result.hit && result.hits.length > 0) ? (
-          <EvidenceCard severity={tpl.severity === "high" || tpl.severity === "critical" ? "warning" : "info"} title="Detection signal" reason={`${result.hits.length} token(s) matched in event: ${result.hits.join(", ")}`} action="Deploy rule to SIEM/EDR for validation against production traffic." limitation="Static matcher — no false-positive rate data available." />
-        ) : (
-          <EvidenceCard severity="info" title="No match" reason="Rule does not match the supplied event. Revise rule logic or check event format." action="Adjust detection selection or collect a more representative event sample." limitation="Static evaluation only." />
-        )}
+        {/* MITRE Mapping + Evidence side-by-side */}
+        <TwoColumnOutput
+          ratio="1:1"
+          left={
+            <Panel title="MITRE ATT&CK mapping" icon={Crosshair}>
+              <KeyFields items={[
+                { label: "Technique", value: `${tpl.technique.id} — ${tpl.technique.name}`, tone: "primary" },
+                { label: "Tactic", value: tpl.technique.tactic },
+                { label: "Platform", value: tpl.technique.platform },
+                { label: "Data source", value: tpl.technique.source },
+              ]} />
+            </Panel>
+          }
+          right={
+            (result.hit && result.hits.length > 0) ? (
+              <EvidenceCard severity={tpl.severity === "high" || tpl.severity === "critical" ? "warning" : "info"} title="Detection signal" reason={`${result.hits.length} token(s) matched in event: ${result.hits.join(", ")}`} action="Deploy rule to SIEM/EDR for validation against production traffic." limitation="Static matcher — no false-positive rate data available." />
+            ) : (
+              <EvidenceCard severity="info" title="No match" reason="Rule does not match the supplied event. Revise rule logic or check event format." action="Adjust detection selection or collect a more representative event sample." limitation="Static evaluation only." />
+            )
+          }
+        />
+
+        {/* IOCs in event */}
         <Panel title="IOCs in event" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
           <KeyFields items={[
             { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
@@ -312,28 +335,32 @@ function DetectionPage() {
             { label: "Hashes", value: iocs.hashes.length ? iocs.hashes.join(", ") : "—" },
           ]} />
         </Panel>
+
+        {/* IOC Inventory */}
+        <CollapsibleSection id="IO" label="IOC Inventory" meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} indicators`} icon={Database}>
+          <IocInventory groups={[
+            { kind: "IPv4", items: iocs.ips, tone: "info" },
+            { kind: "URL", items: iocs.urls, tone: "warning" },
+            { kind: "Hash", items: iocs.hashes, tone: "warning" },
+          ]} onSendTo={() => {}} />
+        </CollapsibleSection>
+
+        {/* Report */}
+        <Panel title="Report (markdown)" collapsible defaultCollapsed actions={
+          <div className="flex items-center gap-1">
+            <button onClick={() => { const md = genReport(tpl, result, rule); navigator.clipboard.writeText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
+            <button onClick={() => { const md = genReport(tpl, result, rule); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `detection-${tpl.technique.id}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+          </div>
+        }>
+          <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(tpl, result, rule)}</pre>
+        </Panel>
+
+        <SendToRow targets={[
+          { label: "MITRE Coverage", to: "/mitre", icon: ArrowRight },
+          { label: "SOC Guide", to: "/guide", icon: ShieldAlert },
+          { label: "Case Notebook", to: "/case", icon: Database },
+        ]} />
       </div>
-
-      <IocInventory groups={[
-        { kind: "IPv4", items: iocs.ips, tone: "info" },
-        { kind: "URL", items: iocs.urls, tone: "warning" },
-        { kind: "Hash", items: iocs.hashes, tone: "warning" },
-      ]} onSendTo={() => {}} />
-
-      <Panel title="Report (markdown)" actions={
-        <div className="flex items-center gap-1">
-          <button onClick={() => { const md = genReport(tpl, result, rule); navigator.clipboard.writeText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
-          <button onClick={() => { const md = genReport(tpl, result, rule); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `detection-${tpl.technique.id}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
-        </div>
-      }>
-        <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(tpl, result, rule)}</pre>
-      </Panel>
-
-      <SendToRow targets={[
-        { label: "MITRE Coverage", to: "/mitre", icon: ArrowRight },
-        { label: "SOC Guide", to: "/guide", icon: ShieldAlert },
-        { label: "Case Notebook", to: "/case", icon: Database },
-      ]} />
     </PageShell>
   );
 }
