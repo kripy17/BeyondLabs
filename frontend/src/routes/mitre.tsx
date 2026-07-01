@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { ResultBanner, SectionBar, Panel, SendToRow, Chip, RiskScore, EvidenceCard, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, Grid3x3, ShieldCheck, ShieldX, Activity, TriangleAlert as AlertTriangle } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert, Grid3x3 } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
@@ -11,16 +11,16 @@ type Cov = "none" | "partial" | "full";
 type Technique = { id: string; name: string; cov: Cov };
 type Tactic = { id: string; name: string; techniques: Technique[] };
 const TACTICS: Tactic[] = [
-  { id: "TA0043", name: "Recon",             techniques: [{ id: "T1595",     name: "Active Scanning",          cov: "partial" }, { id: "T1589", name: "Gather Victim Identity",      cov: "none" }] },
+  { id: "TA0043", name: "Recon",             techniques: [{ id: "T1595",     name: "Active Scanning",          cov: "none" }, { id: "T1589", name: "Gather Victim Identity",      cov: "none" }] },
   { id: "TA0042", name: "Resource Dev",      techniques: [{ id: "T1583",     name: "Acquire Infrastructure",   cov: "none" }] },
-  { id: "TA0001", name: "Initial Access",    techniques: [{ id: "T1566",     name: "Phishing",                 cov: "full" }, { id: "T1190", name: "Exploit Public-Facing",       cov: "partial" }] },
-  { id: "TA0002", name: "Execution",         techniques: [{ id: "T1059.001", name: "PowerShell",               cov: "full" }, { id: "T1059.003", name: "Windows Cmd",             cov: "partial" }, { id: "T1204", name: "User Execution", cov: "partial" }] },
-  { id: "TA0003", name: "Persistence",       techniques: [{ id: "T1547",     name: "Boot/Logon Autostart",     cov: "partial" }, { id: "T1136", name: "Create Account",           cov: "none" }] },
-  { id: "TA0004", name: "Privilege Esc",     techniques: [{ id: "T1068",     name: "Exploit for Priv Esc",     cov: "none" }, { id: "T1055", name: "Process Injection",          cov: "partial" }] },
-  { id: "TA0005", name: "Defense Evasion",   techniques: [{ id: "T1027",     name: "Obfuscated Files",         cov: "partial" }, { id: "T1070", name: "Indicator Removal",       cov: "none" }] },
-  { id: "TA0006", name: "Credential Access", techniques: [{ id: "T1110",     name: "Brute Force",              cov: "full" }, { id: "T1003", name: "OS Credential Dumping",      cov: "partial" }] },
-  { id: "TA0007", name: "Discovery",         techniques: [{ id: "T1018",     name: "Remote System Discovery",  cov: "partial" }] },
-  { id: "TA0011", name: "C2",                techniques: [{ id: "T1071",     name: "Application Layer Protocol", cov: "partial" }, { id: "T1095", name: "Non-App Layer",         cov: "none" }] },
+  { id: "TA0001", name: "Initial Access",    techniques: [{ id: "T1566",     name: "Phishing",                 cov: "none" }, { id: "T1190", name: "Exploit Public-Facing",       cov: "none" }] },
+  { id: "TA0002", name: "Execution",         techniques: [{ id: "T1059.001", name: "PowerShell",               cov: "none" }, { id: "T1059.003", name: "Windows Cmd",             cov: "none" }, { id: "T1204", name: "User Execution", cov: "none" }] },
+  { id: "TA0003", name: "Persistence",       techniques: [{ id: "T1547",     name: "Boot/Logon Autostart",     cov: "none" }, { id: "T1136", name: "Create Account",           cov: "none" }] },
+  { id: "TA0004", name: "Privilege Esc",     techniques: [{ id: "T1068",     name: "Exploit for Priv Esc",     cov: "none" }, { id: "T1055", name: "Process Injection",          cov: "none" }] },
+  { id: "TA0005", name: "Defense Evasion",   techniques: [{ id: "T1027",     name: "Obfuscated Files",         cov: "none" }, { id: "T1070", name: "Indicator Removal",       cov: "none" }] },
+  { id: "TA0006", name: "Credential Access", techniques: [{ id: "T1110",     name: "Brute Force",              cov: "none" }, { id: "T1003", name: "OS Credential Dumping",      cov: "none" }] },
+  { id: "TA0007", name: "Discovery",         techniques: [{ id: "T1018",     name: "Remote System Discovery",  cov: "none" }] },
+  { id: "TA0011", name: "C2",                techniques: [{ id: "T1071",     name: "Application Layer Protocol", cov: "none" }, { id: "T1095", name: "Non-App Layer",         cov: "none" }] },
 ];
 
 const tone: Record<Cov, "default" | "warning" | "success"> = { none: "default", partial: "warning", full: "success" };
@@ -60,49 +60,23 @@ function MitrePage() {
       description="Coverage matrix — techniques mapped to detection status."
       crumbs={[{ label: "Detection" }, { label: "MITRE" }]}
     >
-      {/* Demo Data Warning */}
-      <Panel title="Sample Data" icon={AlertTriangle}>
-        <p className="text-mono text-[11px] text-muted-foreground">
-          The coverage data shown below is sample data for demonstration purposes. Connect to your detection registry or SIEM to view real coverage metrics for your environment.
-        </p>
-      </Panel>
-
-      {/* Verdict Banner */}
-      <VerdictBanner
-        verdict={`${pct}% weighted coverage (sample)`}
-        tone={pct >= 60 ? "success" : pct >= 30 ? "warning" : "destructive"}
-        icon={pct >= 60 ? ShieldCheck : pct >= 30 ? Target : ShieldX}
-        details={[
-          `${stats.full} full · ${stats.partial} partial · ${stats.none} gaps`,
-          `${TACTICS.length} tactics · ${stats.total} techniques`,
-          "Sample data — not from your detection registry",
-        ]}
-      />
-
-      {/* Metrics */}
-      <MetricGrid
-        columns={4}
+      <ResultBanner
+        badge="coverage"
+        title={`${pct}% weighted coverage`}
+        subtitle={`${stats.full} full · ${stats.partial} partial · ${stats.none} none`}
         metrics={[
-          { label: "Coverage", value: `${pct}%`, tone: pct >= 60 ? "success" : pct >= 30 ? "warning" : "destructive", icon: Activity },
-          { label: "Tactics", value: TACTICS.length, tone: "primary", icon: Target },
+          { label: "Tactics",    value: TACTICS.length, tone: "primary" },
           { label: "Techniques", value: stats.total },
-          { label: "Full", value: stats.full, tone: "success" },
-          { label: "Partial", value: stats.partial, tone: "warning" },
-          { label: "Gaps", value: stats.none, tone: stats.none > 0 ? "destructive" : "default" },
-          { label: "Weighted", value: `${Math.round((stats.full + stats.partial * 0.5) / stats.total * 100)}%` },
+          { label: "Full",       value: stats.full, tone: "success" },
+          { label: "Gaps",       value: stats.none, tone: "warning" },
         ]}
       />
 
-      <RiskScore score={pct} label="Coverage Score" confidence={pct < 30 ? "low" : pct < 60 ? "moderate" : pct < 80 ? "high" : "very high"} tone={pct < 30 ? "destructive" : pct < 60 ? "warning" : "success"} />
-
-      {/* Findings */}
-      <CollapsibleSection id="FN" label="Coverage Findings" meta={`${gapFindings.length} item(s)`} icon={Target}>
-        <div className="grid gap-3 md:grid-cols-2">
-          {gapFindings.map((f, i) => (
-            <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Manual coverage ratings — may not reflect in-production detection state." />
-          ))}
-        </div>
-      </CollapsibleSection>
+      <div className="grid gap-3 md:grid-cols-2">
+        {gapFindings.map((f, i) => (
+          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Manual coverage ratings — may not reflect in-production detection state." />
+        ))}
+      </div>
 
       {/* Kill-chain ribbon */}
       <Panel title="Kill-chain coverage" icon={Target} meta="tactics left → right">

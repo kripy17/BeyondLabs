@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Pin, Settings as SettingsIcon, ChevronDown,
+  Pin, Settings as SettingsIcon, Search, ChevronDown, X,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarHeader, SidebarFooter, useSidebar,
@@ -69,6 +69,7 @@ function GroupBlock({
   label: string; count: number; collapsed: boolean; defaultOpen: boolean; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
   if (collapsed) return <div className="px-1.5 py-1">{children}</div>;
   return (
     <div className="px-1.5 py-1">
@@ -96,6 +97,9 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+
   const order = prefs.sidebar.order.length ? prefs.sidebar.order : GROUPS.map((g) => g.label);
   const ordered = order
     .map((label) => GROUPS.find((g) => g.label === label))
@@ -104,6 +108,16 @@ export function AppSidebar() {
   const pinnedItems = prefs.sidebar.pinned
     .map(findItem)
     .filter((x): x is NonNullable<typeof x> => !!x);
+
+  const filtered = useMemo(() => {
+    if (!q) return ordered;
+    return ordered
+      .map((g) => ({ ...g, items: g.items.filter((i) => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)) }))
+      .filter((g) => g.items.length > 0);
+  }, [ordered, q]);
+
+  const totalCount = ordered.reduce((s, g) => s + g.items.length, 0);
+  const visibleCount = filtered.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -118,10 +132,36 @@ export function AppSidebar() {
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-sidebar-foreground/55 truncate">{prefs.brandTagline}</div>
           </div>
         </Link>
+
+        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
+          <div className="group/search relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/40 group-focus-within/search:text-primary transition-colors" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter workspaces"
+              className="h-7 w-full rounded-md border border-sidebar-border/70 bg-sidebar-accent/30 pl-7 pr-7 text-mono text-[11px] text-sidebar-foreground placeholder:text-sidebar-foreground/40 outline-none transition-all focus:border-primary/60 focus:bg-sidebar-accent/60 focus:ring-2 focus:ring-primary/15"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                aria-label="Clear filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            ) : (
+              <kbd className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 rounded border border-sidebar-border/60 bg-sidebar/50 px-1 text-mono text-[9px] uppercase tracking-widest text-sidebar-foreground/45">
+                filter
+              </kbd>
+            )}
+          </div>
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="gap-0">
-        {pinnedItems.length > 0 && (
+        {!q && pinnedItems.length > 0 && (
           <GroupBlock label="Pinned" count={pinnedItems.length} collapsed={collapsed} defaultOpen>
             {pinnedItems.map((item) => (
               <Row key={`pin-${item.url}`} item={item} active={isActive(item.url)} pinned onTogglePin={togglePin} collapsed={collapsed} />
@@ -129,20 +169,29 @@ export function AppSidebar() {
           </GroupBlock>
         )}
 
-        {ordered.map((g) => (
-          <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen>
-            {g.items.map((item) => (
-              <Row
-                key={item.url}
-                item={item}
-                active={isActive(item.url)}
-                pinned={prefs.sidebar.pinned.includes(item.url)}
-                onTogglePin={togglePin}
-                collapsed={collapsed}
-              />
-            ))}
-          </GroupBlock>
-        ))}
+        {filtered.map((g) => {
+          const hasActive = g.items.some((i) => isActive(i.url));
+          return (
+            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={!!q || hasActive || true}>
+              {g.items.map((item) => (
+                <Row
+                  key={item.url}
+                  item={item}
+                  active={isActive(item.url)}
+                  pinned={prefs.sidebar.pinned.includes(item.url)}
+                  onTogglePin={togglePin}
+                  collapsed={collapsed}
+                />
+              ))}
+            </GroupBlock>
+          );
+        })}
+
+        {q && filtered.length === 0 && (
+          <div className="px-4 py-6 text-center text-mono text-[11px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+            No workspaces match &ldquo;{query}&rdquo;
+          </div>
+        )}
 
       </SidebarContent>
 
@@ -166,6 +215,10 @@ export function AppSidebar() {
             <span className="group-data-[collapsible=icon]:hidden">Settings</span>
             <kbd className="ml-auto rounded border border-sidebar-border/60 bg-sidebar/60 px-1 text-mono text-[9px] uppercase tracking-widest text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">⌘,</kbd>
           </Link>
+        </div>
+
+        <div className="text-center text-mono text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/35 group-data-[collapsible=icon]:hidden">
+          {q ? `${visibleCount} of ${totalCount}` : `${totalCount} workspaces`}
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -202,7 +202,7 @@ function OsintPage() {
           { key: "d", label: "Domain", hint: "example.com" },
           { key: "i", label: "IPv4",   hint: "198.51.100.1" },
           { key: "e", label: "Email",  hint: "alice@example.com" },
-          { key: "h", label: "SHA-256",hint: "a1b2…" },
+          { key: "h", label: "SHA-256",hint: "44d88612fea8a8f3" },
         ]}
         onLoadSample={(k) => setV(
           k === "d" ? "example.com" :

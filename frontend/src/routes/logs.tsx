@@ -3,10 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
-  Empty, KeyFields, IocInventory, Chip, RiskScore, EvidenceCard,
-  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
+  Empty, KeyFields, IocInventory, Chip, EvidenceCard,
 } from "@/components/soc/Workspace";
-import { Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter, Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight, ShieldCheck, ShieldX, TriangleAlert as AlertTriangle } from "lucide-react";
+import { parseLogs } from "@/api/backend";
+import {
+  Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter,
+  Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight, Loader2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/logs")({ component: LogsPage });
 
@@ -157,24 +160,23 @@ const TACTIC_FROM_ID: Record<string, string> = {
   T1204: "Execution", T1505: "Persistence", T1105: "Command and Control",
 };
 
-function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { findings: Finding[]; mitre: MitreMap[]; tacticCoverage: { tactic: string; techniques: string[]; count: number }[]; score: number } {
+function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { findings: Finding[]; mitre: MitreMap[]; tacticCoverage: { tactic: string; techniques: string[]; count: number }[] } {
   const findings: Finding[] = [];
   const mitreSet = new Map<string, MitreMap>();
-  let score = 0;
   const both = parsed.allLines.join(" ");
 
-  if (parsed.failures >= 3) { findings.push({ sev: "warning", title: `SSH brute force — ${parsed.failures} failures`, reason: "Multiple failed SSH authentication attempts from external IP.", action: "Block source IP; review for successful logins." }); score += 20; }
+  if (parsed.failures >= 3) { findings.push({ sev: "warning", title: `SSH brute force — ${parsed.failures} failures`, reason: "Multiple failed SSH authentication attempts from external IP.", action: "Block source IP; review for successful logins." }); }
   if (parsed.failures >= 1) { mitreSet.set("T1110", { id: "T1110", name: "Brute Force" }); }
-  if (/Accepted password/.test(both)) { findings.push({ sev: "destructive", title: "External SSH auth success", reason: "Successful external SSH login after failures — credential compromise likely.", action: "Force password reset; review lateral movement." }); score += 15; }
-  if (/EncodedCommand/.test(both)) { findings.push({ sev: "destructive", title: "Encoded PowerShell execution", reason: "Base64-encoded PowerShell command detected — defense evasion and code execution.", action: "Review parent process chain; check for persistence mechanisms." }); score += 20; mitreSet.set("T1059.001", { id: "T1059.001", name: "Command and Scripting Interpreter: PowerShell" }); }
-  if (/SQL Injection/.test(both)) { findings.push({ sev: "destructive", title: "SQL injection attempt", reason: "IDS alert for SQL injection against web server.", action: "Review WAF logs; check web server for successful exploitation." }); score += 20; mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
-  if (/LFI/.test(both)) { findings.push({ sev: "warning", title: "LFI / file disclosure attempt", reason: "IDS alert for local file inclusion probe.", action: "Verify web app input sanitisation; check for exposed sensitive files." }); score += 15; mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
-  if (/DROP/.test(both)) { findings.push({ sev: "info", title: "Blocked C2 traffic — firewall drops", reason: "Firewall blocked outbound connections to known C2 IP on port 443.", action: "Check if source host is compromised; review DNS logs for beacon domains." }); score += 10; mitreSet.set("T1572", { id: "T1572", name: "Protocol Tunneling" }); }
-  if (/outbound_rdp/.test(both)) { findings.push({ sev: "warning", title: "Outbound RDP detected", reason: "Internal host initiating outbound RDP — lateral movement or tunnel.", action: "Investigate host for signs of compromise; restrict outbound RDP." }); score += 12; mitreSet.set("T1021.001", { id: "T1021.001", name: "Remote Desktop Protocol" }); }
-  if (/AppData\\Local\\Temp/.test(both)) { findings.push({ sev: "warning", title: "Process from Temp directory", reason: "Executable spawned from AppData\\Local\\Temp — common malware staging path.", action: "Upload sample to sandbox; review parent chrome.exe for drive-by compromise." }); score += 15; mitreSet.set("T1204.002", { id: "T1204.002", name: "User Execution: Malicious File" }); }
-  if (/wp-login/.test(both)) { findings.push({ sev: "warning", title: "WordPress login brute force", reason: "Multiple requests to /wp-login.php from external IP — credential stuffing.", action: "Rate-limit wp-login; enable CAPTCHA; review for successful logins." }); score += 15; mitreSet.set("T1110", { id: "T1110", name: "Brute Force" }); mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
-  if (/shell\.php\?cmd=/.test(both)) { findings.push({ sev: "destructive", title: "Web shell command execution", reason: "GET to /shell.php with cmd parameter — web shell installed on server.", action: "Immediate incident response: isolate host, capture disk/memory, review Apache access logs." }); score += 25; mitreSet.set("T1505.003", { id: "T1505.003", name: "Web Shell" }); }
-  if (/wget.*\|.*sh/.test(both)) { findings.push({ sev: "destructive", title: "Remote payload fetch + pipe to shell", reason: "Download cradle via wget piped to sh — live payload retrieval.", action: "Block outbound to malhost.example; review host for persistence." }); score += 20; mitreSet.set("T1105", { id: "T1105", name: "Ingress Tool Transfer" }); }
+  if (/Accepted password/.test(both)) { findings.push({ sev: "destructive", title: "External SSH auth success", reason: "Successful external SSH login after failures — credential compromise likely.", action: "Force password reset; review lateral movement." }); }
+  if (/EncodedCommand/.test(both)) { findings.push({ sev: "destructive", title: "Encoded PowerShell execution", reason: "Base64-encoded PowerShell command detected — defense evasion and code execution.", action: "Review parent process chain; check for persistence mechanisms." }); mitreSet.set("T1059.001", { id: "T1059.001", name: "Command and Scripting Interpreter: PowerShell" }); }
+  if (/SQL Injection/.test(both)) { findings.push({ sev: "destructive", title: "SQL injection attempt", reason: "IDS alert for SQL injection against web server.", action: "Review WAF logs; check web server for successful exploitation." }); mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
+  if (/LFI/.test(both)) { findings.push({ sev: "warning", title: "LFI / file disclosure attempt", reason: "IDS alert for local file inclusion probe.", action: "Verify web app input sanitisation; check for exposed sensitive files." }); mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
+  if (/DROP/.test(both)) { findings.push({ sev: "info", title: "Blocked C2 traffic — firewall drops", reason: "Firewall blocked outbound connections to known C2 IP on port 443.", action: "Check if source host is compromised; review DNS logs for beacon domains." }); mitreSet.set("T1572", { id: "T1572", name: "Protocol Tunneling" }); }
+  if (/outbound_rdp/.test(both)) { findings.push({ sev: "warning", title: "Outbound RDP detected", reason: "Internal host initiating outbound RDP — lateral movement or tunnel.", action: "Investigate host for signs of compromise; restrict outbound RDP." }); mitreSet.set("T1021.001", { id: "T1021.001", name: "Remote Desktop Protocol" }); }
+  if (/AppData\\Local\\Temp/.test(both)) { findings.push({ sev: "warning", title: "Process from Temp directory", reason: "Executable spawned from AppData\\Local\\Temp — common malware staging path.", action: "Upload sample to sandbox; review parent chrome.exe for drive-by compromise." }); mitreSet.set("T1204.002", { id: "T1204.002", name: "User Execution: Malicious File" }); }
+  if (/wp-login/.test(both)) { findings.push({ sev: "warning", title: "WordPress login brute force", reason: "Multiple requests to /wp-login.php from external IP — credential stuffing.", action: "Rate-limit wp-login; enable CAPTCHA; review for successful logins." }); mitreSet.set("T1110", { id: "T1110", name: "Brute Force" }); mitreSet.set("T1190", { id: "T1190", name: "Exploit Public-Facing Application" }); }
+  if (/shell\.php\?cmd=/.test(both)) { findings.push({ sev: "destructive", title: "Web shell command execution", reason: "GET to /shell.php with cmd parameter — web shell installed on server.", action: "Immediate incident response: isolate host, capture disk/memory, review Apache access logs." }); mitreSet.set("T1505.003", { id: "T1505.003", name: "Web Shell" }); }
+  if (/wget.*\|.*sh/.test(both)) { findings.push({ sev: "destructive", title: "Remote payload fetch + pipe to shell", reason: "Download cradle via wget piped to sh — live payload retrieval.", action: "Block outbound to malhost.example; review host for persistence." }); mitreSet.set("T1105", { id: "T1105", name: "Ingress Tool Transfer" }); }
 
   if (!findings.length) findings.push({ sev: "info", title: "No notable findings", reason: "Log slice does not match any detection rules.", action: "Widen the sample or adjust filters." });
 
@@ -191,8 +193,7 @@ function deriveFindings(parsed: NonNullable<ReturnType<typeof parseInput>>): { f
     .map(([tactic, data]) => ({ tactic, techniques: Array.from(data.techniques), count: data.count }))
     .sort((a, b) => b.count - a.count);
 
-  const total = Math.min(100, score);
-  return { findings, mitre: Array.from(mitreSet.values()), tacticCoverage, score: total };
+  return { findings, mitre: Array.from(mitreSet.values()), tacticCoverage };
 }
 
 interface ParsedLog {
@@ -232,11 +233,10 @@ function parseInput(input: string): ParsedLog | null {
   return { classification, allLines, secs, maxSec, ips, users, hosts, procs, events, sigs, failures, mitre, urls };
 }
 
-function genMarkdown(parsed: ParsedLog, findings: Finding[], mitre: MitreMap[], score: number): string {
+function genMarkdown(parsed: ParsedLog, findings: Finding[], mitre: MitreMap[]): string {
   const lines = [
     `# Log Analysis Report`,
     `**Classification:** ${parsed.classification}`,
-    `**Risk Score:** ${score}/100`,
     `**Generated:** ${new Date().toISOString()}`,
     "", "## Findings",
     ...findings.map((f) => `- [${f.sev.toUpperCase()}] ${f.title} — ${f.reason}`),
@@ -254,6 +254,9 @@ function LogsPage() {
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);
+  const [enrichEnabled, setEnrichEnabled] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
+  const [enrichLoading, setEnrichLoading] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const flash = (msg: string) => {
@@ -268,6 +271,16 @@ function LogsPage() {
 
   useEffect(() => { savePersist(LOCALSTORE_RANGE, range); }, [range]);
   useEffect(() => { savePersist(LOCALSTORE_CHIPS, chips); }, [chips]);
+
+  useEffect(() => {
+    if (!input.trim() || !enrichEnabled) return;
+    setEnrichLoading(true);
+    setEnrichResult(null);
+    parseLogs(input)
+      .then((res) => setEnrichResult(res as Record<string, unknown>))
+      .catch(() => setEnrichResult(null))
+      .finally(() => setEnrichLoading(false));
+  }, [enrichEnabled, input]);
 
   const parsed = useMemo(() => parseInput(input), [input]);
 
@@ -308,7 +321,7 @@ function LogsPage() {
     });
   }, [parsed, input]);
 
-  const { findings, mitre, tacticCoverage, score } = useMemo(() => parsed ? deriveFindings(parsed) : { findings: [] as Finding[], mitre: [] as MitreMap[], tacticCoverage: [] as { tactic: string; techniques: string[]; count: number }[], score: 0 }, [parsed]);
+  const { findings, mitre, tacticCoverage } = useMemo(() => parsed ? deriveFindings(parsed) : { findings: [] as Finding[], mitre: [] as MitreMap[], tacticCoverage: [] as { tactic: string; techniques: string[]; count: number }[] }, [parsed]);
 
   const handleSendTo = (page: string) => {
     try {
@@ -347,7 +360,13 @@ function LogsPage() {
         value={input}
         onChange={setInput}
         rows={8}
-        samples={Object.keys(SAMPLES).map((k) => ({ key: k, label: k }))}
+        samples={[
+          { key: "ssh", label: "SSH auth failure", hint: "failed password + accepted" },
+          { key: "win4688", label: "Windows 4688", hint: "process creation" },
+          { key: "suricata", label: "Suricata alert", hint: "EVE JSON" },
+          { key: "firewall", label: "Firewall drop", hint: "C2 blocklist" },
+          { key: "sysmon", label: "Sysmon EID 1", hint: "process create" },
+        ]}
         onLoadSample={(k) => setInput(SAMPLES[k])}
         onFile={(txt) => { setInput(txt); flash(`Loaded file — ${txt.length.toLocaleString()} chars`); }}
         fileAccept=".log,.txt,.json,.csv"
@@ -367,7 +386,7 @@ function LogsPage() {
       {parsed && (
         <Panel title="Filter strip" icon={ListFilter} meta={`${filteredLines.length} / ${parsed.allLines.length} lines`} actions={
           <div className="flex items-center gap-1.5">
-            <button onClick={() => { const md = genMarkdown(parsed, findings, mitre, score); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `log-report-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} disabled={filteredLines.length === 0} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
+            <button onClick={() => { const md = genMarkdown(parsed, findings, mitre); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `log-report-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} disabled={filteredLines.length === 0} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
               <Hash className="h-3 w-3" /> MD
             </button>
             <button onClick={exportCsv} disabled={filteredLines.length === 0} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
@@ -403,43 +422,42 @@ function LogsPage() {
         { label: "Entities", value: parsed ? parsed.ips.length + parsed.users.length + parsed.procs.length : 0 },
         { label: "Window", value: range, tone: "muted" },
       ]} />
+      <div className="flex items-center gap-2 px-1">
+        <label className="flex items-center gap-1.5 text-mono text-[10px] cursor-pointer select-none">
+          <input type="checkbox" checked={enrichEnabled} onChange={(e) => setEnrichEnabled(e.target.checked)} className="accent-primary" />
+          backend analysis
+          {enrichLoading && <Loader2 className="ml-0.5 inline h-3 w-3 animate-spin text-primary" />}
+        </label>
+        {enrichResult && <span className="text-mono text-[10px] text-success">done</span>}
+      </div>
 
       <SectionBar id="OT" label="Output · entities + findings" meta={parsed ? `${parsed.classification} · ${findings.length} finding(s)` : "awaiting input"} />
       {!parsed ? (
         <Empty icon={Database} title="No log loaded" hint="Paste a few lines or load a sample to extract entities and a detection lead." />
       ) : (
-        <div className="space-y-5">
-          {/* Verdict Banner */}
-          <VerdictBanner
-            verdict={parsed.classification}
-            tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
-            icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
-            score={`${score}/100`}
-            details={[
+        <div className="space-y-3">
+          <ResultBanner
+            badge="log_decision"
+            caseId={`BA-LG-${parsed.allLines.length}`}
+            title={parsed.classification}
+            subtitle={`Routing lead: ${parsed.mitre} · ${findings.length} detection(s)`}
+            reasons={[
               parsed.failures > 0 ? `${parsed.failures} authentication failure(s)` : "",
               parsed.events.length ? parsed.events.join(", ") : "",
               parsed.urls.length ? `${parsed.urls.length} URL(s) extracted` : "",
-              findings.find((f) => f.sev === "destructive")?.title ?? "",
-            ].filter(Boolean)}
-          />
-
-          {/* Metrics Overview */}
-          <MetricGrid
-            columns={4}
+              parsed.sigs[0] ?? "",
+              findings.find((f) => f.sev === "destructive") ? `Critical finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
+            ].filter(Boolean) as string[]}
             metrics={[
-              { label: "IPs", value: parsed.ips.length, tone: "primary", icon: Database },
-              { label: "Users", value: parsed.users.length, tone: parsed.users.length > 0 ? "warning" : "default" },
-              { label: "Processes", value: parsed.procs.length, tone: parsed.procs.length > 0 ? "warning" : "default" },
-              { label: "Risk", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success", icon: Activity },
-              { label: "Lines", value: parsed.allLines.length },
-              { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
-              { label: "URLs", value: parsed.urls.length },
-              { label: "Window", value: range },
+              { label: "IPs", value: parsed.ips.length, tone: "primary" },
+              { label: "Users", value: parsed.users.length },
+              { label: "Procs", value: parsed.procs.length, tone: parsed.procs.length ? "warning" : "default" },
+              { label: "Findings", value: findings.length, tone: findings.length > 0 ? "warning" : "default" },
             ]}
           />
 
-          {/* Log Viewer */}
-          <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`} collapsible defaultCollapsed={filteredLines.length > 20}>
+          {/* Painted viewer with line expansion */}
+          <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}>
             <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
               {filteredLines.length === 0 ? (
                 <div className="text-muted-foreground">No lines match the active filters.</div>
@@ -475,72 +493,92 @@ function LogsPage() {
               })}
             </pre>
             <div className="mt-2 flex flex-wrap gap-2 text-mono text-[10px] text-muted-foreground">
-              legend: <span className="text-info">IP</span> <span className="text-accent">port</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
+              legend: <span className="text-info">IP</span> <span className="text-accent">port N</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
               <span className="ml-auto text-[10px]">click a line to expand</span>
             </div>
           </Panel>
 
-          {/* Decision + Field Summary */}
-          <TwoColumnOutput
-            ratio="2:1"
-            left={
-              <Panel title="Classification" icon={Activity}>
-                <KeyFields items={[
-                  { label: "Type", value: parsed.classification, tone: "primary" },
-                  { label: "MITRE lead", value: parsed.mitre, tone: parsed.mitre !== "—" ? "warning" : "default" },
-                  { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
-                  { label: "URLs", value: parsed.urls.length, tone: parsed.urls.length ? "warning" : "default" },
-                  { label: "Events", value: parsed.events.join(", ") || "—" },
-                  { label: "Score", value: `${score}/100`, tone: score >= 50 ? "destructive" : score >= 25 ? "warning" : "success" },
-                ]} />
-              </Panel>
-            }
-            right={
-              <Panel title="Field summary" icon={ListFilter} meta="top values per field">
-                <div className="space-y-3">
-                  {fieldSummary.map((f) => (
-                    <div key={f.field}>
-                      <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        <span>{f.field}</span>
-                        <span>{f.unique} unique</span>
-                      </div>
-                      <ul className="mt-1 space-y-1">
-                        {f.top.length === 0 ? (
-                          <li className="text-mono text-[11px] text-muted-foreground/60">—</li>
-                        ) : f.top.map(({ v, n }) => {
-                          const max = f.top[0].n || 1;
-                          return (
-                            <li key={v} className="space-y-0.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <button onClick={() => addChip(f.field, v)} className="truncate text-mono text-[11px] text-foreground/90 hover:text-primary" title={v}>{v}</button>
-                                <span className="text-mono text-[10px] text-muted-foreground tabular-nums">{n}</span>
-                              </div>
-                              <div className="h-1 overflow-hidden rounded-sm bg-border/40">
-                                <div className="h-full bg-primary/70" style={{ width: `${(n / max) * 100}%` }} />
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+          <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+            <Panel title="Decision" icon={Activity}>
+              <KeyFields items={[
+                { label: "Classification", value: parsed.classification, tone: "primary" },
+                { label: "MITRE lead", value: parsed.mitre, tone: parsed.mitre !== "—" ? "warning" : "default" },
+                { label: "Failures", value: parsed.failures, tone: parsed.failures > 0 ? "warning" : "default" },
+                { label: "URLs", value: parsed.urls.length, tone: parsed.urls.length ? "warning" : "default" },
+                { label: "Events", value: parsed.events.join(", ") || "—" },
+              ]} />
+            </Panel>
+
+            <Panel title="Field summary" icon={ListFilter} meta="top values per field">
+              <div className="space-y-3">
+                {fieldSummary.map((f) => (
+                  <div key={f.field}>
+                    <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <span>{f.field}</span>
+                      <span>{f.unique} unique</span>
                     </div>
-                  ))}
-                </div>
-              </Panel>
-            }
-          />
+                    <ul className="mt-1 space-y-1">
+                      {f.top.length === 0 ? (
+                        <li className="text-mono text-[11px] text-muted-foreground/60">—</li>
+                      ) : f.top.map(({ v, n }) => {
+                        const max = f.top[0].n || 1;
+                        return (
+                          <li key={v} className="space-y-0.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <button onClick={() => addChip(f.field, v)} className="truncate text-mono text-[11px] text-foreground/90 hover:text-primary" title={v}>{v}</button>
+                              <span className="text-mono text-[10px] text-muted-foreground tabular-nums">{n}</span>
+                            </div>
+                            <div className="h-1 overflow-hidden rounded-sm bg-border/40">
+                              <div className="h-full bg-primary/70" style={{ width: `${(n / max) * 100}%` }} />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
 
           {/* Evidence cards */}
-          <CollapsibleSection id="EV" label="Detection Findings" meta={`${findings.length} total`} icon={AlertTriangle}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {findings.map((f, i) => (
-                <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
-              ))}
-            </div>
-          </CollapsibleSection>
+          <div className="grid gap-3 md:grid-cols-2">
+            {findings.map((f, i) => (
+              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
+            ))}
+          </div>
+
+          {/* Backend Enrichment */}
+          {enrichResult && (
+            <Panel title="Backend Analysis Results" icon={Database} meta={`${(enrichResult.findings as unknown[] | undefined)?.length ?? 0} finding(s)`}>
+              <KeyFields items={[
+                { label: "Total lines", value: String(((enrichResult.summary as Record<string, unknown>)?.total_lines as number) ?? "\u2014") },
+                { label: "Parsed entries", value: String(((enrichResult.summary as Record<string, unknown>)?.parsed_entries as number) ?? "\u2014") },
+                { label: "Unique IPs", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_ips as number) ?? "\u2014") },
+                { label: "Unique URLs", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_urls as number) ?? "\u2014") },
+                { label: "Unique emails", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_emails as number) ?? "\u2014") },
+              ]} />
+              {(enrichResult.findings as unknown[] | undefined)?.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Backend Findings</p>
+                  {(enrichResult.findings as Array<Record<string, unknown>>).map((f, i) => (
+                    <EvidenceCard
+                      key={i}
+                      severity={f.severity === "high" ? "destructive" : f.severity === "medium" ? "warning" : "info"}
+                      title={f.title as string}
+                      reason={f.detail as string}
+                      action={(f.recommendation as string) ?? "Review in context."}
+                      limitation="Backend-assisted analysis"
+                    />
+                  ))}
+                </div>
+              )}
+            </Panel>
+          )}
 
           {/* MITRE ATT&CK — grouped by tactic */}
           {tacticCoverage.length > 0 && (
-            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible defaultCollapsed={tacticCoverage.length > 3}>
+            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`}>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {tacticCoverage.map((t) => (
                   <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
@@ -561,7 +599,7 @@ function LogsPage() {
 
           {/* MITRE flat list */}
           {mitre.length > 0 && (
-            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible>
+            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
               <div className="flex flex-wrap gap-2">
                 {mitre.map((m) => (
                   <span key={m.id} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
@@ -577,7 +615,7 @@ function LogsPage() {
 
           {/* URLs extracted */}
           {parsed.urls.length > 0 && (
-            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`} collapsible defaultCollapsed={parsed.urls.length > 3}>
+            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`}>
               <ul className="space-y-1">
                 {parsed.urls.map((u) => (
                   <li key={u} className="border-b border-border/40 py-1 text-mono text-[11px] text-foreground/90">{u}</li>
@@ -586,16 +624,14 @@ function LogsPage() {
             </Panel>
           )}
 
-          <CollapsibleSection id="IO" label="IOC Inventory" meta={`${parsed.ips.length + parsed.users.length + parsed.procs.length + parsed.hosts.length} indicators`} icon={Database}>
-            <IocInventory groups={[
-              { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
-              { kind: "User", items: parsed.users, tone: "info" as const },
-              { kind: "Process", items: parsed.procs, tone: "warning" as const },
-              { kind: "Host", items: parsed.hosts },
-              { kind: "Signature", items: parsed.sigs },
-              { kind: "URL", items: parsed.urls, tone: "warning" as const },
-            ]} onSendTo={() => {}} />
-          </CollapsibleSection>
+          <IocInventory groups={[
+            { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
+            { kind: "User", items: parsed.users, tone: "info" as const },
+            { kind: "Process", items: parsed.procs, tone: "warning" as const },
+            { kind: "Host", items: parsed.hosts },
+            { kind: "Signature", items: parsed.sigs },
+            { kind: "URL", items: parsed.urls, tone: "warning" as const },
+          ]} onSendTo={() => {}} />
 
           <SendToRow targets={[
             { label: "SIEM Workspace", to: "/siem", icon: Database },

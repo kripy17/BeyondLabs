@@ -4,7 +4,8 @@ import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, FileWarning, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash } from "lucide-react";
+import { safeAnalyzeUrl } from "@/api/backend";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, FileWarning, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
 
@@ -18,6 +19,7 @@ const SAMPLES: Record<string, string> = {
   ip_based: "http://185[.]220[.]101[.]161/wp-content/payload.ps1",
   suspicious_port: "hxxps://evil-host[.]ru:8080/login?redirect=/profile",
   high_entropy: "https://cdn[.]evil-host[.]ru/aB3xK9pQzWmN7vR2tY5hJ8fL0cS4dG6/config?token=ghp_abc123xyz456def789ghi",
+  mailto: "mailto:reset-password@example.com?subject=Security+Alert&body=Click+https://evil[.]host/login",
 };
 
 const HISTORY_KEY = "beyondarch.urlHistory";
@@ -86,11 +88,10 @@ function scanSecrets(t: string): { type: string; value: string }[] {
   return found;
 }
 
-function genMarkdownExport(parsed: URL, score: number, findings: { sev: string; t: string; r: string; a: string }[], secrets: { type: string; value: string }[], mitre: { id: string; name: string }[], pathSignals: string[], fileExt: string | null, hasEmbeddedCreds: boolean, hasPathTraversal: boolean, isNumericDomain: boolean, hasNonStandardPort: boolean, portNum: string, suspChars: { char: string; pos: number }[]): string {
+function genMarkdownExport(parsed: URL, findings: { sev: string; t: string; r: string; a: string }[], secrets: { type: string; value: string }[], mitre: { id: string; name: string }[], pathSignals: string[], fileExt: string | null, hasEmbeddedCreds: boolean, hasPathTraversal: boolean, isNumericDomain: boolean, hasNonStandardPort: boolean, portNum: string, suspChars: { char: string; pos: number }[]): string {
   const lines = [
     `# Safe URL Analysis Report`,
     `**URL:** \`${defang(parsed.href)}\``,
-    `**Risk Score:** ${score}/100`,
     `**Generated:** ${new Date().toISOString()}`,
     "",
     "## Parsed Structure",
@@ -130,6 +131,9 @@ function UrlPage() {
   const [raw, setRaw] = useState("");
   const [runs, setRuns] = useState(0);
   const [history, setHistory] = useState<string[]>([]);
+  const [enrichEnabled, setEnrichEnabled] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
+  const [enrichLoading, setEnrichLoading] = useState(false);
 
   useEffect(() => {
     try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]")); } catch {}
@@ -217,21 +221,6 @@ function UrlPage() {
       domainEnt > 4.0 && { sev: "info" as const, t: "High domain entropy", r: `Domain character entropy: ${domainEnt.toFixed(2)} bits — suggests random/auto-generated domain.`, a: "Check domain registration age." },
     ].filter(Boolean) as { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[];
 
-    let score = 0;
-    if (isHttp) score += 15;
-    if (punycode) score += 35;
-    if (subdomainAbuse) score += 10;
-    if (longPath) score += 5;
-    if (isShortener) score += 20;
-    if (fileExt) score += 15;
-    if (hasEmbeddedCreds) score += 25;
-    if (hasPathTraversal) score += 25;
-    if (isNumericDomain) score += 15;
-    if (isSuspiciousTLD) score += 10;
-    if (domainEnt > 4.0) score += 5;
-    if (suspiciousPaths.length > 0) score += Math.min(suspiciousPaths.length * 8, 20);
-    score = Math.min(100, score);
-
     const mitreKeys = [];
     if (punycode || subdomainAbuse) mitreKeys.push("punycode");
     if (isShortener) mitreKeys.push("shortener");
@@ -252,7 +241,7 @@ function UrlPage() {
       }
     }
 
-    return { parsed, findings, score, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
+    return { parsed, findings, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
   }, [committed, trimmed, raw]);
 
   useEffect(() => {
@@ -265,11 +254,22 @@ function UrlPage() {
     });
   }, [runs, committed, analysis?.parsed, trimmed]);
 
+  useEffect(() => {
+    if (!committed || !analysis?.parsed || !enrichEnabled) return;
+    setEnrichLoading(true);
+    setEnrichResult(null);
+    const url = refang(trimmed);
+    safeAnalyzeUrl({ url, allow_live_fetch: false })
+      .then((res) => setEnrichResult(res as Record<string, unknown>))
+      .catch(() => setEnrichResult(null))
+      .finally(() => setEnrichLoading(false));
+  }, [committed, enrichEnabled, trimmed, analysis?.parsed]);
+
   const state: ToolState = !has ? "idle" : !committed ? "idle" : analysis?.parsed ? "ready" : "error";
-  const tone = (analysis?.score ?? 0) >= 50 ? "destructive" : (analysis?.score ?? 0) >= 20 ? "warning" : "success";
+  const tone = !analysis ? "muted" : analysis.findings.some((f) => f.sev === "destructive") ? "destructive" : analysis.findings.some((f) => f.sev === "warning") ? "warning" : "success";
 
   const run = () => setRuns((r) => r + 1);
-  const clear = () => { setRaw(""); setRuns(0); };
+  const clear = () => { setRaw(""); setRuns(0); setEnrichResult(null); };
 
   const iocs: { kind: string; value: string }[] = [];
 
@@ -309,6 +309,7 @@ function UrlPage() {
                 { key: "ip_based",      label: "IP-based",      hint: "direct IP host" },
                 { key: "suspicious_port",label: "Non-standard",  hint: "port 8080" },
                 { key: "high_entropy",  label: "High entropy",  hint: "random path + token" },
+                { key: "mailto",        label: "Mailto",        hint: "suspicious mailto link" },
                 { key: "legit",         label: "Legit",         hint: "control sample" },
               ]}
               onLoadSample={(k) => { setRaw(SAMPLES[k]); setRuns((r) => r + 1); }}
@@ -322,6 +323,14 @@ function UrlPage() {
               { label: "Scheme", value: analysis?.parsed?.protocol.replace(":", "") ?? "\u2014", tone: analysis?.isHttp ? "warning" : "default" },
               { label: "Runs", value: runs, tone: "muted" },
             ]} />
+            <div className="flex items-center gap-2 px-1">
+              <label className="flex items-center gap-1.5 text-mono text-[10px] cursor-pointer select-none">
+                <input type="checkbox" checked={enrichEnabled} onChange={(e) => setEnrichEnabled(e.target.checked)} className="accent-primary" />
+                backend enrichment
+                {enrichLoading && <Loader2 className="ml-0.5 inline h-3 w-3 animate-spin text-primary" />}
+              </label>
+              {enrichResult && <span className="text-mono text-[10px] text-success">done</span>}
+            </div>
             {history.length > 0 && (
               <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History}>
                 <ul className="divide-y divide-border/40">
@@ -354,12 +363,12 @@ function UrlPage() {
             <div className="space-y-4">
               <ResultBanner
                 badge={tone === "destructive" ? "high risk" : tone === "warning" ? "suspicious" : "low risk"}
-                caseId={`BA-UR-${analysis.score.toString().padStart(2, "0")}`}
+                caseId={`BA-UR-${String(analysis.findings.length).padStart(2, "0")}`}
                 title={analysis.parsed.hostname}
                 subtitle={`${analysis.parsed.protocol.replace(":", "")}://${analysis.parsed.hostname}${analysis.parsed.pathname || "/"}`}
                 reasons={analysis.findings.slice(0, 3).map((f) => f.t)}
                 metrics={[
-                  { label: "Risk",       value: `${analysis.score}/100`, tone },
+                  { label: "Findings",   value: analysis.findings.length, tone: analysis.findings.length > 0 ? "warning" : "success" },
                   { label: "Scheme",     value: analysis.parsed.protocol.replace(":", "").toUpperCase(), tone: analysis.isHttp ? "warning" : "success" },
                   { label: "Subdomains", value: String(Math.max(0, analysis.parsed.hostname.split(".").length - 2)) },
                   { label: "Params",     value: String(new URLSearchParams(analysis.parsed.search || "").size) },
@@ -543,6 +552,40 @@ function UrlPage() {
                 ]} />
               </Panel>
 
+              {/* Backend Enrichment */}
+              {enrichResult && (
+                <Panel title="Backend Enrichment" icon={Globe2} meta={enrichResult.verdict as string}>
+                  <KeyFields items={[
+                    { label: "Verdict", value: (enrichResult.verdict as string) ?? "\u2014", tone: enrichResult.verdict === "suspicious" ? "warning" : enrichResult.verdict === "high_risk" ? "destructive" : "default" },
+                    { label: "Confidence", value: (enrichResult.confidence as string) ?? "\u2014" },
+                    { label: "Evidence Level", value: (enrichResult.evidence_level as string) ?? "\u2014" },
+                    { label: "Root Domain", value: String((enrichResult.static_result as Record<string, unknown> | undefined)?.root_domain ?? "\u2014") },
+                    { label: "Summary", value: (enrichResult.summary as string) ?? "\u2014" },
+                  ]} />
+                  {(enrichResult.recommended_actions as string[] | undefined)?.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Recommended Actions</p>
+                      <ul className="space-y-1">
+                        {(enrichResult.recommended_actions as string[]).map((a, i) => (
+                          <li key={i} className="flex items-start gap-2 text-mono text-[11px] text-foreground/85">
+                            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                            {a}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {(enrichResult.limitations as string[] | undefined)?.length > 0 && (
+                    <div className="mt-3 rounded border border-border/50 bg-card/40 px-2 py-1.5">
+                      <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Limitations</p>
+                      {(enrichResult.limitations as string[]).map((l, i) => (
+                        <p key={i} className="text-mono text-[10px] text-muted-foreground/80">{l}</p>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              )}
+
               {/* MITRE ATT&CK */}
               {analysis.mitre.length > 0 && (
                 <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${analysis.mitre.length} technique${analysis.mitre.length === 1 ? "" : "s"}`}>
@@ -572,7 +615,7 @@ function UrlPage() {
                 <Panel title="Export Report" icon={Download}>
                   <button
                     onClick={() => {
-                      const md = genMarkdownExport(analysis.parsed!, analysis.score, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum, analysis.suspiciousChars);
+                      const md = genMarkdownExport(analysis.parsed!, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum, analysis.suspiciousChars);
                       const blob = new Blob([md], { type: "text/markdown" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a"); a.href = url; a.download = `url-report-${Date.now()}.md`; a.click();

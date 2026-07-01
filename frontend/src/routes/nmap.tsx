@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { IntakeCard, SectionBar, Panel, Chip, SendToRow, KeyFields, StatusBar, ResultBanner, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
-import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { IntakeCard, SectionBar, Panel, Chip, SendToRow, StatusBar } from "@/components/soc/Workspace";
+import { takePendingArtifact } from "@/lib/handoff";
 import { runReconNmapScan } from "@/api/backend";
-import { Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check, Gauge, Network, FileCode as FileCode2, Cpu, Globe as Globe2, Send, Search, Crosshair, Download, Loader as Loader2, ShieldCheck, ShieldX, TriangleAlert as AlertTriangle, Activity, Database } from "lucide-react";
+import {
+  Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
+  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
 
@@ -25,60 +28,15 @@ const TIMINGS = [
 ] as const;
 type TimingKey = typeof TIMINGS[number]["k"];
 
-function hash(s: string) { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; } return h; }
-
-const HOT_PORTS = new Set([21,22,23,25,53,80,110,139,143,443,445,587,993,995,1433,1521,2049,3306,3389,5432,5900,6379,8080,8443,9200,11211,27017]);
-const PORT_SVC: Record<number,{svc:string; product:string; cpe:string}> = {
-  22:   { svc: "ssh",       product: "OpenSSH 8.9 (Ubuntu)",        cpe: "cpe:/a:openbsd:openssh:8.9" },
-  25:   { svc: "smtp",      product: "Postfix smtpd",                cpe: "cpe:/a:postfix:postfix" },
-  53:   { svc: "domain",    product: "ISC BIND 9.18",                cpe: "cpe:/a:isc:bind:9.18" },
-  80:   { svc: "http",      product: "nginx 1.24.0",                 cpe: "cpe:/a:nginx:nginx:1.24.0" },
-  110:  { svc: "pop3",      product: "Dovecot",                      cpe: "cpe:/a:dovecot:dovecot" },
-  143:  { svc: "imap",      product: "Dovecot",                      cpe: "cpe:/a:dovecot:dovecot" },
-  443:  { svc: "https",     product: "nginx 1.24.0 · TLS 1.3",       cpe: "cpe:/a:nginx:nginx:1.24.0" },
-  445:  { svc: "microsoft-ds", product: "Samba smbd 4.x",            cpe: "cpe:/a:samba:samba:4" },
-  3306: { svc: "mysql",     product: "MySQL 8.0.36",                 cpe: "cpe:/a:oracle:mysql:8.0.36" },
-  3389: { svc: "ms-wbt-server", product: "Microsoft Terminal Services", cpe: "cpe:/o:microsoft:windows" },
-  5432: { svc: "postgresql",product: "PostgreSQL 16.2",              cpe: "cpe:/a:postgresql:postgresql:16.2" },
-  6379: { svc: "redis",     product: "Redis 7.2",                    cpe: "cpe:/a:redislabs:redis:7.2" },
-  8080: { svc: "http-proxy",product: "Apache 2.4.58",                cpe: "cpe:/a:apache:http_server:2.4.58" },
-  8443: { svc: "https-alt", product: "Tomcat 10",                    cpe: "cpe:/a:apache:tomcat:10" },
-  9200: { svc: "elastic",   product: "Elasticsearch 8.13",           cpe: "cpe:/a:elastic:elasticsearch:8.13" },
-  27017:{ svc: "mongod",    product: "MongoDB 7.0",                  cpe: "cpe:/a:mongodb:mongodb:7.0" },
-};
-
-function synth(target: string) {
-  if (!target) return { rows: [] as any[], openCount: 0, osGuess: "—", confidence: 0 };
-  const h = hash(target);
-  const candidates = Array.from(HOT_PORTS).sort((a,b)=>a-b);
-  const rows = candidates.map((p, i) => {
-    const r = ((h >>> (i % 24)) ^ p * 2654435761) >>> 0;
-    const roll = r % 100;
-    const state = roll < 28 ? "open" : roll < 60 ? "filtered" : "closed";
-    const meta = PORT_SVC[p] ?? { svc: "unknown", product: "—", cpe: "—" };
-    return { port: p, proto: "tcp", state, ...meta };
-  });
-  const osPool = ["Linux 5.x · Ubuntu", "Linux 6.x · Debian", "Windows Server 2022", "FreeBSD 14", "Cisco IOS XE"];
-  return {
-    rows,
-    openCount: rows.filter((r) => r.state === "open").length,
-    osGuess: osPool[h % osPool.length],
-    confidence: 70 + (h % 25),
-  };
-}
-
-function genReport(target: string, mode: ModeKey, timing: TimingKey, data: ReturnType<typeof synth>, realOutput: string | null): string {
+function genReport(target: string, mode: ModeKey, timing: TimingKey, realOutput: string | null): string {
+  if (!realOutput) return "# Nmap Scan\n\nRun the scan to generate a report.";
   return [
     `# Nmap Scan Report`,
     `**Target:** ${target}`,
     `**Profile:** ${MODES[mode].label}`,
     `**Timing:** -${timing}`,
-    ...(realOutput ? [`**Source:** real scan output`] : [`**Open ports:** ${data.openCount}`, `**OS guess:** ${data.osGuess} (${data.confidence}%)`]),
-    "", ...(realOutput
-      ? ["## Raw Output", "```", realOutput.slice(0, 5000), "```"]
-      : ["## Open Ports",
-         ...data.rows.filter((r) => r.state === "open").map((r) => `- ${r.port}/${r.proto}  ${r.svc}  ${r.product}`)]
-    ),
+    `**Source:** live scan`,
+    "", "## Raw Output", "```", realOutput.slice(0, 5000), "```",
     "", "## Command",
     `nmap ${MODES[mode].args} -${timing} ${target}`,
   ].join("\n");
@@ -97,10 +55,6 @@ function NmapPage() {
 
   const has = target.trim().length > 0;
   const cmd = `nmap ${MODES[mode].args} -${timing} ${has ? target : "<target>"}`;
-  const data = useMemo(() => synth(target.trim()), [target]);
-  const open = data.rows.filter((r) => r.state === "open");
-  const filt = data.rows.filter((r) => r.state === "filtered");
-  const cls  = data.rows.filter((r) => r.state === "closed");
 
   const copy = (text: string, key: string) => {
     navigator.clipboard?.writeText(text);
@@ -127,22 +81,6 @@ function NmapPage() {
   }
 
   const scanResult = realResult?.scan as Record<string, unknown> | undefined;
-
-  const findings = useMemo(() => {
-    if (!has) return [] as { sev: "destructive" | "warning" | "info"; title: string; reason: string; action: string }[];
-    const f: typeof findings = [];
-    if (open.some((r) => r.port === 22)) f.push({ sev: "warning", title: "SSH (22) open", reason: "Remote admin service exposed. Check auth method and version.", action: "Verify key-based auth only, disable password login, audit failed attempts." });
-    if (open.some((r) => r.port === 3389)) f.push({ sev: "warning", title: "RDP (3389) open", reason: "Remote Desktop accessible. High-risk for brute force.", action: "Restrict via firewall, enable NLA, enforce strong passwords." });
-    if (open.some((r) => r.port === 3306)) f.push({ sev: "destructive", title: "MySQL (3306) exposed", reason: "Database port exposed — potential data exfiltration vector.", action: "Bind to localhost or restrict to trusted IPs." });
-    if (open.some((r) => r.port === 6379)) f.push({ sev: "destructive", title: "Redis (6379) exposed", reason: "In-memory data store accessible remotely — common ransomware vector.", action: "Bind to 127.0.0.1, require AUTH, disable CONFIG." });
-    if (open.some((r) => r.port === 9200)) f.push({ sev: "destructive", title: "Elasticsearch (9200) exposed", reason: "Data store exposed — cluster manipulation or data exfil risk.", action: "Require auth, restrict to trusted IPs." });
-    if (open.length >= 5) f.push({ sev: "warning", title: `${open.length} open ports detected`, reason: "Broad attack surface — each open port is a potential entry point.", action: "Audit and close unnecessary services; implement host-based firewall." });
-    if (open.length === 0 && filt.length > 0) f.push({ sev: "info", title: "No open ports — filtered responses", reason: "Firewall may be concealing live services.", action: "Consider timing -T4 or full port range to bypass rate limits." });
-    if (!f.length) f.push({ sev: "info", title: "Minimal exposure", reason: "No high-risk open ports detected.", action: "Re-scan with full port range and version detection for completeness." });
-    return f;
-  }, [open, filt, has]);
-
-  const score = Math.min(100, findings.reduce((s, f) => s + (f.sev === "destructive" ? 25 : f.sev === "warning" ? 12 : 0), 0));
 
   return (
     <PageShell
@@ -222,11 +160,8 @@ function NmapPage() {
         { label: "Profile",  value: MODES[mode].label },
         { label: "Timing",   value: `-${timing}` },
         { label: "Risk",     value: MODES[mode].risk, tone: MODES[mode].risk === "high" ? "warning" : MODES[mode].risk === "medium" ? "warning" : "success" },
-        { label: "Open",     value: has ? open.length : "—", tone: "success" },
-        { label: "Filtered", value: has ? filt.length : "—", tone: "warning" },
       ]} />
 
-      {/* Permission + Execute row */}
       {has && (
         <div className="flex flex-wrap items-center gap-3 rounded border border-border bg-card/40 px-4 py-3">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -246,7 +181,6 @@ function NmapPage() {
             {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
             {running ? "scanning…" : "Execute scan"}
           </button>
-          <span className="text-mono text-[10px] text-muted-foreground">Preview below is deterministic — real scan runs via backend nmap</span>
         </div>
       )}
 
@@ -267,64 +201,36 @@ function NmapPage() {
         </div>
       </Panel>
 
-      <SectionBar id="OT" label="Output" meta={realResult ? "live scan" : "awaiting scan execution"} />
+      <SectionBar id="OT" label="Output" meta={realResult ? "live scan" : "pre-scan"} />
 
       {!has ? (
-        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target and execute a scan to see results.</p></Panel>
-      ) : (
-        <div className="space-y-5">
-          {realResult && scanResult ? (
-            /* Real scan output */
-            <>
-              {scanResult.error ? (
-                <Panel>
-                  <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{(scanResult as any).error}</div>
-                </Panel>
-              ) : (
-                <>
-                  <VerdictBanner
-                    verdict={target}
-                    tone={score >= 50 ? "destructive" : score >= 25 ? "warning" : "success"}
-                    icon={score >= 50 ? ShieldX : score >= 25 ? AlertTriangle : ShieldCheck}
-                    score={`${score}/100`}
-                    details={[
-                      `${MODES[mode].label} · -${timing}`,
-                      "Scan completed successfully",
-                    ]}
-                  />
-                  <RiskScore score={score} label="Exposure Risk" confidence={score < 15 ? "low" : score < 40 ? "moderate" : score < 65 ? "high" : "very high"} tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"} />
-                  <Panel title="Scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"} collapsible>
-                    <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
-                      {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
-                    </pre>
-                  </Panel>
-                </>
-              )}
-            </>
+        <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to configure a scan.</p></Panel>
+      ) : running ? (
+        <Panel><p className="text-mono text-[11px] text-muted-foreground">Scanning… results will appear here.</p></Panel>
+      ) : realResult ? (
+        scanResult ? (
+          scanResult.error ? (
+            <Panel>
+              <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{(scanResult as any).error}</div>
+            </Panel>
           ) : (
-            /* No scan run yet - show placeholder */
-            <Panel title="Awaiting Scan" icon={Terminal}>
-              <div className="text-center py-8">
-                <Terminal className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-mono text-[12px] text-muted-foreground mb-2">
-                  Configure your scan above and click "Execute scan" to run a real nmap scan.
-                </p>
-                <p className="text-mono text-[10px] text-muted-foreground/70">
-                  You must confirm authorization before the scan will execute.
-                </p>
-              </div>
+            <Panel title="Scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"}>
+              <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
+                {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
+              </pre>
             </Panel>
-          )}
+          )
+        ) : null
+      ) : (
+        <Panel><p className="text-mono text-[11px] text-muted-foreground">Confirm permission and execute the scan to see results.</p></Panel>
+      )}
 
-          {/* Report - collapsible */}
-          {realResult && scanResult && (
-            <Panel title="Report" meta="markdown" collapsible defaultCollapsed actions={
-              <button onClick={() => { const md = genReport(target, mode, timing, data, (scanResult?.stdout as string) || null); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
-            }>
-              <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, data, (scanResult?.stdout as string) || null)}</pre>
-            </Panel>
-          )}
-        </div>
+      {realResult && scanResult && scanResult.stdout && (
+        <Panel title="Report" meta="markdown" actions={
+          <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+        }>
+          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, scanResult.stdout as string)}</pre>
+        </Panel>
       )}
 
       <SendToRow targets={[

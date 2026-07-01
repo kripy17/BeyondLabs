@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
-import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash, Activity, TriangleAlert as AlertTriangle, ShieldCheck } from "lucide-react";
+import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
+import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/case")({ component: CasePage });
 
@@ -46,8 +46,6 @@ function CasePage() {
   const evidenceCount = entries.filter((e) => e.kind === "evidence").length;
   const decisionCount = entries.filter((e) => e.kind === "decision").length;
   const actionCount = entries.filter((e) => e.kind === "action").length;
-  const score = Math.min(100, evidenceCount * 10 + decisionCount * 15 + actionCount * 20);
-
   const findings = useMemo(() => {
     const f: { sev: "destructive" | "warning" | "info"; title: string; reason: string; action: string }[] = [];
     if (tags.some((t) => /phish|malware|c2|ransom/i.test(t))) f.push({ sev: "destructive", title: "Malicious classification", reason: `Tags indicate malicious activity: ${tags.filter((t) => /phish|malware|c2|ransom/i.test(t)).join(", ")}`, action: "Escalate to incident lead; begin containment." });
@@ -65,48 +63,24 @@ function CasePage() {
       description="Append-only timeline that captures evidence, decisions, and actions in one place."
       crumbs={[{ label: "Case" }]}
     >
-      {/* Verdict Banner */}
-      <VerdictBanner
-        verdict={title || "New Case"}
-        tone={entries.length === 0 ? "success" : score >= 60 ? "destructive" : score >= 30 ? "warning" : "success"}
-        icon={entries.length === 0 ? ShieldCheck : score >= 60 ? AlertTriangle : ShieldCheck}
-        score={entries.length === 0 ? undefined : `${score}/100`}
-        details={[
-          entries.length === 0 ? "Start documenting your investigation below" : `tags: ${tags.join(", ") || "—"}`,
-          entries.length > 0 ? `${entries.length} entries · ${evidenceCount} evidence · ${actionCount} actions` : "",
-          entries.length > 0 ? (findings.find((f) => f.sev === "destructive")?.title ?? "") : "",
-        ].filter(Boolean)}
-      />
-
-      {/* Metrics */}
-      <MetricGrid
-        columns={4}
+      <ResultBanner
+        badge="case_open"
+        caseId={title.split(" ")[0]}
+        title={title}
+        subtitle={`tags: ${tags.join(", ") || "—"}`}
         metrics={[
-          { label: "Entries", value: entries.length, tone: "primary", icon: Notebook },
-          { label: "Evidence", value: evidenceCount, tone: evidenceCount > 0 ? "primary" : "default" },
-          { label: "Decisions", value: decisionCount, tone: decisionCount > 0 ? "warning" : "default" },
-          { label: "Actions", value: actionCount, tone: actionCount > 0 ? "success" : "default" },
-          { label: "Score", value: entries.length > 0 ? `${score}/100` : "—", tone: score >= 60 ? "destructive" : score >= 30 ? "warning" : "success", icon: Activity },
-          { label: "State", value: entries.length > 0 ? "active" : "new", tone: entries.length > 0 ? "warning" : "default" },
-          { label: "IPs", value: iocs.ips.length },
-          { label: "URLs", value: iocs.urls.length },
+          { label: "Entries", value: entries.length, tone: "primary" },
+          { label: "Evidence", value: evidenceCount },
+          { label: "Decisions", value: decisionCount, tone: "warning" },
+          { label: "Actions", value: actionCount, tone: "success" },
         ]}
       />
 
-      {entries.length > 0 && (
-        <RiskScore score={score} label="Case Intensity" confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 75 ? "high" : "very high"} tone={score < 30 ? "success" : score < 60 ? "warning" : "destructive"} />
-      )}
-
-      {/* Findings - only show if there are entries */}
-      {entries.length > 0 && findings.length > 0 && (
-        <CollapsibleSection id="FN" label="Case Assessment" meta={`${findings.length} item(s)`} icon={AlertTriangle}>
-          <div className="grid gap-3 md:grid-cols-2">
-            {findings.map((f, i) => (
-              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
-            ))}
-          </div>
-        </CollapsibleSection>
-      )}
+      <div className="grid gap-3 md:grid-cols-2">
+        {findings.map((f, i) => (
+          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Case assessment based on tags and entry distribution." />
+        ))}
+      </div>
 
       <SectionBar id="IN" label="Intake · new entry" />
       <Panel>
@@ -136,41 +110,31 @@ function CasePage() {
         )}
       </Panel>
 
-      {/* Case Metadata + IOCs side-by-side */}
-      <TwoColumnOutput
-        ratio="2:1"
-        left={
-          <Panel title="Case metadata">
-            <KeyFields items={[
-              { label: "Title", value: title, tone: "primary" },
-              { label: "Tags", value: tags.join(", ") },
-              { label: "Opened", value: "today 10:42" },
-              { label: "State", value: "active", tone: "warning" },
-            ]} />
-          </Panel>
-        }
-        right={
-          <Panel title="IOCs in case" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
-            <KeyFields items={[
-              { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
-              { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
-              { label: "Hashes", value: iocs.hashes.length ? iocs.hashes.join(", ") : "—" },
-            ]} />
-          </Panel>
-        }
-      />
+      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+        <Panel title="Case metadata">
+          <KeyFields items={[
+            { label: "Title", value: title, tone: "primary" },
+            { label: "Tags", value: tags.join(", ") },
+            { label: "Opened", value: "today 10:42" },
+            { label: "State", value: "active", tone: "warning" },
+          ]} />
+        </Panel>
+        <Panel title="IOCs in case" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
+          <KeyFields items={[
+            { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
+            { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
+            { label: "Hashes", value: iocs.hashes.length ? iocs.hashes.join(", ") : "—" },
+          ]} />
+        </Panel>
+      </div>
 
-      {/* IOC Inventory */}
-      <CollapsibleSection id="IO" label="IOC Inventory" meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} indicators`} icon={Database}>
-        <IocInventory groups={[
-          { kind: "IPv4", items: iocs.ips, tone: "warning" },
-          { kind: "URL", items: iocs.urls, tone: "warning" },
-          { kind: "Hash", items: iocs.hashes, tone: "warning" },
-        ]} onSendTo={() => {}} />
-      </CollapsibleSection>
+      <IocInventory groups={[
+        { kind: "IPv4", items: iocs.ips, tone: "warning" },
+        { kind: "URL", items: iocs.urls, tone: "warning" },
+        { kind: "Hash", items: iocs.hashes, tone: "warning" },
+      ]} onSendTo={() => {}} />
 
-      {/* Report */}
-      <Panel title="Report (markdown)" collapsible defaultCollapsed actions={
+      <Panel title="Report (markdown)" actions={
         <div className="flex items-center gap-1">
           <button onClick={() => navigator.clipboard.writeText(report)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
           <button onClick={() => { const blob = new Blob([report], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `case-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>

@@ -5,7 +5,7 @@ import { GROUPS, ALL_ITEMS, findItem, type WorkspaceItem } from "@/lib/workspace
 import { useRecents, clearRecents } from "@/lib/recents";
 import { usePrefs } from "@/lib/prefs";
 import { NumberTicker } from "@/components/magic/NumberTicker";
-import { Marquee } from "@/components/magic/Marquee";
+
 import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
 import { MetricGrid } from "@/components/soc/Workspace";
 import {
@@ -183,15 +183,6 @@ function CommandStrip() {
   const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const day  = now.toLocaleDateString([], { weekday: "short", month: "short", day: "2-digit" });
 
-  const signals = [
-    "spf=fail · dmarc=fail · BA-PH-72",
-    "sigma → ATT&CK T1566.001 mapped",
-    "url hxxps[:]//login.example-login[.]com flagged",
-    "nmap 10.0.0.0/24 · 14 hosts up",
-    "yara · zeus_variant matched 1 sample",
-    "ioc inventory · 23 artefacts",
-  ];
-
   return (
     <section className="relative overflow-hidden rounded-md border border-border bg-card/40">
       <div className="absolute inset-0 ba-hero-fx opacity-40" aria-hidden />
@@ -209,16 +200,6 @@ function CommandStrip() {
             no upload · no detonation
           </span>
         </div>
-      </div>
-      {/* Live signal marquee — demo feed */}
-      <div className="relative border-t border-border/50 bg-background/40">
-        <Marquee speed={45} className="py-1.5">
-          {signals.map((s, i) => (
-            <span key={i} className="mx-3 inline-flex items-center gap-1.5 text-mono text-[10.5px] text-muted-foreground">
-              <CircleDot className="h-2 w-2 text-primary/70" /> {s}
-            </span>
-          ))}
-        </Marquee>
       </div>
     </section>
   );

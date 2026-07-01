@@ -7,8 +7,9 @@ import { Zap, Eraser, CornerDownLeft } from "lucide-react";
  *
  * Provides:
  *  · Header strip: tool id chip, title, one-line purpose, state pill
- *  · Adaptive grid: "split" (40/60) for short-input tools,
- *                   "stack" (single column) for long-input tools
+ *  · Guided single-flow body: intake first, run controls, then output.
+ *    `layout="split"` is kept for backwards compatibility but no longer
+ *    renders a two-column split.
  *  · Sticky run bar with ⌘↵ run / ⌘. clear hotkeys
  *  · Per-tool output emphasis is left to children
  * ============================================================ */
@@ -94,22 +95,15 @@ export function ToolShell({
         </div>
       </header>
 
-      {/* Adaptive body */}
-      {layout === "split" ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-            {intake}
-            <RunBar canRun={canRun} onRun={onRun} onClear={onClear} runLabel={runLabel} />
-          </div>
-          <div className="min-w-0 space-y-4">{output}</div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {intake}
-          <RunBar canRun={canRun} onRun={onRun} onClear={onClear} runLabel={runLabel} sticky />
-          <div>{output}</div>
-        </div>
-      )}
+      {/* Intake-first flow */}
+      <div className={"space-y-4 " + (layout === "split" ? "ba-stagger" : "")}>
+        <section className="rounded-lg border border-border/70 bg-card/35 p-3 shadow-[0_18px_70px_-55px_var(--primary)] sm:p-4">
+          <div className="space-y-3">{intake}</div>
+        </section>
+        <RunBar canRun={canRun} onRun={onRun} onClear={onClear} runLabel={runLabel} sticky />
+        <div className="mx-auto h-7 w-px bg-gradient-to-b from-primary/50 via-border/70 to-transparent" aria-hidden />
+        <section className="min-w-0 space-y-4">{output}</section>
+      </div>
     </div>
   );
 }

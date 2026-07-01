@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, SendToRow, SectionBar, Panel, Chip,
-  EvidenceCard, RiskScore,
+  EvidenceCard,
 } from "@/components/soc/Workspace";
 import {
   Zap, Terminal, ArrowRight, Database, Mail, Link2,
@@ -379,12 +379,7 @@ function ParserPage() {
                 </li>
               ))}
             </ol>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
-              <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">try sample:</span>
-              {Object.entries(SAMPLES).map(([k, v]) => (
-                <button key={k} onClick={() => setInput(v.text)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-primary">{v.label}</button>
-              ))}
-            </div>
+
           </Panel>
         </div>
       ) : (
@@ -452,7 +447,6 @@ function ParserPage() {
 
           {/* Confidence + Signals */}
           <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <RiskScore score={result.conf.score} label="Confidence" confidence={result.conf.score >= 70 ? "High" : result.conf.score >= 40 ? "Medium" : "Low"} tone={result.conf.score >= 70 ? "success" : result.conf.score >= 40 ? "warning" : "destructive"} />
             <Panel title="Findings & Signals" icon={AlertTriangle} meta={`${result.signals.length} total`}>
               {result.signals.length === 0 ? (
                 <p className="text-mono text-[11px] text-muted-foreground">No signals generated for this artifact.</p>

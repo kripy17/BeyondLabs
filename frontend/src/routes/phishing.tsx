@@ -7,7 +7,7 @@ import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { safeAnalyzeUrl } from "@/api/utilities";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, Activity, FileText, Globe, Hash, Crosshair, Download, Key, AtSign, Bug, Network, FlaskConical, Info, RefreshCw } from "lucide-react";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Globe, Hash, Crosshair, Download, Key, AtSign, Bug, Network, FlaskConical, Info, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
 
@@ -235,7 +235,7 @@ function analyzeUrls(urls: string[]): { value: string; suspicious: boolean; badg
 function genMarkdown(input: string, data: any, iocs: any): string {
   const lines = [
     `# Phishing Triage Report`,
-    `**Verdict:** ${data.verdict} (${data.score}/100)`,
+    `**Verdict:** ${data.verdict}`,
     `**SPF:** ${data.spf}  **DKIM:** ${data.dkim}  **DMARC:** ${data.dmarc}`,
     "",
     "## Findings",
@@ -403,9 +403,10 @@ function PhishingPage() {
       { signal: "Sender TLD risk", weight: fromDomain && SENDER_TLDS.has(fromDomain.split(".").pop() || "") ? 10 : 0, state: "fail" as const },
       { signal: "Envelope mismatch", weight: hasLookalike ? 15 : 0, state: hasLookalike ? "fail" as const : "pass" as const },
     ];
-    const score = Math.min(100, breakdown.reduce((a, b) => a + b.weight, 0));
-    const verdict = score >= 60 ? "Likely Phishing" : score >= 30 ? "Suspicious" : "Inconclusive";
-    const tone = score >= 60 ? "destructive" as const : score >= 30 ? "warning" as const : "success" as const;
+    const destructiveCount = findings.filter((f) => f.sev === "destructive").length;
+    const warningCount = findings.filter((f) => f.sev === "warning").length;
+    const verdict = destructiveCount > 0 || (spf === "fail" && dmarc === "fail") ? "Likely Phishing" : warningCount > 0 || spf === "softfail" || dmarc === "softfail" ? "Suspicious" : "Inconclusive";
+    const tone = destructiveCount > 0 || (spf === "fail" && dmarc === "fail") ? "destructive" as const : warningCount > 0 ? "warning" as const : "success" as const;
 
     const mitre = [] as { id: string; name: string; source: string }[];
     const seen = new Set<string>();
@@ -416,7 +417,7 @@ function PhishingPage() {
     if (iocs.cve.length) addMitre("T1190", "Exploit Public-Facing Application", "ioc");
     if (iocs.attack.length) for (const a of iocs.attack) addMitre(a, "Technique referenced", "ioc");
 
-    return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, score, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine };
+    return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine };
   }, [committed, input]);
 
   const handoff = (kind: string, value: string, to: string) => {
@@ -508,12 +509,12 @@ function PhishingPage() {
 
               <ResultBanner
                 badge={data.tone === "destructive" ? "likely phishing" : data.tone === "warning" ? "suspicious" : "inconclusive"}
-                caseId={`BA-PH-${data.score.toString().padStart(2, "0")}`}
+                caseId={`BA-PH-${String(data.findings.length).padStart(2, "0")}`}
                 title={data.verdict}
                 subtitle="Authentication snapshot computed from the message's Authentication-Results header."
                 reasons={data.findings.slice(0, 3).map((f) => f.t)}
                 metrics={[
-                  { label: "Risk", value: `${data.score}/100`, tone: data.tone },
+                  { label: "Findings", value: data.findings.length, tone: data.findings.length > 0 ? "warning" : "success" },
                   { label: "SPF",   value: data.spf.toUpperCase(),   tone: data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : data.spf === "pass" ? "success" : "default" },
                   { label: "DKIM",  value: data.dkim.toUpperCase(),  tone: data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : data.dkim === "pass" ? "success" : "default" },
                   { label: "DMARC", value: data.dmarc.toUpperCase(), tone: data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : data.dmarc === "pass" ? "success" : "default" },
@@ -659,43 +660,7 @@ function PhishingPage() {
                 ))}
               </div>
 
-              {/* Scoring breakdown */}
-              <SectionBar id="TA" label="Technical · scoring breakdown" meta={`${data.score}/100 weighted`} />
-              <Panel icon={Activity} title="Signal weights" meta="how the risk score was assembled">
-                <div className="overflow-x-auto rounded border border-border/50">
-                  <table className="w-full text-mono text-[11.5px]">
-                    <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
-                      <tr>
-                        <th className="px-2 py-1 text-left">signal</th>
-                        <th className="px-2 py-1 text-left">state</th>
-                        <th className="px-2 py-1 text-left">contribution</th>
-                        <th className="px-2 py-1 text-left">share</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.breakdown.map((b, i) => {
-                        const pct = data.score > 0 ? Math.round((b.weight / data.score) * 100) : 0;
-                        const tone = b.state === "fail" ? "destructive" : b.state === "softfail" ? "warning" : b.weight === 0 ? "default" : "primary";
-                        return (
-                          <tr key={i} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "")}>
-                            <td className="px-2 py-1.5 text-foreground/90">{b.signal}</td>
-                            <td className="px-2 py-1.5"><Chip tone={tone as any}>{b.state}</Chip></td>
-                            <td className="px-2 py-1.5 text-foreground/90">+{b.weight}</td>
-                            <td className="px-2 py-1.5">
-                              <div className="flex items-center gap-2">
-                                <div className="h-1.5 w-24 overflow-hidden rounded bg-background/60">
-                                  <div className={"h-full " + (b.weight === 0 ? "bg-muted-foreground/30" : tone === "destructive" ? "bg-destructive/70" : tone === "warning" ? "bg-warning/70" : "bg-primary/70")} style={{ width: `${pct}%` }} />
-                                </div>
-                                <span className="text-muted-foreground">{pct}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Panel>
+
 
               {/* Raw panels */}
               <div className="grid gap-3 lg:grid-cols-2">
