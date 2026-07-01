@@ -5,7 +5,7 @@ import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, KeyFields, SectionBar, Panel, Empty, EvidenceCard, ResultBanner, SendToRow, Chip, IocInventory } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
-import { safeAnalyzeUrl } from "@/api/backend";
+import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, Network, FlaskConical } from "lucide-react";
@@ -312,6 +312,7 @@ function PhishingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>("");
   const [runs, setRuns] = useState(() => pendingRef.current ? 1 : 0);
+  const [apiResult, setApiResult] = useState<any>(null);
   const navigate = useNavigate();
   const has = input.trim().length > 0;
   const committed = runs > 0 && has;
@@ -330,6 +331,10 @@ function PhishingPage() {
 
   const data = useMemo(() => {
     if (!committed) return null;
+
+    const apiData = buildFromApi(apiResult, input, committed);
+    if (apiData) return apiData;
+
     const refanged = refang(input);
     const spf = detectAuth(input, "spf");
     const dkim = detectAuth(input, "dkim");
@@ -419,7 +424,7 @@ function PhishingPage() {
     if (iocs.attack.length) for (const a of iocs.attack) addMitre(a, "Technique referenced", "ioc");
 
     return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine };
-  }, [committed, input]);
+  }, [committed, input, apiResult]);
 
   const handoff = (kind: string, value: string, to: string) => {
     sendArtifact({ kind, value, source: "/phishing" });
@@ -433,6 +438,14 @@ function PhishingPage() {
     setRuns((r) => r + 1);
     setLoading("analysing");
     setNotice("");
+    try {
+      const body = extractBody(input);
+      const headers = extractHeaders(input);
+      const response = await analyzeFullEmail(headers, body, true);
+      setApiResult(response);
+    } catch {
+      setApiResult(null);
+    }
     try {
       const refanged = refang(input);
       const urls = Array.from(new Set(refanged.match(RX.URL) ?? [])).slice(0, 3);
@@ -457,7 +470,7 @@ function PhishingPage() {
     }
   };
 
-  const clear = () => { setInput(""); setRuns(0); setNotice(""); };
+  const clear = () => { setInput(""); setRuns(0); setNotice(""); setApiResult(null); };
 
   return (
     <PageShell
@@ -718,6 +731,98 @@ function PhishingPage() {
       />
     </PageShell>
   );
+}
+
+function buildFromApi(apiResult: any, input: string, committed: boolean) {
+  if (!apiResult || !committed) return null;
+  const refanged = refang(input);
+  const body = extractBody(input);
+  const headers = extractHeaders(input);
+
+  const ha = apiResult.header_analysis || {};
+  const ba = apiResult.body_analysis || {};
+  const bs = apiResult.body_signals || {};
+  const auth = ha.authentication || {};
+  const hdrs = ha.headers || {};
+  const doms = ha.domains || {};
+
+  const spf: AuthState = auth.spf === "pass" ? "pass" : auth.spf === "softfail" ? "softfail" : auth.spf === "fail" || auth.spf === "not_found" ? "fail" : "none";
+  const dkim: AuthState = auth.dkim === "pass" ? "pass" : auth.dkim === "softfail" ? "softfail" : auth.dkim === "fail" || auth.dkim === "not_found" ? "fail" : "none";
+  const dmarc: AuthState = auth.dmarc === "pass" ? "pass" : auth.dmarc === "softfail" ? "softfail" : auth.dmarc === "fail" || auth.dmarc === "not_found" ? "fail" : "none";
+
+  const combined: any[] = apiResult.combined_findings || [];
+  const findings = combined.map((f: any) => ({
+    sev: f.severity === "high" ? "destructive" as const : f.severity === "medium" ? "warning" as const : "info" as const,
+    t: f.title,
+    r: f.description || f.detail,
+    a: f.recommendation || f.action,
+  }));
+
+  const destructiveCount = findings.filter((f: any) => f.sev === "destructive").length;
+  const warningCount = findings.filter((f: any) => f.sev === "warning").length;
+  const hasCriticalAuth = spf === "fail" && dmarc === "fail";
+  const verdict = destructiveCount > 0 || hasCriticalAuth ? "Likely Phishing" : warningCount > 0 ? "Suspicious" : "Inconclusive";
+  const tone = destructiveCount > 0 || hasCriticalAuth ? "destructive" as const : warningCount > 0 ? "warning" as const : "success" as const;
+
+  const fromLine = hdrs.from || (input.match(/From:\s*(.+)/i)?.[1] ?? "").trim();
+  const replyLine = hdrs.reply_to || (input.match(/Reply-To:\s*(.+)/i)?.[1] ?? "").trim();
+  const pathLine = hdrs.return_path || (input.match(/Return-Path:\s*(.+)/i)?.[1] ?? "").trim();
+
+  const iocs = apiResult.iocs || {};
+  const urlAnalysis = (iocs.urls || []).map((u: string) => {
+    const badges: { label: string; tone: "warning" | "destructive" | "info" | "success" }[] = [];
+    try {
+      const parsed = new URL(refang(u));
+      const host = parsed.hostname;
+      const tld = host.split(".").pop()?.toLowerCase();
+      if (tld && SUSPICIOUS_TLDS.has(tld)) badges.push({ label: "suspicious TLD", tone: "warning" });
+      if (SHORTENERS.has(host.replace(/^www\./, ""))) badges.push({ label: "shortener", tone: "warning" });
+      if (parsed.username || parsed.password) badges.push({ label: "embedded creds", tone: "destructive" });
+    } catch {}
+    return { value: u, suspicious: badges.length > 0, badges };
+  });
+
+  const hasAttachment = detectAttachments(input);
+  const envelopeFlags = detectLookalike(fromLine, replyLine, pathLine);
+
+  const mitre: { id: string; name: string; source: string }[] = [];
+  const mitreSeen = new Set<string>();
+  for (const f of combined) {
+    const mid = f.mitre_id;
+    if (mid && !mitreSeen.has(mid)) {
+      mitreSeen.add(mid);
+      mitre.push({ id: mid, name: f.mitre_name || mid, source: f.source || "analysis" });
+    }
+  }
+
+  return {
+    spf, dkim, dmarc,
+    replyMismatch: !!(doms.from_domain && doms.reply_to_domain && doms.from_domain !== doms.reply_to_domain),
+    defangedUrl: /hxxps?:\/\/|\[\.\]/i.test(input),
+    urgency: /urgent|immediately|within \d+h|suspend|today|asap|before my flight/i.test(input),
+    findings, verdict, tone,
+    breakdown: [],
+    body, headers,
+    hasForm: (bs.forms_detected || []).length > 0 || /<form/i.test(body),
+    hasPasswordField: (bs.forms_detected || []).some((f: string) => /password/i.test(f)) || /<input.*type=["']?password["' ]/i.test(body),
+    hasHtmlForm: bs.has_html || /<form\s/i.test(body),
+    hasAttachment, envelopeFlags,
+    hasLookalike: envelopeFlags.length > 0,
+    iocs: {
+      urls: iocs.urls || [],
+      domains: iocs.domains || [],
+      ips: iocs.ipv4 || [],
+      hashes: [...(iocs.hashes?.md5 || []), ...(iocs.hashes?.sha256 || [])],
+      emails: iocs.emails || [],
+      cve: iocs.cves || [],
+      attack: [],
+    },
+    secrets: scanSecrets(body || input),
+    urlAnalysis,
+    mitre,
+    fromDomain: doms.from_domain,
+    fromLine, replyLine, pathLine,
+  };
 }
 
 function genBodySignals(body: string, iocs: any): { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[] {

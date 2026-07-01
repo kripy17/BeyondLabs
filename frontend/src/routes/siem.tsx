@@ -178,113 +178,7 @@ interface Finding {
   title: string; reason: string; action: string;
 }
 
-interface MitreMap {
-  id: string; name: string;
-}
-
-const SIG_MITRE: Record<string, MitreMap> = {
-  "sshd Failed password": { id: "T1110", name: "Brute Force" },
-  "sshd Accepted password": { id: "T1078", name: "Valid Accounts" },
-  "SQLi": { id: "T1190", name: "Exploit Public-Facing Application" },
-  "LFI attempt": { id: "T1190", name: "Exploit Public-Facing Application" },
-  "RCE probe": { id: "T1190", name: "Exploit Public-Facing Application" },
-  "Outbound": { id: "T1572", name: "Protocol Tunneling" },
-  "Beacon": { id: "T1071", name: "Application Layer Protocol" },
-  "Data exfil": { id: "T1048", name: "Exfiltration Over Alternative Protocol" },
-  "Failed MFA": { id: "T1556", name: "Modify Authentication Process" },
-  "DNS exfil": { id: "T1048", name: "Exfiltration Over Alternative Protocol" },
-  "reverse shell": { id: "T1059", name: "Command and Scripting Interpreter" },
-  "HTTPS outbound": { id: "T1071.001", name: "Web Protocols" },
-  "DNS query": { id: "T1071.004", name: "DNS" },
-};
-
-const TACTIC_FROM_ID: Record<string, string> = {
-  T1110: "Credential Access", T1078: "Defense Evasion", T1190: "Initial Access",
-  T1572: "Command and Control", T1071: "Command and Control", T1048: "Exfiltration",
-  T1556: "Credential Access", T1059: "Execution",
-};
-
-function deriveFindings(events: Event[]): { findings: Finding[]; mitre: MitreMap[]; tacticCoverage: { tactic: string; techniques: string[]; count: number }[]; iocs: { kind: string; items: string[]; tone?: "warning" | "destructive" | "info" | "primary" }[] } {
-  const toArr = (v: Iterable<string>) => Array.from(v);
-  const findings: Finding[] = [];
-  const mitreSet = new Map<string, MitreMap>();
-  const iocsMap = new Map<string, { kind: string; items: Set<string>; tone?: "warning" | "destructive" | "info" | "primary" }>();
-
-  const failedSsh = events.filter((e) => e.sig.includes("Failed password"));
-  const srcCounts = new Map<string, number>();
-  for (const e of failedSsh) srcCounts.set(e.src, (srcCounts.get(e.src) || 0) + 1);
-  for (const [src, count] of srcCounts) {
-    if (count >= 3) findings.push({ sev: "warning", title: `SSH brute force from ${src}`, reason: `${count} failed attempts — credential stuffing or password spray.`, action: "Block source IP at perimeter; review auth logs for successful logins from the same source." });
-    if (count >= 5) findings.push({ sev: "destructive", title: `Sustained SSH brute force from ${src}`, reason: `${count} failed attempts exceed threshold — active brute force in progress.`, action: "Immediate block; correlate with IDS/IPS hits from same source." });
-  }
-
-  const accepted = events.filter((e) => e.sig.includes("Accepted password"));
-  for (const e of accepted) {
-    findings.push({ sev: "destructive", title: `External auth success — ${e.src} logged in as ${e.user}`, reason: "External IP authenticated after failed attempts — credential compromise or successful brute force.", action: "Force password reset for affected account; review lateral movement." });
-  }
-
-  const sqli = events.filter((e) => e.sig.includes("SQLi") || e.sig.includes("LFI") || e.sig.includes("RCE"));
-  if (sqli.length >= 2) findings.push({ sev: "destructive", title: `Web application attack — ${sqli.length} SQLi/LFI/RCE hits`, reason: "Multiple web exploit probes detected from external source — active scanning or targeted exploitation.", action: "Review WAF logs; patch vulnerable endpoints; block source IP." });
-
-  const outbound = events.filter((e) => e.sig.includes("Outbound") || e.sig.includes("reverse shell"));
-  if (outbound.length >= 2) findings.push({ sev: "destructive", title: "Reverse shell / tunnel detected", reason: "Internal host initiated outbound connection on non-standard port — possible backdoor or C2 tunnel.", action: "Isolate host; capture memory/network artifacts; incident response escalation." });
-
-  const beacons = events.filter((e) => e.sig.includes("Beacon") || e.sig.includes("beacon"));
-  if (beacons.length) findings.push({ sev: "warning", title: "C2 beacon cadence detected", reason: "Periodic outbound connections at regular intervals from internal host — C2 beacon pattern.", action: "Review DNS/Proxy logs for associated domains; check for data staging on host." });
-
-  const exfil = events.filter((e) => e.sig.includes("exfil") || e.sig.includes("Exfil"));
-  if (exfil.length) findings.push({ sev: "destructive", title: "Data exfiltration pattern", reason: "DNS or HTTPS traffic consistent with exfiltration behaviour from compromised host.", action: "Capture full packet capture; identify data types accessed by compromised account." });
-
-  const mfaFails = events.filter((e) => e.sig.includes("Failed MFA"));
-  if (mfaFails.length >= 2) findings.push({ sev: "warning", title: `MFA failure burst — ${mfaFails.length} events`, reason: "Multiple MFA failures indicate credential compromise or MFA fatigue attack.", action: "Force re-authentication; check device trust; alert user." });
-
-  const brute = events.filter((e) => e.sig.includes("brute") || e.sig.includes("Brute"));
-  if (brute.length >= 3) findings.push({ sev: "warning", title: "Web login brute force", reason: `${brute.length} login attempts against /admin endpoint — credential stuffing.`, action: "Rate-limit /admin; enforce CAPTCHA after 3 failures; block source IP." });
-
-  if (!findings.length) findings.push({ sev: "info", title: "No notable findings", reason: "Event stream does not match any correlation rules.", action: "Widen time range or adjust filter chips." });
-
-  const sigMitre = new Map<string, string[]>();
-  for (const e of events) {
-    for (const [keyword, m] of Object.entries(SIG_MITRE)) {
-      if (e.sig.includes(keyword)) {
-        mitreSet.set(m.id, m);
-        const existing = sigMitre.get(e.sig) ?? [];
-        if (!existing.includes(m.id)) existing.push(m.id);
-        sigMitre.set(e.sig, existing);
-        break;
-      }
-    }
-  }
-
-  const tacticMap = new Map<string, { techniques: Set<string>; count: number }>();
-  for (const m of mitreSet.values()) {
-    const tactic = TACTIC_FROM_ID[m.id] ?? "Other";
-    if (!tacticMap.has(tactic)) tacticMap.set(tactic, { techniques: new Set(), count: 0 });
-    const entry = tacticMap.get(tactic)!;
-    entry.techniques.add(m.id);
-    entry.count++;
-  }
-  const tacticCoverage = Array.from(tacticMap.entries())
-    .map(([tactic, data]) => ({ tactic, techniques: Array.from(data.techniques), count: data.count }))
-    .sort((a, b) => b.count - a.count);
-
-  const allIps = new Set<string>();
-  const allUsers = new Set<string>();
-  const allSigs = new Set<string>();
-  for (const e of events) {
-    if (e.src && e.src !== "—") allIps.add(e.src);
-    if (e.dst && e.dst !== "—") allIps.add(e.dst);
-    if (e.user && e.user !== "-") allUsers.add(e.user);
-    if (e.sig && e.sig !== "—") allSigs.add(e.sig);
-  }
-  if (allIps.size) iocsMap.set("IPs", { kind: "IPs", items: allIps, tone: "warning" });
-  if (allUsers.size) iocsMap.set("Users", { kind: "Users", items: allUsers, tone: "info" });
-  if (allSigs.size) iocsMap.set("Signatures", { kind: "Signatures", items: allSigs });
-
-  return { findings, mitre: Array.from(mitreSet.values()), tacticCoverage, iocs: Array.from(iocsMap.values()).map((g) => ({ ...g, items: toArr(g.items) })) };
-}
-
-function genMarkdownReport(filtered: Event[], findings: Finding[], mitre: MitreMap[]): string {
+function genMarkdownReport(filtered: Event[], findings: Finding[], mitre: string[]): string {
   const lines = [
     `# SIEM Event Report`,
     `**Events:** ${filtered.length}`,
@@ -293,7 +187,7 @@ function genMarkdownReport(filtered: Event[], findings: Finding[], mitre: MitreM
     "## Findings",
     ...findings.map((f) => `- [${f.sev.toUpperCase()}] ${f.title} — ${f.reason}`),
   ];
-  if (mitre.length) lines.push("", "## MITRE ATT&CK", ...mitre.map((m) => `- ${m.id}: ${m.name}`));
+  if (mitre.length) lines.push("", "## MITRE ATT&CK", ...mitre.map((m) => `- ${m}`));
   const highSev = filtered.filter((e) => e.sev === "high");
   if (highSev.length) {
     lines.push("", "## High-Severity Events", ...highSev.map((e) => `- ${e.ts} | ${e.src}→${e.dst} | ${e.user} | ${e.sig}`));
@@ -302,42 +196,52 @@ function genMarkdownReport(filtered: Event[], findings: Finding[], mitre: MitreM
   return lines.join("\n");
 }
 
-function generateSiemNarrative(filtered: Event[], events: Event[], findings: Finding[]): string {
-  if (!events.length) return "No data to summarize.";
-  const highCount = filtered.filter((e) => e.sev === "high").length;
-  const uniqueSrcs = new Set(events.map((e) => e.src).filter(Boolean)).size;
-  const uniqueSigs = new Set(events.map((e) => e.sig).filter(Boolean)).size;
-  const times = filtered.map((e) => e.ts).filter(Boolean);
-  const timeRange = times.length ? `${times[0]} → ${times[times.length - 1]}` : "N/A";
+const TACTIC_MAP: Record<string, string> = {
+  T1110: "Credential Access", T1078: "Defense Evasion", T1190: "Initial Access",
+  T1572: "Command and Control", T1071: "Command and Control", T1048: "Exfiltration",
+  T1556: "Credential Access", T1059: "Execution", T1204: "Execution",
+  T1021: "Lateral Movement", T1595: "Reconnaissance", T1592: "Reconnaissance",
+};
+
+const SEV_MAP: Record<string, "destructive" | "warning" | "info"> = {
+  critical: "destructive", high: "destructive",
+  medium: "warning", low: "info", info: "info",
+};
+
+function detectionsToFindings(detections: any[]): Finding[] {
+  return detections.map((d) => ({
+    sev: SEV_MAP[d.severity] ?? "info",
+    title: d.title,
+    reason: d.detail || d.why_it_matters,
+    action: d.recommendation || d.next_check,
+  }));
+}
+
+function buildMetricsNarrative(metrics: any, events: Event[], findings: Finding[]): string {
+  if (!metrics) return "No analysis data available.";
   const lines = [
     "## SIEM Dataset Summary",
     "",
-    `**Time Range:** ${timeRange}`,
-    `**Total Events:** ${events.length}`,
-    `**Visible Events:** ${filtered.length}`,
-    `**Unique Sources:** ${uniqueSrcs}`,
-    `**Signature Types:** ${uniqueSigs}`,
-    `**High-Severity Events:** ${highCount}`,
-    `**Detections Generated:** ${findings.length}`,
+    `**Total Events:** ${metrics.total_events ?? 0}`,
+    `**Detections Generated:** ${metrics.total_detections ?? 0}`,
+    ...(metrics.top_source_ips?.length ? [`**Top Source IP:** ${metrics.top_source_ips[0]?.[0] ?? "—"} (${metrics.top_source_ips[0]?.[1] ?? 0} events)`] : []),
+    ...(metrics.top_users?.length ? [`**Top User:** ${metrics.top_users[0]?.[0] ?? "—"}`] : []),
+    ...(metrics.top_hosts?.length ? [`**Top Host:** ${metrics.top_hosts[0]?.[0] ?? "—"}`] : []),
+    "",
+    "### Detection Findings",
+    "",
+    ...findings.slice(0, 8).map((d, i) => `${i + 1}. **${d.sev.toUpperCase()}** ${d.title} — ${d.reason}`),
+    "",
+    "### Analyst Notes",
     "",
   ];
-  if (findings.length) {
-    lines.push("### Detection Findings", "");
-    findings.slice(0, 8).forEach((d, i) => {
-      lines.push(`${i + 1}. **${d.sev.toUpperCase()}** ${d.title} — ${d.reason}`);
-    });
-    lines.push("");
-  }
-  lines.push("### Analyst Notes", "");
+  const highCount = events.filter((e) => e.sev === "high").length;
   if (highCount >= 3) {
-    lines.push("**Alert:** High concentration of high-severity events warrants immediate review. Correlate sources and timelines for incident declaration.");
+    lines.push("**Alert:** High concentration of high-severity events warrants immediate review.");
   } else if (highCount >= 1) {
-    lines.push("**Note:** Isolated high-severity events present. Validate against surrounding context before escalation.");
+    lines.push("**Note:** Isolated high-severity events present. Validate before escalation.");
   } else {
-    lines.push("**Note:** No high-severity events in this dataset. Proceed with standard triage workflow.");
-  }
-  if (uniqueSrcs <= 2 && events.length > 10) {
-    lines.push("**Observation:** Low source diversity suggests targeted activity from a small number of hosts or IPs.");
+    lines.push("**Note:** No high-severity events. Proceed with standard triage workflow.");
   }
   return lines.join("\n");
 }
@@ -360,6 +264,9 @@ function SiemPage() {
   const [range, setRange] = useState<Range>(() => loadPersist<Range>(LOCALSTORE_RANGE, "all"));
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
   const [apiEvents, setApiEvents] = useState<Event[]>([]);
+  const [apiDetections, setApiDetections] = useState<any[]>([]);
+  const [apiMetrics, setApiMetrics] = useState<any>(null);
+  const [apiIocs, setApiIocs] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
@@ -377,13 +284,19 @@ function SiemPage() {
     if (!text.trim()) return;
     setLoading(true);
     try {
-      const result = await analyzeSiemText(text);
-      const events = ((result as any).events || []).map(backendToEvent);
+      const result: any = await analyzeSiemText(text);
+      const events = (result.events || []).map(backendToEvent);
       setApiEvents(events);
-      flash(`Ingested ${events.length} events via backend`);
+      setApiDetections(result.detections || []);
+      setApiMetrics(result.metrics || null);
+      setApiIocs(result.extracted_iocs || null);
+      flash(`Ingested ${events.length} events, ${(result.detections || []).length} detections`);
     } catch {
       flash("Backend unavailable — parsed locally");
       setApiEvents(parsePastedEvents(text, 0));
+      setApiDetections([]);
+      setApiMetrics(null);
+      setApiIocs(null);
     } finally {
       setLoading(false);
     }
@@ -416,7 +329,51 @@ function SiemPage() {
 
   const has = filtered.length > 0;
 
-  const { findings, mitre, tacticCoverage, iocs } = useMemo(() => deriveFindings(filtered), [filtered]);
+  const findings = useMemo(() => detectionsToFindings(apiDetections), [apiDetections]);
+
+  const mitre = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of apiDetections) {
+      for (const m of d.mitre_candidates || []) set.add(m);
+    }
+    return Array.from(set);
+  }, [apiDetections]);
+
+  const tacticCoverage = useMemo(() => {
+    const map = new Map<string, { techniques: Set<string>; count: number }>();
+    for (const m of mitre) {
+      const [id] = m.split(" ");
+      const tactic = TACTIC_MAP[id] ?? "Other";
+      if (!map.has(tactic)) map.set(tactic, { techniques: new Set(), count: 0 });
+      const entry = map.get(tactic)!;
+      entry.techniques.add(id);
+      entry.count++;
+    }
+    return Array.from(map.entries())
+      .map(([tactic, data]) => ({ tactic, techniques: Array.from(data.techniques), count: data.count }))
+      .sort((a, b) => b.count - a.count);
+  }, [mitre]);
+
+  const iocs = useMemo(() => {
+    const groups: { kind: string; items: string[]; tone?: "warning" | "destructive" | "info" | "primary" }[] = [];
+    if (apiIocs?.ips?.length) groups.push({ kind: "IPs", items: apiIocs.ips, tone: "warning" });
+    if (apiIocs?.urls?.length) groups.push({ kind: "URLs", items: apiIocs.urls, tone: "warning" });
+    if (apiIocs?.emails?.length) groups.push({ kind: "Emails", items: apiIocs.emails, tone: "info" });
+    if (apiIocs?.domains?.length) groups.push({ kind: "Domains", items: apiIocs.domains, tone: "info" });
+    if (!groups.length) {
+      const allIps = new Set<string>(), allUsers = new Set<string>(), allSigs = new Set<string>();
+      for (const e of filtered) {
+        if (e.src && e.src !== "\u2014") allIps.add(e.src);
+        if (e.dst && e.dst !== "\u2014") allIps.add(e.dst);
+        if (e.user && e.user !== "-") allUsers.add(e.user);
+        if (e.sig && e.sig !== "\u2014") allSigs.add(e.sig);
+      }
+      if (allIps.size) groups.push({ kind: "IPs", items: Array.from(allIps), tone: "warning" });
+      if (allUsers.size) groups.push({ kind: "Users", items: Array.from(allUsers), tone: "info" });
+      if (allSigs.size) groups.push({ kind: "Signatures", items: Array.from(allSigs) });
+    }
+    return groups;
+  }, [apiIocs, filtered]);
 
   const histo = useMemo(() => {
     const bins = new Map<number, { min: number; high: number; med: number; low: number }>();
@@ -456,7 +413,7 @@ function SiemPage() {
   const highCount = filtered.filter((e) => e.sev === "high").length;
   const fieldTopSrc = fieldSummary.find((f) => f.field === "src")?.top[0]?.[0] ?? "—";
 
-  const narrative = useMemo(() => generateSiemNarrative(filtered, activeEvents, findings), [filtered, activeEvents, findings]);
+  const narrative = useMemo(() => buildMetricsNarrative(apiMetrics, activeEvents, findings), [apiMetrics, activeEvents, findings]);
 
   const handleSendTo = (page: string) => {
     sendArtifactClick(page, filtered.slice(0, 25).map((r) => JSON.stringify(r)).join("\n"));
@@ -765,11 +722,7 @@ function SiemPage() {
       {/* IOC Inventory */}
       {iocs.length > 0 && (
         <IocInventory
-          groups={iocs.map((g) => ({
-            kind: g.kind,
-            items: Array.from(g.items),
-            tone: g.tone,
-          }))}
+          groups={iocs}
           onSendTo={() => {}}
         />
       )}

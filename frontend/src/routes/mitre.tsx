@@ -1,64 +1,114 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
 type Cov = "none" | "partial" | "full";
-type Technique = { id: string; name: string; cov: Cov };
+type Technique = { id: string; name: string };
 type Tactic = { id: string; name: string; techniques: Technique[] };
 const TACTICS: Tactic[] = [
-  { id: "TA0043", name: "Recon",             techniques: [{ id: "T1595",     name: "Active Scanning",          cov: "none" }, { id: "T1589", name: "Gather Victim Identity",      cov: "none" }] },
-  { id: "TA0042", name: "Resource Dev",      techniques: [{ id: "T1583",     name: "Acquire Infrastructure",   cov: "none" }] },
-  { id: "TA0001", name: "Initial Access",    techniques: [{ id: "T1566",     name: "Phishing",                 cov: "none" }, { id: "T1190", name: "Exploit Public-Facing",       cov: "none" }] },
-  { id: "TA0002", name: "Execution",         techniques: [{ id: "T1059.001", name: "PowerShell",               cov: "none" }, { id: "T1059.003", name: "Windows Cmd",             cov: "none" }, { id: "T1204", name: "User Execution", cov: "none" }] },
-  { id: "TA0003", name: "Persistence",       techniques: [{ id: "T1547",     name: "Boot/Logon Autostart",     cov: "none" }, { id: "T1136", name: "Create Account",           cov: "none" }] },
-  { id: "TA0004", name: "Privilege Esc",     techniques: [{ id: "T1068",     name: "Exploit for Priv Esc",     cov: "none" }, { id: "T1055", name: "Process Injection",          cov: "none" }] },
-  { id: "TA0005", name: "Defense Evasion",   techniques: [{ id: "T1027",     name: "Obfuscated Files",         cov: "none" }, { id: "T1070", name: "Indicator Removal",       cov: "none" }] },
-  { id: "TA0006", name: "Credential Access", techniques: [{ id: "T1110",     name: "Brute Force",              cov: "none" }, { id: "T1003", name: "OS Credential Dumping",      cov: "none" }] },
-  { id: "TA0007", name: "Discovery",         techniques: [{ id: "T1018",     name: "Remote System Discovery",  cov: "none" }] },
-  { id: "TA0011", name: "C2",                techniques: [{ id: "T1071",     name: "Application Layer Protocol", cov: "none" }, { id: "T1095", name: "Non-App Layer",         cov: "none" }] },
+  { id: "TA0043", name: "Recon",             techniques: [{ id: "T1595",     name: "Active Scanning" },          { id: "T1589", name: "Gather Victim Identity" }] },
+  { id: "TA0042", name: "Resource Dev",      techniques: [{ id: "T1583",     name: "Acquire Infrastructure" }] },
+  { id: "TA0001", name: "Initial Access",    techniques: [{ id: "T1566",     name: "Phishing" },                 { id: "T1190", name: "Exploit Public-Facing Application" }] },
+  { id: "TA0002", name: "Execution",         techniques: [{ id: "T1059.001", name: "PowerShell" },               { id: "T1059.003", name: "Windows Command Shell" }, { id: "T1204", name: "User Execution" }] },
+  { id: "TA0003", name: "Persistence",       techniques: [{ id: "T1547",     name: "Boot or Logon Autostart" }, { id: "T1136", name: "Create Account" }] },
+  { id: "TA0004", name: "Privilege Escalation", techniques: [{ id: "T1068",  name: "Exploitation for Privilege Escalation" }, { id: "T1055", name: "Process Injection" }] },
+  { id: "TA0005", name: "Defense Evasion",   techniques: [{ id: "T1027",     name: "Obfuscated Files or Information" }, { id: "T1070", name: "Indicator Removal" }] },
+  { id: "TA0006", name: "Credential Access", techniques: [{ id: "T1110",     name: "Brute Force" },              { id: "T1003", name: "OS Credential Dumping" }] },
+  { id: "TA0007", name: "Discovery",         techniques: [{ id: "T1018",     name: "Remote System Discovery" }] },
+  { id: "TA0008", name: "Lateral Movement",  techniques: [{ id: "T1021",     name: "Remote Services" }] },
+  { id: "TA0011", name: "C2",                techniques: [{ id: "T1071",     name: "Application Layer Protocol" }, { id: "T1573", name: "Encrypted Channel" }] },
+  { id: "TA0010", name: "Exfiltration",      techniques: [{ id: "T1041",     name: "Exfiltration Over C2 Channel" }] },
 ];
 
+const STORAGE_KEY = "beyondarch-mitre-coverage";
+
 const tone: Record<Cov, "default" | "warning" | "success"> = { none: "default", partial: "warning", full: "success" };
-const cell: Record<Cov, string> = { none: "border-border/50 bg-background/30 text-muted-foreground", partial: "border-warning/40 bg-warning/10 text-warning", full: "border-success/40 bg-success/15 text-success" };
+const cell: Record<Cov, string> = {
+  none:    "border-border/50 bg-background/30 text-muted-foreground hover:border-warning/30",
+  partial: "border-warning/40 bg-warning/10 text-warning hover:border-warning/60",
+  full:    "border-success/40 bg-success/15 text-success hover:border-success/60",
+};
+
+function loadCoverage(): Record<string, Cov> {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  } catch { return {}; }
+}
+
+function saveCoverage(map: Record<string, Cov>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+}
+
+function nextCov(c: Cov): Cov {
+  if (c === "none") return "partial";
+  if (c === "partial") return "full";
+  return "none";
+}
 
 function MitrePage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<Cov | "all">("all");
-  const [selected, setSelected] = useState<{ tactic: Tactic; tech: Technique } | null>(null);
+  const [selected, setSelected] = useState<{ tactic: Tactic; tech: Technique; cov: Cov } | null>(null);
+  const [cov, setCov] = useState<Record<string, Cov>>(loadCoverage);
+
+  const cycleCov = useCallback((tacticId: string, techId: string) => {
+    setCov((prev) => {
+      const key = `${tacticId}::${techId}`;
+      const next = { ...prev, [key]: nextCov(prev[key] || "none") };
+      saveCoverage(next);
+      return next;
+    });
+  }, []);
+
+  const resetAll = useCallback(() => {
+    setCov({});
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const getTechCov = useCallback((tacticId: string, techId: string): Cov => {
+    return cov[`${tacticId}::${techId}`] || "none";
+  }, [cov]);
 
   const stats = useMemo(() => {
     const all = TACTICS.flatMap((t) => t.techniques);
-    return { total: all.length, full: all.filter((t) => t.cov === "full").length, partial: all.filter((t) => t.cov === "partial").length, none: all.filter((t) => t.cov === "none").length };
-  }, []);
+    const n = all.filter((t) => getTechCov(t.id, t.id) === "none").length;
+    const p = all.filter((t) => getTechCov(t.id, t.id) === "partial").length;
+    const f = all.filter((t) => getTechCov(t.id, t.id) === "full").length;
+    return { total: all.length, full: f, partial: p, none: n };
+  }, [getTechCov]);
+
   const pct = Math.round(((stats.full + stats.partial * 0.5) / stats.total) * 100);
 
   const tacticPct = (t: Tactic) => {
     const total = t.techniques.length;
-    const score = t.techniques.reduce((s, x) => s + (x.cov === "full" ? 1 : x.cov === "partial" ? 0.5 : 0), 0);
+    const score = t.techniques.reduce((s, x) => {
+      const c = getTechCov(t.id, x.id);
+      return s + (c === "full" ? 1 : c === "partial" ? 0.5 : 0);
+    }, 0);
     return total ? score / total : 0;
   };
 
   const gapFindings = useMemo(() => {
     const f: { sev: "destructive" | "warning" | "info"; title: string; reason: string; action: string }[] = [];
-    const gaps = TACTICS.flatMap((t) => t.techniques.filter((x) => x.cov === "none"));
-    const partials = TACTICS.flatMap((t) => t.techniques.filter((x) => x.cov === "partial"));
-    if (gaps.length) f.push({ sev: "destructive", title: `${gaps.length} techniques have no coverage`, reason: `Gaps: ${gaps.map((x) => x.id).join(", ")}`, action: "Prioritise detection sprints for uncovered techniques." });
-    if (partials.length) f.push({ sev: "warning", title: `${partials.length} techniques have partial coverage`, reason: `Partial: ${partials.map((x) => x.id).join(", ")}`, action: "Flesh out detection logic to full coverage." });
+    const gaps = TACTICS.flatMap((t) => t.techniques.filter((x) => getTechCov(t.id, x.id) === "none"));
+    const partials = TACTICS.flatMap((t) => t.techniques.filter((x) => getTechCov(t.id, x.id) === "partial"));
+    if (gaps.length) f.push({ sev: "destructive", title: `${gaps.length} techniques uncovered`, reason: `Gaps: ${gaps.map((x) => x.id).join(", ")}`, action: "Prioritise detection sprints for uncovered techniques." });
+    if (partials.length) f.push({ sev: "warning", title: `${partials.length} techniques partially covered`, reason: `Partial: ${partials.map((x) => x.id).join(", ")}`, action: "Flesh out detection logic to full coverage." });
     if (stats.full >= stats.total * 0.5) f.push({ sev: "info", title: `${pct}% weighted coverage`, reason: `${stats.full} full, ${stats.partial} partial, ${stats.none} none.`, action: "Maintain coverage with regular atomic test validation." });
-    if (!f.length) f.push({ sev: "info", title: "No coverage data", reason: "All techniques are unrated.", action: "Start mapping detection logic to techniques." });
+    if (!f.length) f.push({ sev: "info", title: "No coverage data", reason: "All techniques are unrated.", action: "Click technique cells to mark coverage status." });
     return f;
-  }, [stats, pct]);
+  }, [stats, pct, getTechCov]);
 
   return (
     <PageShell
       eyebrow="DETECTION / MITRE"
       title="MITRE ATT&CK Coverage"
-      description="Coverage matrix — techniques mapped to detection status."
+      description="Interactive coverage matrix — click techniques to cycle none → partial → full. Stored locally in your browser."
       crumbs={[{ label: "Detection" }, { label: "MITRE" }]}
     >
       <ResultBanner
@@ -75,43 +125,55 @@ function MitrePage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {gapFindings.map((f, i) => (
-          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Manual coverage ratings — may not reflect in-production detection state." />
+          <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Click technique cells to update status. Coverage data is stored in browser localStorage." />
         ))}
       </div>
 
-      {/* Kill-chain ribbon */}
-      <Panel title="Kill-chain coverage" icon={Target} meta="tactics left → right">
-        <div className="flex items-stretch gap-1 overflow-x-auto">
-          {TACTICS.map((t) => {
-            const c = tacticPct(t);
-            return (
-              <div key={t.id} className="min-w-[112px] flex-1">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{t.name}</span>
-                  <span className="text-mono text-[9.5px] text-foreground/80">{Math.round(c * 100)}%</span>
+      <div className="mb-3 flex items-center justify-between">
+        <Panel title="Kill-chain coverage" icon={Target} meta="click a tactic bar for details" bodyClassName="!p-0">
+          <div className="flex items-stretch gap-1 overflow-x-auto p-3 pt-0">
+            {TACTICS.map((t) => {
+              const c = tacticPct(t);
+              return (
+                <div key={t.id} className="min-w-[96px] flex-1">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{t.name}</span>
+                    <span className="text-mono text-[9.5px] text-foreground/80">{Math.round(c * 100)}%</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-sm bg-border/40">
+                    <div className={"h-full " + (c >= 0.7 ? "bg-success" : c >= 0.34 ? "bg-warning" : "bg-destructive/70")} style={{ width: `${c * 100}%` }} />
+                  </div>
+                  <div className="mt-1 text-mono text-[9px] text-muted-foreground">{t.id}</div>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-sm bg-border/40">
-                  <div className={"h-full " + (c >= 0.7 ? "bg-success" : c >= 0.34 ? "bg-warning" : "bg-destructive/70")} style={{ width: `${c * 100}%` }} />
-                </div>
-                <div className="mt-1 text-mono text-[9px] text-muted-foreground">{t.id}</div>
-              </div>
-            );
-          })}
-        </div>
-      </Panel>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
 
-      <SectionBar id="OT" label="Coverage matrix" meta={`filter: ${filter}`} action={
-        <div className="flex gap-1">
-          {(["all", "full", "partial", "none"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={"rounded border px-1.5 py-0.5 text-mono text-[10px] uppercase " + (filter === f ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{f}</button>
-          ))}
-        </div>
-      } />
+      <SectionBar
+        id="OT"
+        label="Coverage matrix"
+        meta={`filter: ${filter}`}
+        action={
+          <div className="flex items-center gap-1">
+            <button onClick={resetAll} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">
+              <RotateCcw className="h-3 w-3" /> reset
+            </button>
+            {(["all", "full", "partial", "none"] as const).map((f) => (
+              <button key={f} onClick={() => setFilter(f)} className={"rounded border px-1.5 py-0.5 text-mono text-[10px] uppercase " + (filter === f ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{f}</button>
+            ))}
+          </div>
+        }
+      />
 
       <div className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="grid min-w-[920px] grid-cols-5 gap-2 xl:min-w-0">
           {TACTICS.map((t) => {
-            const ts = t.techniques.filter((x) => filter === "all" || x.cov === filter);
+            const ts = t.techniques.filter((x) => {
+              const c = getTechCov(t.id, x.id);
+              return filter === "all" || c === filter;
+            });
             const c = tacticPct(t);
             return (
               <Panel key={t.id} title={t.name} meta={t.id} bodyClassName="p-1.5">
@@ -120,16 +182,18 @@ function MitrePage() {
                 </div>
                 <ul className="space-y-1">
                   {ts.length === 0 ? <li className="px-1 py-2 text-mono text-[10px] text-muted-foreground">—</li> : ts.map((x) => {
+                    const currentCov = getTechCov(t.id, x.id);
                     const isSel = selected?.tech.id === x.id;
                     return (
                       <li key={x.id}>
                         <button
-                          onClick={() => setSelected({ tactic: t, tech: x })}
-                          className={"group w-full rounded border px-2 py-1.5 text-left transition-all hover:-translate-y-px hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.4)] " + cell[x.cov] + (isSel ? " ring-1 ring-primary" : "")}
+                          onClick={() => { cycleCov(t.id, x.id); setSelected({ tactic: t, tech: x, cov: currentCov }); }}
+                          onContextMenu={(e) => { e.preventDefault(); setSelected({ tactic: t, tech: x, cov: currentCov }); }}
+                          className={"group w-full rounded border px-2 py-1.5 text-left transition-all hover:-translate-y-px hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.4)] " + cell[currentCov] + (isSel ? " ring-1 ring-primary" : "")}
                         >
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-mono text-[10px] opacity-80">{x.id}</span>
-                            <Chip tone={tone[x.cov]}>{x.cov[0]}</Chip>
+                            <Chip tone={tone[currentCov]}>{currentCov[0]}</Chip>
                           </div>
                           <div className="mt-0.5 truncate text-[11px] text-foreground/90">{x.name}</div>
                         </button>
@@ -143,23 +207,20 @@ function MitrePage() {
         </div>
       </div>
 
-      {/* Detail */}
       <Panel title="Technique detail" icon={Target}>
         {!selected ? (
-          <p className="text-mono text-[11px] text-muted-foreground">Click any technique cell to inspect coverage details.</p>
+          <p className="text-mono text-[11px] text-muted-foreground">Click any technique cell to cycle through coverage states (none → partial → full) or right-click to inspect.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <div>
               <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{selected.tactic.name} · {selected.tactic.id}</div>
               <div className="mt-0.5 text-lg text-foreground">{selected.tech.id} <span className="text-foreground/70">— {selected.tech.name}</span></div>
-              <div className="mt-2 text-[12px] text-muted-foreground">
-                {selected.tech.cov === "full"    && "Detection logic is in place with validated test traffic and an enriched alert chain."}
-                {selected.tech.cov === "partial" && "Some signal exists but coverage has known blind spots. Recommend a focused detection sprint."}
-                {selected.tech.cov === "none"    && "No detection currently maps to this technique. Treat as a gap and route to the detection editor."}
+              <div className="mt-2 flex items-center gap-2">
+                <Chip tone={tone[selected.cov]}>{selected.cov}</Chip>
+                <span className="text-mono text-[10px] text-muted-foreground">click to toggle</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Chip tone={tone[selected.tech.cov]}>{selected.tech.cov}</Chip>
               <button onClick={() => { sendArtifact({ kind: "raw", value: `${selected.tech.id} — ${selected.tech.name}`, source: "/mitre" }); navigate({ to: "/detection" }); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[11px] uppercase tracking-widest text-primary hover:bg-primary/20">
                 <ShieldAlert className="h-3 w-3" /> send to detection
               </button>
