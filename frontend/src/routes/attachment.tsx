@@ -7,7 +7,7 @@ import {
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
 import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity } from "lucide-react";
-import { uploadMalwareFile } from "@/api/analysis";
+import { uploadMalwareFile } from "@/api/backend";
 
 export const Route = createFileRoute("/attachment")({ component: AttachmentPage });
 

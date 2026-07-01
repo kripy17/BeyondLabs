@@ -5,7 +5,7 @@ import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { safeAnalyzeUrl } from "@/api/backend";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, FileWarning, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2 } from "lucide-react";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
 

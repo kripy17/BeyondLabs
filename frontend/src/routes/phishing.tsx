@@ -5,9 +5,9 @@ import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, KeyFields, SectionBar, Panel, Empty, EvidenceCard, ResultBanner, SendToRow, Chip, IocInventory } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
-import { safeAnalyzeUrl } from "@/api/utilities";
+import { safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Globe, Hash, Crosshair, Download, Key, AtSign, Bug, Network, FlaskConical, Info, RefreshCw } from "lucide-react";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, Network, FlaskConical } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
 

@@ -5,7 +5,7 @@ import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret } from "@/api/backend";
-import { Search, ExternalLink, Globe as Globe2, ArrowRight, Zap, Database, Terminal, ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check, Send, Pin, PinOff, Hash, AtSign, Server, FileText, Sparkles, ShieldCheck, Activity } from "lucide-react";
+import { Search, ExternalLink, Globe as Globe2, ArrowRight, Zap, Database, Terminal, ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check, Send, Pin, PinOff, Hash, AtSign, Server, FileText, Sparkles, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/osint")({ component: OsintPage });

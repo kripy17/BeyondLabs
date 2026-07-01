@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, Grid3x3 } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 

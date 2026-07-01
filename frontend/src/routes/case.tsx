@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow, EvidenceCard, IocInventory } from "@/components/soc/Workspace";
-import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash, Activity } from "lucide-react";
+import { Notebook, Plus, Copy, ArrowRight, Database, ShieldAlert, Download, Hash } from "lucide-react";
 
 export const Route = createFileRoute("/case")({ component: CasePage });
 

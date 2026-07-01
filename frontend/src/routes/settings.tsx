@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Palette, Type, Layers, Sliders, Sparkles, Pin, Eye, EyeOff, ArrowUp, ArrowDown,
-  RotateCcw, Trash2, Check, Tag, Paintbrush, Download, Upload, Sun, Moon, PanelTop,
+  RotateCcw, Trash2, Check, Tag, Paintbrush, Download, Upload, Sun, Moon,
 } from "lucide-react";
 import { clearRecents } from "@/lib/recents";
 import { useEffect, useRef, useState } from "react";

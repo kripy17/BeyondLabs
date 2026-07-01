@@ -9,7 +9,7 @@ import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import type { LucideIcon } from "lucide-react";
 import {
-  Swords, Search, Globe2, KeyRound, Microscope, Wifi, Zap, Code2, Package,
+  Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
   FileText, Cloud, Server, Image as ImageIcon, Terminal, Play, Copy, Check,
   X, AlertTriangle, ShieldAlert, ChevronRight, Sparkles, Send, Pin, PinOff,
   Loader2, Bug,

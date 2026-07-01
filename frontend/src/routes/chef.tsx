@@ -6,7 +6,7 @@ import {
   ChefHat, Search, Star, X, GripVertical, Copy, Check, Eraser, Trash2,
   ArrowDown, ArrowUp, RotateCcw, FileDown, ChevronDown, ChevronRight, BookMarked,
   Clock, ArrowDownToLine, ArrowUpFromLine, Settings2, Upload, Download, Send, AlertTriangle,
-  Menu, WrapText,
+  WrapText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/chef")({ component: ChefPage });

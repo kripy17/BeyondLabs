@@ -6,8 +6,8 @@ import {
   Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Eraser, Server, Lock, FileSearch, Link2, TriangleAlert as AlertTriangle, Crosshair, Bug, ExternalLink, Download, Hash, Network, Cpu, ShieldCheck, ShieldX, Activity } from "lucide-react";
-import { passiveRecon } from "@/api/recon";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Eraser, Server, Lock, FileSearch, Link2, TriangleAlert as AlertTriangle, Crosshair, Bug, ExternalLink, Download, Hash, Network, ShieldCheck, ShieldX, Activity } from "lucide-react";
+import { passiveRecon } from "@/api/backend";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });
 

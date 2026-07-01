@@ -1,5 +1,5 @@
 import {
-  Inbox, MailWarning, Link2, Paperclip, Radar, Search, ScanLine, Wand2,
+  MailWarning, Link2, Paperclip, Radar, Search, ScanLine, Wand2,
   Activity, Bell, Wrench, Target, ShieldCheck, BookOpen, FileText,
   LayoutDashboard, Settings, Terminal, Swords,
 } from "lucide-react";
