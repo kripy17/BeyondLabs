@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
@@ -27,6 +27,7 @@ const tone: Record<Cov, "default" | "warning" | "success"> = { none: "default", 
 const cell: Record<Cov, string> = { none: "border-border/50 bg-background/30 text-muted-foreground", partial: "border-warning/40 bg-warning/10 text-warning", full: "border-success/40 bg-success/15 text-success" };
 
 function MitrePage() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<Cov | "all">("all");
   const [selected, setSelected] = useState<{ tactic: Tactic; tech: Technique } | null>(null);
 
@@ -159,9 +160,9 @@ function MitrePage() {
             </div>
             <div className="flex items-center gap-2">
               <Chip tone={tone[selected.tech.cov]}>{selected.tech.cov}</Chip>
-              <a href="/detection" onClick={() => sendArtifact({ kind: "raw", value: `${selected.tech.id} — ${selected.tech.name}`, source: "/mitre" })} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[11px] uppercase tracking-widest text-primary">
+              <button onClick={() => { sendArtifact({ kind: "raw", value: `${selected.tech.id} — ${selected.tech.name}`, source: "/mitre" }); navigate({ to: "/detection" }); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[11px] uppercase tracking-widest text-primary hover:bg-primary/20">
                 <ShieldAlert className="h-3 w-3" /> send to detection
-              </a>
+              </button>
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from app.utils import utc_now
 
 MITRE_LOCAL_MAP = [
     {
@@ -103,10 +103,6 @@ LOGSOURCE_PRESETS = {
         "common_fields": ["src_ip", "cs_method", "cs_uri_stem", "sc_status", "cs_user_agent"],
     },
 }
-
-
-def utc_now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 def map_to_mitre(text: str) -> dict:

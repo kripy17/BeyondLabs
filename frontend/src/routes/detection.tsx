@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
-import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, FileCode as FileCode2, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity } from "lucide-react";
+import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, FileCode as FileCode2, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, Wand2 } from "lucide-react";
+import { mapMitre, generateSigmaRule } from "@/api/detection";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
 
@@ -133,12 +134,66 @@ function DetectionPage() {
   const [event, setEvent] = useState(TEMPLATES.sigma.event);
   const [copied, setCopied] = useState(false);
 
+  const [mitreResults, setMitreResults] = useState<any>(null);
+  const [mitreLoading, setMitreLoading] = useState(false);
+  const [mitreError, setMitreError] = useState<string | null>(null);
+
+  const [genDescription, setGenDescription] = useState("");
+  const [genSeverity, setGenSeverity] = useState<string>("medium");
+  const [genLoading, setGenLoading] = useState(false);
+  const [genResult, setGenResult] = useState<any>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+
   const tpl = TEMPLATES[fmt];
   const result = useMemo(() => tpl.matcher(event), [tpl, event]);
 
-  const switchFmt = (f: Format) => { setFmt(f); setRule(TEMPLATES[f].rule); setEvent(TEMPLATES[f].event); };
+  const switchFmt = (f: Format) => { setFmt(f); setRule(TEMPLATES[f].rule); setEvent(TEMPLATES[f].event); setMitreResults(null); setMitreError(null); setGenResult(null); setGenError(null); };
   const reset = () => { setRule(tpl.rule); setEvent(tpl.event); };
+
+  const handleEvaluate = useCallback(async () => {
+    if (mitreLoading) return;
+    setMitreLoading(true);
+    setMitreError(null);
+    try {
+      const text = [rule, event].filter(Boolean).join("\n");
+      const res = await mapMitre(text);
+      setMitreResults(res);
+    } catch (e: any) {
+      setMitreError(e?.message || "MITRE mapping failed");
+    } finally {
+      setMitreLoading(false);
+    }
+  }, [rule, event, mitreLoading]);
+
+  const handleGenerate = useCallback(async () => {
+    if (genLoading || !genDescription.trim()) return;
+    setGenLoading(true);
+    setGenError(null);
+    try {
+      const res = await generateSigmaRule(
+        `Generated: ${genDescription.slice(0, 60)}`,
+        genDescription,
+        genSeverity,
+        "",
+      );
+      setGenResult(res);
+    } catch (e: any) {
+      setGenError(e?.message || "Rule generation failed");
+    } finally {
+      setGenLoading(false);
+    }
+  }, [genDescription, genSeverity, genLoading]);
+
+  const loadGenerated = () => {
+    if (genResult?.sigma_yaml) {
+      setRule(genResult.sigma_yaml);
+      setGenResult(null);
+      setGenDescription("");
+    }
+  };
+
   const copy = () => { navigator.clipboard.writeText(rule); setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  const clearMitre = () => setMitreResults(null);
 
   const ruleLines = rule.split("\n");
   const eventLines = event.split("\n");
@@ -149,13 +204,13 @@ function DetectionPage() {
     <PageShell
       eyebrow="DETECTION / RULE EDITOR"
       title="Detection Editor"
-      description="Compose Sigma · YARA · KQL detections and dry-run them against a candidate event — fully local, no SIEM hit."
+      description="Compose Sigma · YARA · KQL detections, dry-run against events, map to MITRE ATT&CK, or generate Sigma rules from a description."
       crumbs={[{ label: "Detection" }, { label: "Editor" }]}
     >
       <SectionBar id="IN" label="Intake · format & rule body" meta={`${ruleLines.length} lines · ${rule.length} chars`} />
 
       {/* Format selector with descriptive cards */}
-      <div className="mb-3 grid gap-2 sm:grid-cols-3">
+      <div className="mb-3 grid gap-2 sm:grid-cols-4">
         {(["sigma", "yara", "kql"] as Format[]).map((f) => {
           const active = fmt === f;
           const desc = f === "sigma" ? "Vendor-neutral log rule" : f === "yara" ? "File / memory signature" : "Defender / Azure query";
@@ -181,7 +236,85 @@ function DetectionPage() {
             </button>
           );
         })}
+        {fmt === "sigma" && (
+          <button
+            onClick={() => setGenResult(genResult ? null : { _show: true })}
+            className="group relative flex items-center justify-between gap-3 overflow-hidden rounded-md border border-dashed border-primary/40 px-3 py-2 text-left transition-all hover:border-primary/60 hover:bg-primary/5"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-7 w-7 place-items-center rounded border border-primary/40 bg-primary/10 text-primary">
+                <Wand2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </span>
+              <div>
+                <div className="text-mono text-[11px] uppercase tracking-widest text-primary">generate</div>
+                <div className="text-[10px] text-muted-foreground">Sigma from description</div>
+              </div>
+            </div>
+          </button>
+        )}
       </div>
+
+      {/* Sigma generate panel */}
+      {fmt === "sigma" && genResult && genResult._show && (
+        <Panel title="Sigma generator" icon={Wand2} className="mb-4" actions={
+          genResult.sigma_yaml ? (
+            <button onClick={loadGenerated} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+              <Plus className="h-3 w-3" /> load into editor
+            </button>
+          ) : null
+        }>
+          {!genResult.sigma_yaml ? (
+            <div className="space-y-3">
+              <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                attack description
+                <textarea
+                  value={genDescription}
+                  onChange={(e) => setGenDescription(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. PowerShell launching encoded command from可疑 IP..."
+                  className="rounded border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground placeholder:text-muted-foreground/40"
+                />
+              </label>
+              <div className="flex items-end gap-2">
+                <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  severity
+                  <select
+                    value={genSeverity}
+                    onChange={(e) => setGenSeverity(e.target.value)}
+                    className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground"
+                  >
+                    <option value="informational">informational</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="critical">critical</option>
+                  </select>
+                </label>
+                <button
+                  onClick={handleGenerate}
+                  disabled={genLoading || !genDescription.trim()}
+                  className="inline-flex h-8 items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 text-mono text-[10.5px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
+                >
+                  {genLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  {genLoading ? "generating..." : "generate"}
+                </button>
+              </div>
+              {genError && <p className="text-mono text-[11px] text-destructive">{genError}</p>}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <pre className="max-h-60 overflow-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{genResult.sigma_yaml}</pre>
+              {genResult.mitre_mapping?.matches?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {genResult.mitre_mapping.matches.map((m: any) => (
+                    <Chip key={m.technique_id} tone="warning">{m.technique_id} — {m.technique}</Chip>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Panel>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-5">
         {/* Rule editor with line numbers + live syntax preview */}
@@ -260,8 +393,13 @@ function DetectionPage() {
                 <span key={h} className="inline-flex items-center gap-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-mono text-[10px] text-warning"><Crosshair className="h-2.5 w-2.5" /> {h}</span>
               ))}
             </div>
-            <button className="mt-1 inline-flex w-full items-center justify-center gap-1 rounded border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-mono text-[10.5px] uppercase tracking-widest text-primary hover:bg-primary/20">
-              <Play className="h-3 w-3" /> evaluate
+            <button
+              onClick={handleEvaluate}
+              disabled={mitreLoading}
+              className="mt-1 inline-flex w-full items-center justify-center gap-1 rounded border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-mono text-[10.5px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
+            >
+              {mitreLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+              {mitreLoading ? "mapping..." : "evaluate"}
             </button>
           </div>
         </Panel>
@@ -279,7 +417,8 @@ function DetectionPage() {
           details={[
             result.hit ? `${result.hits.length} token(s): ${result.hits.join(", ")}` : "",
             `${fmt.toUpperCase()} · ${tpl.severity} severity`,
-            tpl.technique.id,
+            mitreResults?.matches?.[0]?.technique_id || tpl.technique.id,
+            mitreResults ? `${mitreResults.total_matches} technique(s) mapped` : "",
           ].filter(Boolean)}
         />
 
@@ -289,12 +428,12 @@ function DetectionPage() {
           metrics={[
             { label: "Format", value: fmt.toUpperCase(), tone: "primary", icon: FileCode2 },
             { label: "Verdict", value: result.hit ? "MATCH" : "NO MATCH", tone: result.hit ? "destructive" : "success" },
-            { label: "MITRE", value: tpl.technique.id, tone: "warning", icon: Crosshair },
+            { label: "MITRE", value: mitreResults?.matches?.[0]?.technique_id || tpl.technique.id, tone: "warning", icon: Crosshair },
             { label: "Severity", value: tpl.severity, tone: tpl.severity === "critical" || tpl.severity === "high" ? "destructive" : tpl.severity === "medium" ? "warning" : "default" },
             { label: "Tokens", value: result.hits.length },
             { label: "Confidence", value: `${score}%`, tone: score >= 60 ? "warning" : "success", icon: Activity },
-            { label: "Platform", value: tpl.technique.platform.split("/")[0] },
-            { label: "Tactic", value: tpl.technique.tactic },
+            { label: "Platform", value: mitreResults?.matches?.[0]?.technique || tpl.technique.platform.split("/")[0] },
+            { label: "Tactic", value: mitreResults?.matches?.[0]?.tactic || tpl.technique.tactic },
           ]}
         />
 
@@ -309,13 +448,39 @@ function DetectionPage() {
         <TwoColumnOutput
           ratio="1:1"
           left={
-            <Panel title="MITRE ATT&CK mapping" icon={Crosshair}>
-              <KeyFields items={[
-                { label: "Technique", value: `${tpl.technique.id} — ${tpl.technique.name}`, tone: "primary" },
-                { label: "Tactic", value: tpl.technique.tactic },
-                { label: "Platform", value: tpl.technique.platform },
-                { label: "Data source", value: tpl.technique.source },
-              ]} />
+            <Panel title="MITRE ATT&CK mapping" icon={Crosshair} actions={
+              mitreResults ? <button onClick={clearMitre} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> clear</button> : undefined
+            }>
+              {mitreLoading ? (
+                <div className="flex items-center gap-2 py-4 text-mono text-[11px] text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> mapping to MITRE ATT&CK...
+                </div>
+              ) : mitreError ? (
+                <p className="text-mono text-[11px] text-destructive">{mitreError}</p>
+              ) : mitreResults?.matches?.length > 0 ? (
+                <div className="space-y-3">
+                  {mitreResults.matches.map((m: any) => (
+                    <div key={m.technique_id} className="rounded border border-border/50 bg-background/30 p-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-mono text-[11px] font-semibold text-foreground">{m.technique_id}</span>
+                        <Chip tone={m.confidence === "high" ? "destructive" : m.confidence === "medium" ? "warning" : "default"}>{m.confidence}</Chip>
+                      </div>
+                      <p className="mt-0.5 text-[12px] text-foreground/90">{m.technique}</p>
+                      <p className="text-[11px] text-muted-foreground">{m.tactic}</p>
+                      {m.matched_keywords?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {m.matched_keywords.map((kw: string) => (
+                            <Chip key={kw} tone="info">{kw}</Chip>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground italic">{mitreResults.total_matches} technique(s) mapped · {mitreResults.note}</p>
+                </div>
+              ) : (
+                <p className="py-2 text-mono text-[11px] text-muted-foreground">Click "evaluate" to map rule + event text against MITRE ATT&CK.</p>
+              )}
             </Panel>
           }
           right={

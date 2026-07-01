@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
@@ -566,9 +566,9 @@ function ParserPage() {
                           {copied === kind ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
                         </button>
                         {meta.pivot && (
-                          <a href={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                          <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
                             pivot <ArrowRight className="h-3 w-3" />
-                          </a>
+                          </Link>
                         )}
                       </div>
                     </div>

@@ -4,12 +4,12 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-IPV4_RE = re.compile(
-    r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'
-    r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b'
-)
-EMAIL_RE = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b')
-URL_RE = re.compile(r'\bhttps?://[^\s<>"\']+', re.IGNORECASE)
+from app.utils import EMAIL_RE, IPV4_RE, URL_RE, unique_sorted, utc_now
+
+
+def unique(items):
+    return unique_sorted(items)
+
 ISO_PREFIX_RE = re.compile(r'^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)\s+(?P<body>.*)$')
 SYSLOG_RE = re.compile(
     r'^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+'
@@ -37,12 +37,7 @@ MALWARE_WORDS = ["mimikatz", "cobalt", "beacon", "meterpreter", "ransom", "keylo
 PRIORITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
 
-def utc_now():
-    return datetime.now(timezone.utc).isoformat()
 
-
-def unique(items):
-    return sorted(set(item for item in items if item))
 
 
 def parse_timestamp(value):

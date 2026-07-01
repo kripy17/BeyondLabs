@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, Chip, SendToRow, StatusBar } from "@/components/soc/Workspace";
 import { takePendingArtifact } from "@/lib/handoff";
 import { runReconNmapScan } from "@/api/backend";
+import { toast } from "sonner";
 import {
   Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
   Gauge, FileCode2, Globe2, Crosshair, Download, Loader2,
@@ -73,8 +74,10 @@ function NmapPage() {
         confirmPermission: confirmed,
       });
       setRealResult(res as Record<string, unknown>);
+      toast.success("Scan complete", { description: `${target} — ${MODES[mode].label}` });
     } catch {
       setRealResult({ error: "Scan request failed" });
+      toast.error("Scan failed", { description: target });
     } finally {
       setRunning(false);
     }
@@ -206,7 +209,17 @@ function NmapPage() {
       {!has ? (
         <Panel><p className="text-mono text-[11px] text-muted-foreground">Enter a target to configure a scan.</p></Panel>
       ) : running ? (
-        <Panel><p className="text-mono text-[11px] text-muted-foreground">Scanning… results will appear here.</p></Panel>
+        <Panel icon={Loader2} meta="in progress">
+          <div className="flex flex-col items-center gap-3 py-6">
+            <span className="relative flex h-10 w-10">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/30" />
+              <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Crosshair className="h-4 w-4 text-primary" />
+              </span>
+            </span>
+            <p className="text-mono text-[11px] text-muted-foreground">Scanning {target}…</p>
+          </div>
+        </Panel>
       ) : realResult ? (
         scanResult ? (
           scanResult.error ? (

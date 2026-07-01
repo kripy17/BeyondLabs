@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 import dns.resolver
 import httpx
 
+from app.utils import unique_sorted
+
 USERNAME_PLATFORMS = {
     "github": "https://github.com/{username}",
     "reddit": "https://www.reddit.com/user/{username}",
@@ -27,10 +29,6 @@ SOCIAL_PATTERNS = {
     "telegram": r"https?://t\.me/[A-Za-z0-9_]+",
     "discord": r"https?://(?:discord\.gg|discord\.com/invite)/[A-Za-z0-9]+",
 }
-
-
-def unique_sorted(items):
-    return sorted(set(item for item in items if item))
 
 
 def username_osint(username: str) -> dict:

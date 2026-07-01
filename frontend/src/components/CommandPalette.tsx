@@ -60,7 +60,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         <CommandGroup heading="Actions">
           <CommandItem onSelect={() => go("/parser")} value="new session start triage parser">
             <Plus className="h-4 w-4" />
-            <span className="text-mono text-[12.5px]">New session</span>
+            <span className="text-mono text-[12.5px]">Parser &amp; Extractor</span>
           </CommandItem>
           <CommandItem onSelect={() => go("/settings")} value="open settings preferences">
             <SettingsIcon className="h-4 w-4" />
@@ -92,8 +92,41 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   );
 }
 
+const SHORTCUTS = [
+  { key: "⌘K", action: "Open command palette" },
+  { key: "/", action: "Search workspaces" },
+  { key: "?", action: "Show shortcuts" },
+  { key: "Esc", action: "Close search / clear input" },
+  { key: "↑↓", action: "Navigate search results" },
+  { key: "↵", action: "Open selected result" },
+] as const;
+
+export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-popover p-4 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-mono text-[10px] uppercase tracking-[0.22em] text-foreground/80">Keyboard shortcuts</h2>
+          <button onClick={onClose} className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+        <div className="space-y-1.5">
+          {SHORTCUTS.map((s) => (
+            <div key={s.key} className="flex items-center justify-between gap-3">
+              <span className="text-mono text-[11px] text-foreground/80">{s.action}</span>
+              <kbd className="rounded border border-border/60 bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-primary">{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function useCommandPalette() {
   const [open, setOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { prefs } = usePrefs();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -102,9 +135,13 @@ export function useCommandPalette() {
       if (prefs.slashOpensPalette && e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault(); setOpen(true);
       }
+      if (e.key === "?" && !meta && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        e.preventDefault(); setShortcutsOpen((o) => !o);
+      }
+      if (e.key === "Escape") { setShortcutsOpen(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [prefs.slashOpensPalette]);
-  return { open, setOpen };
+  return { open, setOpen, shortcutsOpen, setShortcutsOpen };
 }

@@ -84,7 +84,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
               e.preventDefault(); setOpen(false); onOpenPalette();
             }
           }}
-          placeholder="Search workspaces, actions…  (press ↵ to open palette)"
+          placeholder="Search workspaces…"
           className="text-mono h-8 w-full rounded-md border border-border/70 bg-card/50 pl-8 pr-[88px] text-[12px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-primary/60 focus:bg-card focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
           aria-label="Global search"
           aria-expanded={open}

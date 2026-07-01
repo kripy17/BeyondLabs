@@ -26,6 +26,17 @@ function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { prefs, setPrefs, togglePin, toggleHidden, moveGroup, reset } = usePrefs();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [sectionFilter, setSectionFilter] = useState("");
+  const SECTION_JUMP = [
+    { id: "BR", label: "Brand" },
+    { id: "TH", label: "Theme Gallery" },
+    { id: "CT", label: "Custom Theme" },
+    { id: "AC", label: "Accent" },
+    { id: "DR", label: "Density" },
+    { id: "TY", label: "Typography" },
+    { id: "SB", label: "Sidebar" },
+    { id: "QL", label: "Motion & QoL" },
+  ] as const;
 
   // Theme preview is scoped to the gallery stage only — never mutates global theme until Apply.
   const [previewTheme, setPreviewTheme] = useState<ThemeId>(theme);
@@ -102,6 +113,28 @@ function SettingsPage() {
       }
 
     >
+      {/* Section quick-jump */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 bg-card/30 px-3 py-2">
+        <input
+          value={sectionFilter}
+          onChange={(e) => setSectionFilter(e.target.value)}
+          placeholder="Filter settings…"
+          className="text-mono h-7 min-w-0 max-w-full flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 md:max-w-[200px]"
+        />
+        <div className="flex flex-wrap gap-1">
+          {SECTION_JUMP.filter((s) => !sectionFilter || s.label.toLowerCase().includes(sectionFilter.toLowerCase())).map((s) => (
+            <a
+              key={s.id}
+              href={`#panel-${s.id}`}
+              onClick={(e) => { e.preventDefault(); document.getElementById(`panel-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+              className="rounded border border-border/50 bg-background/40 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
       {/* BRAND */}
       <Panel id="BR" label="brand" icon={Tag}
         right={<span className="text-mono text-[10px] text-muted-foreground">name · tagline · icon</span>}>

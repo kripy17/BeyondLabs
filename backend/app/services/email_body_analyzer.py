@@ -1,8 +1,9 @@
-import re
 import html as html_module
+import re
 from urllib.parse import urlparse
 
 from app.services.ioc_extractor import analyze_urls, defang_text, extract_iocs, refang_text
+from app.utils import score_findings
 
 URGENCY_KEYWORDS = [
     "urgent", "immediately", "action required", "verify now", "expires today",
@@ -259,22 +260,6 @@ def analyze_email_urls(iocs: dict, body: str) -> dict:
     result["html_hrefs"] = hrefs
     result["urls"] = urls
     return result
-
-
-def score_findings(findings):
-    score = 100
-
-    penalties = {
-        "high": 30,
-        "medium": 15,
-        "low": 7,
-        "info": 0,
-    }
-
-    for finding in findings:
-        score -= penalties.get(finding["severity"], 0)
-
-    return max(score, 0)
 
 
 def analyze_email_body(body: str, refang_first: bool = True) -> dict:

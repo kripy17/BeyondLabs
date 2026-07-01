@@ -1,10 +1,5 @@
-import json
-import os
 import subprocess
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
-
 
 HACKINGTOOL_DIR = None
 
@@ -156,7 +151,7 @@ def run_tool(category_id: str, tool_id: str, target: str = "", args: str = "") -
         return {
             "error": f"'{binary}' is not installed",
             "tool_id": tool_id,
-            "suggestion": f"Install via hackingtool or your package manager",
+            "suggestion": "Install via hackingtool or your package manager",
         }
 
     cmd_parts = [binary]

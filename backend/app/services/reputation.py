@@ -1,22 +1,8 @@
 import ipaddress
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from app.services.ioc_extractor import defang_text, refang_text
-
-SUSPICIOUS_TLDS = {
-    "zip", "mov", "top", "xyz", "click", "work", "support", "country",
-    "gq", "tk", "ml", "cf"
-}
-
-URL_SHORTENERS = {
-    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd",
-    "buff.ly", "cutt.ly", "rebrand.ly", "shorturl.at", "s.id"
-}
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from app.utils import SUSPICIOUS_TLDS, URL_SHORTENERS, rating_from_score, score_findings, utc_now, verdict_from_rating
 
 
 def add_finding(findings, severity, title, detail, recommendation):
@@ -26,31 +12,6 @@ def add_finding(findings, severity, title, detail, recommendation):
         "detail": detail,
         "recommendation": recommendation,
     })
-
-
-def score_findings(findings):
-    score = 100
-    penalties = {"high": 30, "medium": 15, "low": 7, "info": 0}
-
-    for finding in findings:
-        score -= penalties.get(finding["severity"], 0)
-
-    return max(score, 0)
-
-
-def rating_from_score(score):
-    if score >= 80:
-        return "Low Risk"
-    if score >= 55:
-        return "Suspicious"
-    return "High Risk"
-
-
-def verdict_from_rating(rating: str | None) -> str:
-    normalized = str(rating or "").lower()
-    if "high" in normalized or "suspicious" in normalized:
-        return "suspicious"
-    return "unknown"
 
 
 INDICATOR_MITRE_MAP = {

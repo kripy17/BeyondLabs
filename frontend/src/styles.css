@@ -399,7 +399,7 @@
   }
   html {
     font-family: var(--font-sans);
-    font-size: calc(16px * var(--ba-font-scale, 1));
+    font-size: calc(17px * var(--ba-font-scale, 1));
   }
   body {
     background-color: var(--color-background);

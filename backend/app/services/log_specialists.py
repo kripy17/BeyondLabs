@@ -1,11 +1,7 @@
 import re
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
 
-IPV4_RE = re.compile(
-    r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'
-    r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b'
-)
+from app.utils import IPV4_RE, utc_now
 
 LINUX_AUTH_RE = re.compile(
     r'(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+'
@@ -26,10 +22,6 @@ WEB_ATTACK_PATTERNS = {
     "wordpress_probe": ["wp-admin", "wp-login", "xmlrpc.php"],
     "scanner": ["sqlmap", "nikto", "nmap", "masscan", "dirbuster", "gobuster"],
 }
-
-
-def utc_now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 def unique(items):

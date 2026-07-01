@@ -1,7 +1,8 @@
 import re
 from email.parser import Parser
-from email.utils import parseaddr, getaddresses
-from datetime import datetime
+from email.utils import parseaddr
+
+from app.utils import score_findings
 
 RECEIVED_IP_RE = re.compile(
     r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'
@@ -90,7 +91,6 @@ def extract_auth_results(headers):
     dmarc_policy = None
     dmarc_pct = None
     dmarc_rua = None
-    dmarc_match_result = None
     dmarc_uri_match = re.search(r'dmarc=(\w+)\s*.*?(?:p=(none|quarantine|reject))?', combined, re.IGNORECASE)
     if dmarc_uri_match:
         dmarc_policy = dmarc_uri_match.group(2)
@@ -118,7 +118,6 @@ def extract_arc_chain(headers):
     """Extract ARC (Authenticated Received Chain) seals and signatures."""
     seals = []
     arc_seals = headers.get_all("ARC-Seal", [])
-    arc_msgs = headers.get_all("ARC-Message-Signature", [])
 
     for i, seal in enumerate(arc_seals):
         seals.append({
@@ -164,16 +163,6 @@ def add_finding(findings, severity, title, detail, recommendation, mitre_id=None
     findings.append(finding)
 
 
-def score_findings(findings):
-    score = 100
-    penalties = {"high": 30, "medium": 15, "low": 7, "info": 0}
-
-    for finding in findings:
-        score -= penalties.get(finding["severity"], 0)
-
-    return max(score, 0)
-
-
 def analyze_email_headers(raw_headers: str):
     headers = Parser().parsestr(raw_headers)
 
@@ -196,7 +185,6 @@ def analyze_email_headers(raw_headers: str):
     reply_to_domain = get_domain_from_email(reply_to)
     return_path_domain = get_domain_from_email(return_path)
     from_display_name = get_display_name(from_value)
-    reply_to_display_name = get_display_name(reply_to)
 
     auth = extract_auth_results(headers)
     received_chain = extract_received_chain(headers)

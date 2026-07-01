@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow, ResultBanner, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
@@ -200,9 +200,9 @@ function GuidePage() {
                     <span className="mt-0.5 text-mono text-[10.5px] text-primary">{String(i + 1).padStart(2, "0")}</span>
                     <span className={"flex-1 text-[12px] leading-snug " + (isDone ? "text-muted-foreground line-through" : "text-foreground/90")}>{s.text}</span>
                     {s.pivot && (
-                      <a href={s.pivot.to} className="ml-2 inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary opacity-80 hover:opacity-100">
+                      <Link to={s.pivot.to} className="ml-2 inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary opacity-80 hover:opacity-100">
                         {s.pivot.label} <ArrowRight className="h-3 w-3" />
-                      </a>
+                      </Link>
                     )}
                   </li>
                 );

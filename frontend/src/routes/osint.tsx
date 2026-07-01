@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
@@ -88,6 +88,7 @@ function cliFor(kind: TargetKind, v: string): { label: string; cmd: string }[] {
 }
 
 function OsintPage() {
+  const navigate = useNavigate();
   const [v, setV] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
@@ -470,7 +471,7 @@ function OsintPage() {
             ].filter((t) => t.when).map((t) => (
               <button
                 key={t.to}
-                onClick={() => { sendArtifact({ kind: t.kind as string, value: v, source: "/osint" }); window.location.assign(t.to); }}
+                onClick={() => { sendArtifact({ kind: t.kind as string, value: v, source: "/osint" }); navigate({ to: t.to }); }}
                 className="group flex items-center justify-between gap-2 rounded border border-border/60 bg-background/40 px-2.5 py-1.5 text-left transition-all hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5"
               >
                 <span className="flex min-w-0 items-center gap-2">

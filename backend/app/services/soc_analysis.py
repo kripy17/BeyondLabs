@@ -1,16 +1,7 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
-IPV4_RE = re.compile(
-    r'\b(?:25[0-5]|2[0-4]\d|1?\d?\d)'
-    r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b'
-)
-
-EMAIL_RE = re.compile(
-    r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
-)
-
-URL_RE = re.compile(r'\bhttps?://[^\s<>"\']+', re.IGNORECASE)
+from app.utils import EMAIL_RE, IPV4_RE, URL_RE, unique_sorted
 
 LINUX_AUTH_RE = re.compile(
     r'(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+'
@@ -34,10 +25,6 @@ SUSPICIOUS_LOG_PATTERNS = {
 }
 
 
-def unique_sorted(items):
-    return sorted(set(item for item in items if item))
-
-
 def parse_logs(text: str) -> dict:
     lines = text.splitlines()
     parsed_entries = []
@@ -49,7 +36,7 @@ def parse_logs(text: str) -> dict:
 
     pattern_hits = {}
 
-    MITRE_LOG_MAP = {
+    mitre_log_map = {
         "failed_login": {"id": "T1110", "name": "Brute Force"},
         "bruteforce": {"id": "T1110", "name": "Brute Force"},
         "privilege": {"id": "T1078", "name": "Valid Accounts"},
@@ -69,7 +56,7 @@ def parse_logs(text: str) -> dict:
                 "detail": f"Matched: {', '.join(hits)}",
                 "recommendation": "Review matching log lines and correlate with user, source IP, and timeline."
             }
-            mitre = MITRE_LOG_MAP.get(category)
+            mitre = mitre_log_map.get(category)
             if mitre:
                 finding["mitre_attack"] = mitre
             findings.append(finding)
@@ -312,6 +299,6 @@ def triage_alert(title: str, description: str = "", raw_log: str = "") -> dict:
         "recommended_steps": steps,
         "report_notes": {
             "summary": f"Alert categorized as {main_category} with suggested severity {severity}.",
-            "generated_at_utc": datetime.utcnow().isoformat(),
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         }
     }

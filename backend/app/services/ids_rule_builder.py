@@ -1,14 +1,11 @@
 import re
-from datetime import datetime, timezone
+
+from app.utils import utc_now
 
 VALID_ACTIONS = {"alert", "log", "pass", "drop", "reject", "sdrop"}
 VALID_PROTOCOLS = {"tcp", "udp", "icmp", "ip", "http", "tls", "dns"}
 VALID_DIRECTIONS = {"->", "<>"}
 VALID_ENGINES = {"snort", "suricata", "generic"}
-
-
-def utc_now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 def escape_rule_text(value: str) -> str:

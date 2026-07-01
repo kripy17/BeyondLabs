@@ -8,6 +8,7 @@ import { PrefsProvider } from "@/lib/prefs";
 import { useRouteRecorder } from "@/lib/recents";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { Toaster } from "@/components/Toaster";
 
 function NotFoundComponent() {
   return (
@@ -86,6 +87,7 @@ function RootComponent() {
             <SidebarInset className="w-full">
               <RouteRecorder />
               <Outlet />
+              <Toaster />
             </SidebarInset>
           </SidebarProvider>
         </PrefsProvider>

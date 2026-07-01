@@ -137,16 +137,11 @@ npm run build
 
 ```bash
 ./doctor.sh
-./scripts/check.sh
 ```
 
-Windows:
+`doctor.sh` runs available syntax checks, backend compile, frontend lint/build, and pytest when configured and available.
 
-```powershell
-.\doctor.ps1
-```
 
-`scripts/check.sh` runs available syntax checks, backend compile, frontend lint/build, pytest when configured and available, and Playwright smoke tests when frontend dependencies are installed.
 
 ## Optional Helper Tools
 
@@ -228,7 +223,7 @@ uninstall.ps1             Windows uninstaller (PowerShell)
 Before a checkpoint or GitHub release:
 
 ```bash
-./scripts/check.sh
+./doctor.sh
 git status --short
 ```
 

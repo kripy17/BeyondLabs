@@ -1,5 +1,7 @@
 import re
 
+from app.utils import score_findings
+
 RISKY_EXTENSIONS = {
     ".exe", ".scr", ".bat", ".cmd", ".com", ".pif",
     ".js", ".jse", ".vbs", ".vbe", ".wsf",
@@ -134,21 +136,6 @@ def analyze_filename(filename: str) -> dict:
         "double_extension": detect_double_extension(filename),
         "findings": findings,
     }
-
-
-def score_findings(findings: list[dict]) -> int:
-    score = 100
-    penalties = {
-        "high": 30,
-        "medium": 15,
-        "low": 7,
-        "info": 0,
-    }
-
-    for finding in findings:
-        score -= penalties.get(finding.get("severity"), 0)
-
-    return max(score, 0)
 
 
 def rating_from_score(score: int, findings: list[dict]) -> str:

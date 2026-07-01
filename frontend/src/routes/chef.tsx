@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { takePendingArtifact } from "@/lib/handoff";
@@ -342,6 +342,7 @@ const LIBRARY_KEY = "beyondarch.chefLibrary";
 type SavedBake = { id: string; name: string; recipe: { operationId: string; options: Record<string, any> }[]; ts: number };
 
 function ChefPage() {
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [recipe, setRecipe] = useState<RecipeStep[]>([]);
   const [output, setOutput] = useState<string>("");
@@ -540,7 +541,7 @@ function ChefPage() {
     if (!route || !output) return;
     try {
       localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ target: route.page.replace("/", ""), value: output, source: "CyberChef", type: "transform" }));
-      window.location.href = route.page;
+      navigate({ to: route.page });
     } catch {}
   };
 
@@ -761,7 +762,6 @@ function ChefPage() {
                         <div key={op.id} className="group flex items-stretch gap-1">
                           <button
                             onClick={() => addStep(op.id)}
-                            onDoubleClick={() => addStep(op.id)}
                             title={op.description}
                             draggable
                             onDragStart={(e) => { e.dataTransfer.setData("text/op-id", op.id); e.dataTransfer.effectAllowed = "copy"; }}
@@ -980,7 +980,7 @@ function ChefPage() {
                 {/* Send to dropdown */}
                 {output && (
                   <div className="relative group">
-                    <button className="rounded border border-border bg-background/60 px-1.5 py-0.5 uppercase tracking-widest hover:border-primary/40 hover:text-primary"><Send className="h-3 w-3" /></button>
+                    <button aria-label="send output" className="rounded border border-border bg-background/60 px-1.5 py-0.5 uppercase tracking-widest hover:border-primary/40 hover:text-primary"><Send className="h-3 w-3" /></button>
                     <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
                       {Object.entries(HANDOFF_TARGETS).map(([k, v]) => (
                         <button key={k} onClick={() => sendOutputTo(k)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-mono text-[11px] text-foreground/80 hover:bg-primary/5"><Send className="h-3 w-3" /> {v.label}</button>

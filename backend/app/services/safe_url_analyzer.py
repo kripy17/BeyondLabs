@@ -18,22 +18,15 @@ except Exception:  # pragma: no cover - dependency may be unavailable in minimal
     _TLD_EXTRACT = None
 
 from app.services.ioc_extractor import refang_text
-
-URL_SHORTENERS = {
-    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly",
-    "rebrand.ly", "shorturl.at", "s.id", "lnkd.in", "trib.al", "rb.gy", "bitly.com",
-    "tiny.cc", "bl.ink", "clck.ru", "short.link", "shorte.st", "bc.vc", "yourls.org",
-    "adf.ly", "shrinke.me", "kutt.it", "polr.me", "zws.im", "1url.com", "v.gd",
-    "tiny.ie", "xy2.eu", "zip.net", "soo.gd", "gg.gg", "scrnch.me", "urlz.fr",
-}
-
-SUSPICIOUS_TLDS = {
-    "tk", "ml", "ga", "cf", "gq", "xyz", "top", "club", "win", "bid", "trade",
-    "webcam", "download", "review", "site", "men", "stream", "racing", "date",
-    "science", "party", "faith", "mom", "work", "click", "loan", "mobi", "pw",
-    "cc", "info", "buzz", "online", "live", "sbs", "bar", "rest", "cam", "pro",
-    "icu", "cyou", "lol", "gdn", "wang", "help", "city", "today", "news",
-}
+from app.utils import (
+    DOMAIN_RE,
+    EMAIL_RE,
+    IPV4_RE,
+    SUSPICIOUS_TLDS,
+    URL_RE,
+    URL_SHORTENERS,
+    shannon_entropy,
+)
 
 BRAND_TERMS = {
     "microsoft", "office365", "office", "outlook", "onedrive", "sharepoint", "google", "gmail",
@@ -59,10 +52,6 @@ SUSPICIOUS_EXTENSIONS = {
     ".docm", ".xlsm", ".pptm",
 }
 
-EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
-IPV4_RE = re.compile(r"(?<![\w.])(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?![\w.])")
-DOMAIN_RE = re.compile(r"\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b")
-URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 NON_DOMAIN_SUFFIXES = {"php", "html", "htm", "asp", "aspx", "jsp", "js", "css", "png", "jpg", "jpeg", "gif", "svg", "ico", "txt", "json", "xml", "pdf"}
 TITLE_RE = re.compile(rb"<\s*title[^>]*>(.*?)<\s*/\s*title\s*>", re.IGNORECASE | re.DOTALL)
 DEFANG_MARKERS = ("hxxp", "[.]", "(.)", "{.}", "[:]", "[@]", "[at]", "(at)")
@@ -122,15 +111,7 @@ def _unique(items: list[str]) -> list[str]:
 
 
 def _shannon_entropy(value: str) -> float:
-    if not value:
-        return 0.0
-    lowered = value.lower()
-    length = len(lowered)
-    freq: dict[str, int] = {}
-    for ch in lowered:
-        freq[ch] = freq.get(ch, 0) + 1
-    entropy = -sum((count / length) * (count / length).bit_length() for count in freq.values())
-    return max(0, entropy)
+    return shannon_entropy(value)
 
 
 def _detect_defanged(value: str) -> bool:

@@ -7,6 +7,7 @@ import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, Network, FlaskConical } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
@@ -447,8 +448,10 @@ function PhishingPage() {
         ));
       }
       flashNotice("Analysis complete");
+      toast.success("Phishing analysis complete");
     } catch {
       flashNotice("Analysis completed (partial)");
+      toast.error("Phishing analysis completed with errors");
     } finally {
       setLoading(null);
     }

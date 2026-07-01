@@ -28,7 +28,7 @@ function Row({
         title={collapsed ? item.title : undefined}
         className={cn(
           "group/row relative flex h-8 items-center gap-2.5 rounded-md px-2 transition-colors",
-          "text-mono text-[12px] tracking-tight",
+          "text-mono text-[13px] tracking-tight",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground/75 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",

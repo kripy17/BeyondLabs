@@ -2,13 +2,17 @@ import math
 import re
 from urllib.parse import urlparse
 
-URL_RE = re.compile(r'\bhttps?://[^\s<>"\']+', re.IGNORECASE)
-
-SUSPICIOUS_TLDS = {
-    "tk", "ml", "ga", "cf", "gq", "pw", "top", "xyz",
-    "club", "work", "date", "men", "loan", "win", "bid",
-    "trade", "webcam", "download", "review", "stream",
-}
+from app.utils import (
+    CVE_RE,
+    DOMAIN_RE,
+    EMAIL_RE,
+    HASH_RE,
+    IPV4_RE,
+    IPV6_RE,
+    SUSPICIOUS_TLDS,
+    URL_RE,
+    unique_sorted,
+)
 
 SUSPICIOUS_PATH_KEYWORDS = {
     "login", "verify", "reset", "secure", "account", "update",
@@ -24,39 +28,6 @@ SHORTENER_DOMAINS = {
     "cutt.ly", "rb.gy", "bl.ink", "short.link", "shrtco.de",
     "rebrand.ly",
 }
-
-EMAIL_RE = re.compile(
-    r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
-)
-
-IPV4_RE = re.compile(
-    r'(?<![\w.])(?:25[0-5]|2[0-4]\d|1?\d?\d)'
-    r'(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}(?![\w.])'
-)
-
-IPV6_RE = re.compile(
-    r'\b(?:[A-Fa-f0-9]{1,4}:){2,7}[A-Fa-f0-9]{1,4}\b'
-)
-
-DOMAIN_RE = re.compile(
-    r'\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b'
-)
-
-HASH_RE = re.compile(
-    r'\b[A-Fa-f0-9]{32}\b|'
-    r'\b[A-Fa-f0-9]{40}\b|'
-    r'\b[A-Fa-f0-9]{64}\b|'
-    r'\b[A-Fa-f0-9]{128}\b'
-)
-
-CVE_RE = re.compile(
-    r'\bCVE-\d{4}-\d{4,7}\b',
-    re.IGNORECASE
-)
-
-
-def unique_sorted(items):
-    return sorted(set(item.strip() for item in items if item and item.strip()))
 
 
 def refang_text(text: str) -> str:

@@ -8,6 +8,19 @@ BACKEND="$ROOT_DIR/backend"
 PIDS=()
 START_TS=$(date +%s)
 
+# ── Args ───────────────────────────────────────────────────────
+RUN_FRONTEND=true
+RUN_BACKEND=true
+for arg in "$@"; do
+  case "$arg" in
+    --frontend-only) RUN_BACKEND=false ;;
+    --backend-only)  RUN_FRONTEND=false ;;
+    --help|-h)
+      echo "Usage: $0 [--frontend-only | --backend-only]"
+      exit 0 ;;
+  esac
+done
+
 # ── Colors ──────────────────────────────────────────────────────
 C_RESET='\033[0m'; C_BOLD='\033[1m'; C_DIM='\033[2m'
 C_CYAN='\033[0;36m'; C_GREEN='\033[0;32m'
@@ -68,68 +81,71 @@ fi
 info "Running preflight checks…"
 echo ""
 
-declare -A checks=(
-  ["node"]="Node.js"
-  ["python3"]="Python 3"
-)
-
-for cmd in "${!checks[@]}"; do
-  if command -v "$cmd" >/dev/null 2>&1; then
-    ver=$("$cmd" --version 2>&1 | head -1)
-    ok "${checks[$cmd]}  ${C_DIM}${ver}${C_RESET}"
+if $RUN_BACKEND; then
+  if command -v python3 >/dev/null 2>&1; then
+    ok "Python 3  ${C_DIM}$(python3 --version)${C_RESET}"
   else
-    die "${checks[$cmd]} not found — run ${C_BOLD}./install.sh${C_RESET}"
+    die "Python 3 not found — run ${C_BOLD}./install.sh${C_RESET}"
   fi
-done
+  [[ -d "$BACKEND/.venv" ]] || die "Backend venv missing — run ${C_BOLD}./install.sh${C_RESET}"
+  ok "Backend venv found"
+fi
 
-[[ -d "$BACKEND/.venv" ]]        || die "Backend venv missing — run ${C_BOLD}./install.sh${C_RESET}"
-[[ -d "$FRONTEND/node_modules" ]] || die "Frontend deps missing — run ${C_BOLD}./install.sh${C_RESET}"
+if $RUN_FRONTEND; then
+  if command -v node >/dev/null 2>&1; then
+    ok "Node.js  ${C_DIM}$(node --version)${C_RESET}"
+  else
+    die "Node.js not found — run ${C_BOLD}./install.sh${C_RESET}"
+  fi
+  [[ -d "$FRONTEND/node_modules" ]] || die "Frontend deps missing — run ${C_BOLD}./install.sh${C_RESET}"
+  ok "Frontend node_modules found"
+fi
 
-ok "Backend venv found"
-ok "Frontend node_modules found"
 echo ""
 sep
 echo ""
 
 # ── Launch Backend ───────────────────────────────────────────────
-info "Starting backend…"
-cd "$BACKEND"
-.venv/bin/uvicorn app.main:app \
-  --host 127.0.0.1 \
-  --port 8000 \
-  --reload \
-  --log-level warning \
-  2>&1 | sed "s/^/  ${C_DIM}[backend]${C_RESET} /" &
-BACKEND_PID=$!
-PIDS+=($BACKEND_PID)
-cd "$ROOT_DIR"
-ok "Backend  started  ${C_DIM}PID ${BACKEND_PID}${C_RESET}"
+if $RUN_BACKEND; then
+  info "Starting backend…"
+  cd "$BACKEND"
+  .venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --reload \
+    --log-level warning \
+    2>&1 | sed "s/^/  ${C_DIM}[backend]${C_RESET} /" &
+  BACKEND_PID=$!
+  PIDS+=($BACKEND_PID)
+  cd "$ROOT_DIR"
+  ok "Backend  started  ${C_DIM}PID ${BACKEND_PID}${C_RESET}"
 
-# ── Wait for backend readiness ───────────────────────────────────
-info "Waiting for backend to become ready…"
-READY=0
-for i in $(seq 1 20); do
-  if curl -sf http://127.0.0.1:8000/docs >/dev/null 2>&1; then
-    READY=1; break
+  info "Waiting for backend to become ready…"
+  READY=0
+  for i in $(seq 1 20); do
+    if curl -sf http://127.0.0.1:8000/docs >/dev/null 2>&1; then
+      READY=1; break
+    fi
+    sleep 0.5
+  done
+  if [[ $READY -eq 0 ]]; then
+    warn "Backend did not respond in 10s — frontend launching anyway"
+  else
+    ok "Backend is live"
   fi
-  sleep 0.5
-done
-
-if [[ $READY -eq 0 ]]; then
-  warn "Backend did not respond in 10s — frontend launching anyway"
-else
-  ok "Backend is live"
+  echo ""
 fi
-echo ""
 
 # ── Launch Frontend ──────────────────────────────────────────────
-info "Starting frontend…"
-cd "$FRONTEND"
-npm run dev 2>&1 | sed "s/^/  ${C_DIM}[frontend]${C_RESET} /" &
-FRONTEND_PID=$!
-PIDS+=($FRONTEND_PID)
-cd "$ROOT_DIR"
-ok "Frontend started  ${C_DIM}PID ${FRONTEND_PID}${C_RESET}"
+if $RUN_FRONTEND; then
+  info "Starting frontend…"
+  cd "$FRONTEND"
+  npm run dev 2>&1 | sed "s/^/  ${C_DIM}[frontend]${C_RESET} /" &
+  FRONTEND_PID=$!
+  PIDS+=($FRONTEND_PID)
+  cd "$ROOT_DIR"
+  ok "Frontend started  ${C_DIM}PID ${FRONTEND_PID}${C_RESET}"
+fi
 
 # ── Access Info ──────────────────────────────────────────────────
 echo ""
@@ -137,9 +153,9 @@ sep
 echo ""
 echo -e "  ${C_CYAN}${C_BOLD}◈  Access Points${C_RESET}"
 echo ""
-echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Frontend${C_RESET}   ${C_GREEN}http://localhost:5173${C_RESET}"
-echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Backend ${C_RESET}   ${C_GREEN}http://localhost:8000${C_RESET}"
-echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}API Docs${C_RESET}   ${C_DIM}http://localhost:8000/docs${C_RESET}"
+$RUN_FRONTEND && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Frontend${C_RESET}   ${C_GREEN}http://localhost:5173${C_RESET}"
+$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Backend ${C_RESET}   ${C_GREEN}http://localhost:8000${C_RESET}"
+$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}API Docs${C_RESET}   ${C_DIM}http://localhost:8000/docs${C_RESET}"
 echo ""
 sep
 echo ""

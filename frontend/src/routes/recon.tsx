@@ -6,7 +6,8 @@ import {
   Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Eraser, Server, Lock, FileSearch, Link2, TriangleAlert as AlertTriangle, Crosshair, Bug, ExternalLink, Download, Hash, Network, ShieldCheck, ShieldX, Activity } from "lucide-react";
+import { toast } from "sonner";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Crosshair, ExternalLink, Download, Hash, Network, ShieldCheck, ShieldX, Activity, Bug, Eraser } from "lucide-react";
 import { passiveRecon } from "@/api/backend";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });
@@ -48,8 +49,6 @@ function getSsl(ssl: ReconApiResult["ssl"]): SslResult | null {
   return ssl && "error" in ssl ? null : ssl as SslResult | null;
 }
 
-const WHOIS_GATE = ["clientHold", "serverHold", "redemptionPeriod", "pendingDelete"];
-
 function findSignals(api: ReconApiResult): { sev: "destructive" | "warning" | "info" | "success"; t: string; r: string; a: string }[] {
   const signals: { sev: "destructive" | "warning" | "info" | "success"; t: string; r: string; a: string }[] = [];
   const http = getHttp(api.http);
@@ -75,11 +74,8 @@ function findSignals(api: ReconApiResult): { sev: "destructive" | "warning" | "i
 
   if (http) {
     const h = http.headers;
-    const missing = Object.entries(h).filter(([k, v]) => (v === "" || v === undefined) && k !== "server" && k !== "Server").length +
-      (h["strict-transport-security"] ? 0 : 1) + (h["content-security-policy"] ? 0 : 1) +
-      (h["x-frame-options"] ? 0 : 1) + (h["x-content-type-options"] ? 0 : 1) +
-      (h["referrer-policy"] ? 0 : 1) - 5;
-    const absent = Math.max(0, -missing);
+    const absent = ["strict-transport-security", "content-security-policy", "x-frame-options", "x-content-type-options", "referrer-policy"]
+      .filter((k) => !h[k]).length;
     if (absent >= 3) signals.push({ sev: "warning", t: `${absent} security headers absent`, r: "HSTS / CSP / X-Frame-Options / X-Content-Type-Options / Referrer-Policy gaps increase attack surface.", a: "Note hardening posture in report." });
     else if (absent >= 1) signals.push({ sev: "info", t: `${absent} security header(s) absent`, r: "Partial hardening — check individual headers for gaps.", a: "Recommend HSTS and CSP for production." });
     if (http.status_code === 301 || http.status_code === 302) signals.push({ sev: "info", t: "HTTP redirect on root", r: "Root resolves via redirect — landing page may differ from index.", a: "Follow redirect chain for full exposure picture." });
@@ -165,8 +161,10 @@ function ReconPage() {
     try {
       const res = await passiveRecon(target.trim());
       setResult(res as ReconApiResult);
+      toast.success("Recon complete", { description: target.trim() });
     } catch (e: any) {
       setError(e?.message || "passive recon failed");
+      toast.error("Recon failed", { description: target.trim() });
     } finally {
       setLoading(false);
     }
@@ -363,7 +361,7 @@ function ReconPage() {
                   ...(dns.MX.length ? [{ kind: "Mail", items: dns.MX, tone: "default" as const }] : []),
                   ...(dns.NS.length ? [{ kind: "Nameserver", items: dns.NS, tone: "default" as const }] : []),
                 ]}
-                onSendTo={() => {}}
+                onSendTo={(v) => { try { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "ioc", value: v, source: "/recon" })); flash(`Sent ${v} to pending`); } catch {} }}
               />
             </CollapsibleSection>
           )}

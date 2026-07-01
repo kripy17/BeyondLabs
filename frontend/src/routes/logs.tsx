@@ -274,12 +274,14 @@ function LogsPage() {
 
   useEffect(() => {
     if (!input.trim() || !enrichEnabled) return;
-    setEnrichLoading(true);
-    setEnrichResult(null);
-    parseLogs(input)
-      .then((res) => setEnrichResult(res as Record<string, unknown>))
-      .catch(() => setEnrichResult(null))
-      .finally(() => setEnrichLoading(false));
+    const timer = setTimeout(() => {
+      setEnrichLoading(true);
+      parseLogs(input)
+        .then((res) => setEnrichResult(res as Record<string, unknown>))
+        .catch(() => setEnrichResult(null))
+        .finally(() => setEnrichLoading(false));
+    }, 600);
+    return () => clearTimeout(timer);
   }, [enrichEnabled, input]);
 
   const parsed = useMemo(() => parseInput(input), [input]);
@@ -481,7 +483,7 @@ function LogsPage() {
                       <div className="ml-10 mb-2 mt-1 rounded border border-border/50 bg-card/40 p-2.5">
                         <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Line {i + 1} · Actions</div>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <button onClick={() => addChip("ip", input.match(IPV4_RE)?.[0] ?? ln)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Filter IP</button>
+                          <button onClick={() => addChip("ip", ln.match(IPV4_RE)?.[0] ?? ln)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Filter IP</button>
                           <button onClick={() => { copy(ln); flash("Line copied"); }} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy</button>
                           <button onClick={() => setModal({ title: "Line Detail", subtitle: `Line ${i + 1}`, data: { line_number: i + 1, text: ln, entities: { ips: ln.match(IPV4_RE) ?? [] } } })} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
                           <button onClick={() => handleSendTo("siem")} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Send to SIEM</button>

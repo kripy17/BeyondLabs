@@ -1,5 +1,8 @@
-/AGENTS.md
 /screenshot-*.png
+
+# Agent profile / instructions
+/AGENTS.md
+/.openclaude-profile.json
 
 # Build output
 /frontend/dist/
@@ -13,12 +16,23 @@
 
 # Python cache
 /.pytest_cache/
+/backend/.venv/
+__pycache__/
+*.pyc
 
 # Node dependencies
 /frontend/node_modules/
+/package-lock.json
 
 # Agent tool config
 /.opencode/
 
 # Test artifacts
 /test-results/
+/frontend/responsive-screenshots/
+
+# Logs
+*.log
+
+# Environment
+/backend/.env

@@ -3,7 +3,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ChevronRight, Settings as SettingsIcon, Wifi, ShieldCheck } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { TopSearch } from "./TopSearch";
-import { CommandPalette, useCommandPalette } from "./CommandPalette";
+import { CommandPalette, ShortcutsDialog, useCommandPalette } from "./CommandPalette";
 import { usePrefs, getBrandIcon } from "@/lib/prefs";
 
 export type Crumb = { label: string; href?: string };
@@ -106,11 +106,12 @@ export function PageShell({
 
 
       <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
+      <ShortcutsDialog open={palette.shortcutsOpen} onClose={() => palette.setShortcutsOpen(false)} />
 
       {/* Page hero */}
       <div className="relative overflow-hidden border-b border-border">
         <div className="ba-hero-fx" aria-hidden />
-        <div className="relative mx-auto w-full max-w-7xl px-6 py-7 ba-fade-in">
+        <div className="relative mx-auto w-full max-w-7xl px-6 py-8 ba-fade-in">
           {eyebrow && (
             <div className="text-mono mb-2 text-[10px] uppercase tracking-[0.24em] text-primary">
               {eyebrow}
@@ -120,7 +121,7 @@ export function PageShell({
             <div className="min-w-0">
               <h1 className="gradient-text text-3xl font-bold tracking-tight md:text-[2.25rem]">{title}</h1>
               {description && (
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+                <p className="mt-2 max-w-3xl text-sm leading-[1.75] text-muted-foreground">{description}</p>
               )}
               {meta && meta.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -158,11 +159,11 @@ export function PageShell({
         </div>
       </div>
 
-      <main className="min-w-0 flex-1 px-6 py-6">
-        <div className="mx-auto min-w-0 max-w-7xl space-y-6">{children}</div>
+      <main className="min-w-0 flex-1 overflow-x-auto px-6 py-6">
+        <div className="mx-auto min-w-0 max-w-[90rem] space-y-6">{children}</div>
       </main>
 
-      <footer className="border-t border-border px-6 py-3">
+      <footer className="border-t border-border px-6 py-4">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span>beyondarch · local soc workbench</span>
           <span>analyst-led · no detonation · bounded scans</span>

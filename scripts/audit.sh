@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SRC="$REPO_ROOT/frontend/src"
-STYLES="$SRC/styles"
+STYLES_CSS="$SRC/styles.css"
 
 C_RESET='\033[0m'; C_CYAN='\033[0;36m'; C_GREEN='\033[0;32m'
 C_YELLOW='\033[0;33m'; C_RED='\033[0;31m'; C_BOLD='\033[1m'; C_DIM='\033[2m'
@@ -33,18 +33,13 @@ find "$SRC" -name "*.jsx" | while read -r f; do
 done | sort -rn
 
 # ── 2. CSS file sizes ────────────────────────────────────────────────────────
-section "CSS file sizes"
-find "$STYLES" -name "*.css" | while read -r f; do
-  lines=$(wc -l < "$f")
-  rel="${f#$STYLES/}"
-  if   [[ $lines -gt 2000 ]]; then echo "  ${C_RED}${lines}${C_RESET}  $rel"
-  elif [[ $lines -gt 800  ]]; then echo "  ${C_YELLOW}${lines}${C_RESET}  $rel"
-  else                              echo "  ${lines}  $rel"
-  fi
-done | sort -rn
-
-CSS_TOTAL=$(find "$STYLES" -name "*.css" -exec wc -l {} + | tail -1 | awk '{print $1}')
-echo -e "\n  ${C_BOLD}Total CSS: ${CSS_TOTAL} lines across $(find "$STYLES" -name "*.css" | wc -l) files${C_RESET}"
+section "Styles"
+if [[ -f "$STYLES_CSS" ]]; then
+  lines=$(wc -l < "$STYLES_CSS")
+  echo "  styles.css  (${lines} lines)"
+else
+  echo "  (no styles.css found at $STYLES_CSS)"
+fi
 
 # ── 3. Duplicate functions ────────────────────────────────────────────────────
 section "Duplicate function definitions"
@@ -108,29 +103,23 @@ grep -rn "<details\|<summary" "$SRC" --include="*.jsx" | while read -r line; do
   item "${file}:${lineno}"
 done
 
-# ── 7. index.css import order ─────────────────────────────────────────────────
-section "index.css imports"
-grep "@import" "$SRC/index.css" | while read -r line; do
-  fname=$(echo "$line" | grep -o '"[^"]*"' | tr -d '"' | xargs basename)
-  lines=$(wc -l < "$STYLES/$fname" 2>/dev/null || echo "?")
-  if echo "$fname" | grep -qE "rebuild|final|fix|patch|override"; then
-    item "${C_RED}$fname${C_RESET} (${lines} lines) — looks like a patch file"
+# ── 7. CSS @import usage ──────────────────────────────────────────────────────
+section "CSS @import usage"
+if [[ -f "$STYLES_CSS" ]]; then
+  imports=$(grep -c "@import" "$STYLES_CSS" 2>/dev/null || echo 0)
+  if [[ $imports -gt 0 ]]; then
+    item "styles.css has $imports @import rules"
   else
-    dim "$fname  (${lines} lines)"
+    ok "No @import in styles.css"
   fi
-done
+fi
 
 # ── 8. Summary ────────────────────────────────────────────────────────────────
 section "Summary"
 JSX_COUNT=$(find "$SRC" -name "*.jsx" | wc -l)
 BIG_FILES=$(find "$SRC" -name "*.jsx" | xargs wc -l 2>/dev/null | awk '$1>800' | wc -l)
-CSS_FILES=$(find "$STYLES" -name "*.css" | wc -l)
 
 echo ""
 echo -e "  JSX files:     ${JSX_COUNT}"
-echo -e "  Large (>800):  ${C_YELLOW}${BIG_FILES}${C_RESET}  files need component extraction"
-echo -e "  CSS files:     ${C_RED}${CSS_FILES}${C_RESET}  should be ≤3"
-echo -e "  CSS total:     ${C_RED}${CSS_TOTAL}${C_RESET} lines"
-echo ""
-echo -e "  ${C_DIM}Run extract-utils.sh next to fix the duplicate function issue.${C_RESET}"
+echo -e "  Large (>800):  ${C_YELLOW}${BIG_FILES}${C_RESET}  files may need component extraction"
 echo ""

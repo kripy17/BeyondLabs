@@ -1,12 +1,9 @@
 import json
 import subprocess
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 
-
-def utc_now():
-    return datetime.now(timezone.utc).isoformat()
+from app.utils import utc_now
 
 
 def run_maigret_search(username: str, timeout: int = 120) -> dict:
