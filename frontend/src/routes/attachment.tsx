@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
-  StatusBar, ResultBanner, KeyFields, SectionBar,
+  StatusBar, KeyFields, SectionBar,
   Panel, EvidenceCard, SendToRow, Empty, Chip, RiskScore,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";

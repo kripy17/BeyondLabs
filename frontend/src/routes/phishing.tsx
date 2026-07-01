@@ -8,7 +8,7 @@ import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, ArrowRight, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, Network, FlaskConical } from "lucide-react";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
 

@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
-  IntakeCard, StatusBar, ResultBanner, KeyFields, SectionBar,
+  IntakeCard, StatusBar, KeyFields, SectionBar,
   Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
 import { toast } from "sonner";
-import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Crosshair, ExternalLink, Download, Hash, Network, ShieldCheck, ShieldX, Activity, Bug, Eraser } from "lucide-react";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Download, Hash, Network, ShieldCheck, ShieldX, Activity } from "lucide-react";
 import { passiveRecon } from "@/api/backend";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });

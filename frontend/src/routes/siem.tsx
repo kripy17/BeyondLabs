@@ -8,9 +8,8 @@ import {
 } from "@/components/soc/Workspace";
 import {
   Database, Search, ArrowRight, Zap, ShieldAlert, Activity, Filter,
-  Download, Clock, X, ListFilter, FileText, Crosshair, Bug, ExternalLink, Loader2,
-  Hash, Globe, Network, User, AlertTriangle, ChevronDown, ChevronRight,
-  Minus, Plus,
+  Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
+  Hash, User, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/siem")({ component: SiemPage });

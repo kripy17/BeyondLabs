@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+
 import { ThemeProvider } from "@/lib/theme";
 import { PrefsProvider } from "@/lib/prefs";
 import { useRouteRecorder } from "@/lib/recents";

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
-import { GROUPS, ALL_ITEMS, findItem, type WorkspaceItem } from "@/lib/workspaces";
+import { ALL_ITEMS, findItem, type WorkspaceItem } from "@/lib/workspaces";
 import { useRecents, clearRecents } from "@/lib/recents";
 import { usePrefs } from "@/lib/prefs";
 import { NumberTicker } from "@/components/magic/NumberTicker";
@@ -10,9 +10,8 @@ import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
 import { MetricGrid } from "@/components/soc/Workspace";
 import {
   ArrowRight, Plus, ArrowUpRight, Wand2, Radar, Target, Pin, Clock,
-  Keyboard, ChevronRight, ShieldCheck, Zap, Eraser, Activity,
+  Keyboard, ShieldCheck, Zap, Eraser, Activity,
   Cpu, WifiOff, CircleDot, Compass, LayoutGrid, type LucideIcon,
-  Database, Terminal,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 

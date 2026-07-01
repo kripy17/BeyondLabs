@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { IntakeCard, StatusBar, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret } from "@/api/backend";
