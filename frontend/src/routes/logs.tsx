@@ -247,6 +247,36 @@ function genMarkdown(parsed: ParsedLog, findings: Finding[], mitre: MitreMap[]):
   return lines.join("\n");
 }
 
+function renderEnrichment(er: Record<string, unknown> | null) {
+  if (!er) return null;
+  return (
+    <Panel title="Backend Analysis Results" icon={Database} meta={`${(er.findings as unknown[] | undefined)?.length ?? 0} finding(s)`}>
+      <KeyFields items={[
+        { label: "Total lines", value: String(((er.summary as Record<string, unknown>)?.total_lines as number) ?? "\u2014") },
+        { label: "Parsed entries", value: String(((er.summary as Record<string, unknown>)?.parsed_entries as number) ?? "\u2014") },
+        { label: "Unique IPs", value: String(((er.summary as Record<string, unknown>)?.unique_ips as number) ?? "\u2014") },
+        { label: "Unique URLs", value: String(((er.summary as Record<string, unknown>)?.unique_urls as number) ?? "\u2014") },
+        { label: "Unique emails", value: String(((er.summary as Record<string, unknown>)?.unique_emails as number) ?? "\u2014") },
+      ]} />
+      {Array.isArray(er.findings) && (er.findings as unknown[]).length > 0 && (
+        <div className="mt-3 space-y-2">
+          <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Backend Findings</p>
+          {(er.findings as Array<Record<string, unknown>>).map((f, i) => (
+            <EvidenceCard
+              key={i}
+              severity={f.severity === "high" ? "destructive" : f.severity === "medium" ? "warning" : "info"}
+              title={f.title as string}
+              reason={f.detail as string}
+              action={(f.recommendation as string) ?? "Review in context."}
+              limitation="Backend-assisted analysis"
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function LogsPage() {
   const [input, setInput] = useState(() => readInitialPrefill());
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
@@ -550,33 +580,7 @@ function LogsPage() {
             ))}
           </div>
 
-          {/* Backend Enrichment */}
-          {enrichResult && (
-            <Panel title="Backend Analysis Results" icon={Database} meta={`${(enrichResult.findings as unknown[] | undefined)?.length ?? 0} finding(s)`}>
-              <KeyFields items={[
-                { label: "Total lines", value: String(((enrichResult.summary as Record<string, unknown>)?.total_lines as number) ?? "\u2014") },
-                { label: "Parsed entries", value: String(((enrichResult.summary as Record<string, unknown>)?.parsed_entries as number) ?? "\u2014") },
-                { label: "Unique IPs", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_ips as number) ?? "\u2014") },
-                { label: "Unique URLs", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_urls as number) ?? "\u2014") },
-                { label: "Unique emails", value: String(((enrichResult.summary as Record<string, unknown>)?.unique_emails as number) ?? "\u2014") },
-              ]} />
-              {(enrichResult.findings as unknown[] | undefined)?.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Backend Findings</p>
-                  {(enrichResult.findings as Array<Record<string, unknown>>).map((f, i) => (
-                    <EvidenceCard
-                      key={i}
-                      severity={f.severity === "high" ? "destructive" : f.severity === "medium" ? "warning" : "info"}
-                      title={f.title as string}
-                      reason={f.detail as string}
-                      action={(f.recommendation as string) ?? "Review in context."}
-                      limitation="Backend-assisted analysis"
-                    />
-                  ))}
-                </div>
-              )}
-            </Panel>
-          )}
+          {renderEnrichment(enrichResult)}
 
           {/* MITRE ATT&CK — grouped by tactic */}
           {tacticCoverage.length > 0 && (

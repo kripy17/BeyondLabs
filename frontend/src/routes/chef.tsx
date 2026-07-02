@@ -176,7 +176,7 @@ const OPS: Op[] = [
   { id: "from-hex",    label: "From Hex",    category: "encodings", description: "Hex bytes back to text.",       placeholder: "48 65 6c 6c 6f", run: (s) => { try { const c = s.replace(/[^a-fA-F0-9]/g, ""); return td.decode(new Uint8Array(c.match(/.{1,2}/g)!.map((x) => parseInt(x, 16)))); } catch { return "[hex error]"; } } },
   { id: "to-binary",   label: "To Binary",   category: "encodings", description: "8-bit binary byte groups.",     run: toBinaryRun },
   { id: "from-binary", label: "From Binary", category: "encodings", description: "Binary back to text.",          run: (s) => { const m = s.match(/[01]{8}/g) ?? []; return td.decode(new Uint8Array(m.map((b) => parseInt(b, 2)))); } },
-  { id: "to-charcode",   label: "To Charcode",   category: "encodings", description: "Text to decimal char codes.",     placeholder: "ABC", run: (s, o) => { const base = o?.base ?? 10; const sep = o?.delimiter ?? " "; return Array.from(s).map((c) => String(c.codePointAt(0)!).toString(base)).join(sep); } },
+  { id: "to-charcode",   label: "To Charcode",   category: "encodings", description: "Text to decimal char codes.",     placeholder: "ABC", run: (s, o) => { const base = o?.base ?? 10; const sep = o?.delimiter ?? " "; return Array.from(s).map((c) => (c.codePointAt(0)!).toString(base)).join(sep); } },
   { id: "from-charcode", label: "From Charcode", category: "encodings", description: "Decimal char codes back to text.", placeholder: "65 66 67", run: (s, o) => { try { const base = o?.base ?? 10; const sep = o?.delimiter ?? /\s+/; return s.split(sep instanceof RegExp ? sep : new RegExp(sep)).map((c) => String.fromCodePoint(parseInt(c, base))).join(""); } catch { return "[charcode error]"; } } },
   { id: "url-encode",  label: "URL Encode",  category: "encodings", description: "Percent-encode for URLs.",      run: (s) => encodeURIComponent(s) },
   { id: "url-decode",  label: "URL Decode",  category: "encodings", description: "Decode percent-encoding.",      run: (s) => { try { return decodeURIComponent(s); } catch { return s; } } },
@@ -281,7 +281,7 @@ const OPS: Op[] = [
   { id: "linux-auth-summary", label: "Linux Auth Summary", category: "triage", description: "Summarize auth/SSH log lines.", placeholder: "Jan 12 10:01:02 host sshd[123]: Failed password for invalid user admin from 8.8.8.8", run: (s) => {
     const lines = s.split(/\r?\n/).filter(Boolean);
     const ips = uniq(lines.flatMap((l) => l.match(RX.ip) ?? []));
-    const invalid = uniq(lines.map((l) => l.match(/invalid user\s+(\S+)/i)?.[1]).filter(Boolean));
+    const invalid = uniq(lines.map((l) => l.match(/invalid user\s+(\S+)/i)?.[1]).filter((x): x is string => !!x));
     return `total_lines:       ${lines.length}\nfailed_password:  ${lines.filter((l) => /failed password/i.test(l)).length}\naccepted_login:   ${lines.filter((l) => /accepted (password|publickey)/i.test(l)).length}\ninvalid_users:    ${invalid.join(", ") || "none"}\nsource_ips:       ${ips.join(", ") || "none"}`;
   }},
   { id: "windows-cmdline-parse", label: "Windows Command Parse", category: "triage", description: "Parse executable, args, LOLBins, suspicious flags.", placeholder: "powershell.exe -NoP -W Hidden -enc SQBFAFgA", run: (s) => {
@@ -731,7 +731,7 @@ function ChefPage() {
                     >
                       <div className="truncate text-mono text-[11px] text-foreground/90">{p.label}</div>
                       <div className="line-clamp-2 text-mono text-[10px] text-muted-foreground">{p.description}</div>
-                      <div className="mt-0.5 truncate text-mono text-[9px] text-primary/60">{p.steps.map((s) => OP_BY_ID[typeof s === "string" ? s : s.operationId]?.label ?? (typeof s === "string" ? s : s.operationId)).join(" → ")}</div>
+                      <div className="mt-0.5 truncate text-mono text-[9px] text-primary/60">{p.steps.map((s) => OP_BY_ID[s]?.label ?? s).join(" → ")}</div>
                     </button>
                   ))}
                 </div>

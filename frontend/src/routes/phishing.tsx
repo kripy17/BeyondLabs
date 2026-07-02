@@ -553,7 +553,7 @@ function PhishingPage() {
                   { label: "Subject", value: (input.match(/Subject:\s*(.+)/i)?.[1] ?? "\u2014").trim() },
                   { label: "Sender TLD", value: data.fromDomain ? `.${data.fromDomain.split(".").pop()}` : "\u2014", tone: data.fromDomain && SENDER_TLDS.has(data.fromDomain.split(".").pop() || "") ? "warning" : "default" },
                   { label: "Authentication", value: data.spf === "fail" || data.dmarc === "fail" ? "FAIL" : data.spf === "softfail" || data.dmarc === "softfail" || data.dkim === "softfail" ? "SOFTFAIL" : "pass", tone: data.spf === "fail" || data.dmarc === "fail" ? "destructive" : data.spf === "softfail" || data.dmarc === "softfail" || data.dkim === "softfail" ? "warning" : "success" },
-                  ...(data.hasAttachment.hasAttachments ? [{ label: "Attachment", value: data.hasAttachment.detail.join("; "), tone: "warning" }] : []),
+                   ...(data.hasAttachment.hasAttachments ? [{ label: "Attachment", value: data.hasAttachment.detail.join("; "), tone: "warning" as const }] : []),
                 ]} />
               </Panel>
 

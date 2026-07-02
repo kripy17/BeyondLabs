@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
-import { BookOpen, ArrowRight, Database, ShieldAlert, Search, Circle, ShieldOff, Mail, Activity, KeyRound, ShieldCheck } from "lucide-react";
+import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
 

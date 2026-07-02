@@ -160,7 +160,7 @@ function ReconPage() {
     setResult(null);
     try {
       const res = await passiveRecon(target.trim());
-      setResult(res as ReconApiResult);
+      setResult(res as unknown as ReconApiResult);
       toast.success("Recon complete", { description: target.trim() });
     } catch (e: any) {
       setError(e?.message || "passive recon failed");
@@ -361,7 +361,7 @@ function ReconPage() {
                   ...(dns.MX.length ? [{ kind: "Mail", items: dns.MX, tone: "default" as const }] : []),
                   ...(dns.NS.length ? [{ kind: "Nameserver", items: dns.NS, tone: "default" as const }] : []),
                 ]}
-                onSendTo={(v) => { try { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "ioc", value: v, source: "/recon" })); flash(`Sent ${v} to pending`); } catch {} }}
+                onSendTo={(v) => { try { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "ioc", value: v, source: "/recon" })); toast(`Sent ${v} to pending`); } catch {} }}
               />
             </CollapsibleSection>
           )}

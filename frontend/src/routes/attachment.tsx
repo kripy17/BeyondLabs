@@ -42,7 +42,7 @@ function AttachmentPage() {
     setResult(null);
     try {
       const res = await uploadMalwareFile(file);
-      setResult(res as ApiResult);
+      setResult(res as unknown as ApiResult);
     } catch (e: any) {
       setError(e?.message || "analysis failed");
     } finally {

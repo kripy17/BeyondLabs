@@ -707,11 +707,11 @@ function SiemPage() {
         <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
           <div className="flex flex-wrap gap-2">
             {mitre.map((m) => (
-              <span key={m.id} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
+              <span key={m} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
                 <Bug className="h-3 w-3 text-destructive" />
-                <span className="font-semibold">{m.id}</span>
+                <span className="font-semibold">{m.split(" ")[0]}</span>
                 <span className="text-muted-foreground">:</span>
-                <span>{m.name}</span>
+                <span>{m.split(" ").slice(1).join(" ")}</span>
               </span>
             ))}
           </div>

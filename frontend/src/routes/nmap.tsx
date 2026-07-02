@@ -238,11 +238,11 @@ function NmapPage() {
         <Panel><p className="text-mono text-[11px] text-muted-foreground">Confirm permission and execute the scan to see results.</p></Panel>
       )}
 
-      {realResult && scanResult && scanResult.stdout && (
+      {realResult && scanResult && !!(scanResult as Record<string, unknown>).stdout && (
         <Panel title="Report" meta="markdown" actions={
           <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
         }>
-          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, scanResult.stdout as string)}</pre>
+          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, (scanResult as Record<string, unknown>).stdout as string)}</pre>
         </Panel>
       )}
 

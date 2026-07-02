@@ -73,6 +73,8 @@ export function Panel({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 }) {
   return (
     <section className={"group/panel relative overflow-hidden rounded-md border border-border bg-card/60 transition-colors hover:border-primary/30 " + className}>
@@ -442,7 +444,7 @@ export function IntakeCard({
 export function StatusBar({
   stats,
 }: {
-  stats: { label: string; value: ReactNode; tone?: "default" | "primary" | "success" | "warning" | "muted" }[];
+  stats: { label: string; value: ReactNode; tone?: "default" | "primary" | "success" | "warning" | "destructive" | "muted" }[];
 }) {
   return (
     <div className="relative flex flex-wrap items-center gap-x-5 gap-y-1.5 overflow-hidden rounded-md border border-border bg-card/40 px-3 py-2">
@@ -452,7 +454,8 @@ export function StatusBar({
           s.tone === "primary" ? "bg-primary" :
           s.tone === "success" ? "bg-success" :
           s.tone === "warning" ? "bg-warning animate-pulse" :
-          s.tone === "muted" ? "bg-muted-foreground/40" :
+           s.tone === "destructive" ? "bg-destructive" :
+           s.tone === "muted" ? "bg-muted-foreground/40" :
           "bg-foreground/40";
         return (
           <div key={i} className="flex items-center gap-1.5">
@@ -464,7 +467,8 @@ export function StatusBar({
                 (s.tone === "primary" ? "text-primary" :
                  s.tone === "success" ? "text-success" :
                  s.tone === "warning" ? "text-warning" :
-                 s.tone === "muted" ? "text-muted-foreground" :
+                  s.tone === "destructive" ? "text-destructive" :
+                  s.tone === "muted" ? "text-muted-foreground" :
                  "text-foreground")
               }
             >

@@ -71,7 +71,7 @@ function IdsPage() {
 
   useEffect(() => {
     getIdsRuleTemplates()
-      .then((data) => { setTemplates(data); setSelectedKey(Object.keys(data)[0] ?? null); })
+      .then((data) => { setTemplates(data as Record<string, string>); setSelectedKey(Object.keys(data as Record<string, string>)[0] ?? null); })
       .catch(() => { setTemplates({}); })
       .finally(() => setLoading(false));
   }, []);

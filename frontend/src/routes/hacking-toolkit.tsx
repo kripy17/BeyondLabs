@@ -7,6 +7,7 @@ import {
 } from "@/components/soc/Workspace";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import type { LucideIcon } from "lucide-react";
 import {
   Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
   FileText, Cloud, Server, Image as ImageIcon, Terminal, Copy, Check,

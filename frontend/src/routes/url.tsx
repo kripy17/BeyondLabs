@@ -127,6 +127,42 @@ function genMarkdownExport(parsed: URL, findings: { sev: string; t: string; r: s
   return lines.join("\n");
 }
 
+function renderEnrichment(er: Record<string, unknown> | null) {
+  if (!er) return null;
+  return (
+    <Panel title="Backend Enrichment" icon={Globe2} meta={er.verdict as string}>
+      <KeyFields items={[
+        { label: "Verdict", value: (er.verdict as string) ?? "\u2014", tone: er.verdict === "suspicious" ? "warning" : er.verdict === "high_risk" ? "destructive" : "default" },
+        { label: "Confidence", value: (er.confidence as string) ?? "\u2014" },
+        { label: "Evidence Level", value: (er.evidence_level as string) ?? "\u2014" },
+        { label: "Root Domain", value: String((er.static_result as Record<string, unknown> | undefined)?.root_domain ?? "\u2014") },
+        { label: "Summary", value: (er.summary as string) ?? "\u2014" },
+      ]} />
+      {Array.isArray(er.recommended_actions) && (er.recommended_actions as string[]).length > 0 && (
+        <div className="mt-3 space-y-1">
+          <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Recommended Actions</p>
+          <ul className="space-y-1">
+            {(er.recommended_actions as string[]).map((a, i) => (
+              <li key={i} className="flex items-start gap-2 text-mono text-[11px] text-foreground/85">
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                {a}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {Array.isArray(er.limitations) && (er.limitations as string[]).length > 0 && (
+        <div className="mt-3 rounded border border-border/50 bg-card/40 px-2 py-1.5">
+          <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Limitations</p>
+          {(er.limitations as string[]).map((l, i) => (
+            <p key={i} className="text-mono text-[10px] text-muted-foreground/80">{l}</p>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function UrlPage() {
   const [raw, setRaw] = useState("");
   const [runs, setRuns] = useState(0);
@@ -134,6 +170,7 @@ function UrlPage() {
   const [enrichEnabled, setEnrichEnabled] = useState(false);
   const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
+  const er: Record<string, unknown> | null = enrichResult;
 
   useEffect(() => {
     try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]")); } catch {}
@@ -153,7 +190,7 @@ function UrlPage() {
     const url = refang(trimmed);
     let parsed: URL | null = null;
     try { parsed = new URL(url); } catch { parsed = null; }
-    if (!parsed) return { parsed: null as URL | null, findings: [], score: 0 };
+    if (!parsed) return { parsed: null as URL | null, findings: [], score: 0, isHttp: false, punycode: false, isShortener: false, defangedOriginal: false, pathSignals: [], fileExt: null, hasEmbeddedCreds: false, hasPathTraversal: false, isNumericDomain: false, hasNonStandardPort: false, portNum: null, suspiciousChars: [], domainEnt: 0, isSuspiciousTLD: false, tld: "", suspiciousPaths: [], secrets: [], mitre: [] };
 
     const host = parsed.hostname;
     const path = parsed.pathname;
@@ -329,7 +366,7 @@ function UrlPage() {
                 backend enrichment
                 {enrichLoading && <Loader2 className="ml-0.5 inline h-3 w-3 animate-spin text-primary" />}
               </label>
-              {enrichResult && <span className="text-mono text-[10px] text-success">done</span>}
+              {er && <span className="text-mono text-[10px] text-success">done</span>}
             </div>
             {history.length > 0 && (
               <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History}>
@@ -433,7 +470,7 @@ function UrlPage() {
                   {analysis.suspiciousPaths.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {analysis.suspiciousPaths.map((p, i) => (
-                        <Chip key={i} label={p} />
+                        <Chip key={i}>{p}</Chip>
                       ))}
                     </div>
                   )}
@@ -453,14 +490,14 @@ function UrlPage() {
                     { label: "TLD", value: `.${analysis.tld}`, tone: analysis.isSuspiciousTLD ? "warning" : "default" },
                     { label: "Domain entropy", value: analysis.domainEnt.toFixed(2), tone: analysis.domainEnt > 4.0 ? "warning" : "default" },
                     { label: "Numeric IP", value: analysis.isNumericDomain ? "yes" : "no", tone: analysis.isNumericDomain ? "warning" : "default" },
-                    { label: "Unicode in path", value: analysis.suspiciousChars.filter((c) => c.char !== "@" && c.char !== "%25").length > 0 ? "yes" : "no", tone: "info" },
+                    { label: "Unicode in path", value: analysis.suspiciousChars.filter((c) => c.char !== "@" && c.char !== "%25").length > 0 ? "yes" : "no", tone: "primary" },
                   ]} />
                   {analysis.suspiciousChars.length > 0 && (
                     <div className="mt-2">
                       <p className="mb-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Suspicious characters</p>
                       <div className="flex flex-wrap gap-1">
                         {analysis.suspiciousChars.map((c, i) => (
-                          <Chip key={i} label={`'${c.char}' at ${c.pos}`} />
+                          <Chip key={i}>{`'${c.char}' at ${c.pos}`}</Chip>
                         ))}
                       </div>
                     </div>
@@ -552,39 +589,7 @@ function UrlPage() {
                 ]} />
               </Panel>
 
-              {/* Backend Enrichment */}
-              {enrichResult && (
-                <Panel title="Backend Enrichment" icon={Globe2} meta={enrichResult.verdict as string}>
-                  <KeyFields items={[
-                    { label: "Verdict", value: (enrichResult.verdict as string) ?? "\u2014", tone: enrichResult.verdict === "suspicious" ? "warning" : enrichResult.verdict === "high_risk" ? "destructive" : "default" },
-                    { label: "Confidence", value: (enrichResult.confidence as string) ?? "\u2014" },
-                    { label: "Evidence Level", value: (enrichResult.evidence_level as string) ?? "\u2014" },
-                    { label: "Root Domain", value: String((enrichResult.static_result as Record<string, unknown> | undefined)?.root_domain ?? "\u2014") },
-                    { label: "Summary", value: (enrichResult.summary as string) ?? "\u2014" },
-                  ]} />
-                  {(enrichResult.recommended_actions as string[] | undefined)?.length > 0 && (
-                    <div className="mt-3 space-y-1">
-                      <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Recommended Actions</p>
-                      <ul className="space-y-1">
-                        {(enrichResult.recommended_actions as string[]).map((a, i) => (
-                          <li key={i} className="flex items-start gap-2 text-mono text-[11px] text-foreground/85">
-                            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                            {a}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {(enrichResult.limitations as string[] | undefined)?.length > 0 && (
-                    <div className="mt-3 rounded border border-border/50 bg-card/40 px-2 py-1.5">
-                      <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Limitations</p>
-                      {(enrichResult.limitations as string[]).map((l, i) => (
-                        <p key={i} className="text-mono text-[10px] text-muted-foreground/80">{l}</p>
-                      ))}
-                    </div>
-                  )}
-                </Panel>
-              )}
+              {renderEnrichment(er)}
 
               {/* MITRE ATT&CK */}
               {analysis.mitre.length > 0 && (
@@ -615,7 +620,7 @@ function UrlPage() {
                 <Panel title="Export Report" icon={Download}>
                   <button
                     onClick={() => {
-                      const md = genMarkdownExport(analysis.parsed!, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum, analysis.suspiciousChars);
+                      const md = genMarkdownExport(analysis.parsed!, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum ?? "", analysis.suspiciousChars);
                       const blob = new Blob([md], { type: "text/markdown" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a"); a.href = url; a.download = `url-report-${Date.now()}.md`; a.click();
