@@ -3,7 +3,7 @@ import { useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, KeyFields, SectionBar,
-  Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
+  Panel, SendToRow, Empty, Chip, EvidenceCard, IocInventory,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
@@ -89,14 +89,13 @@ function findSignals(api: ReconApiResult): { sev: "destructive" | "warning" | "i
   return signals;
 }
 
-function genMarkdownExport(api: ReconApiResult, targetStr: string, score: number, signals: any[]): string {
+function genMarkdownExport(api: ReconApiResult, targetStr: string, signals: any[]): string {
   const http = getHttp(api.http);
   const ssl = getSsl(api.ssl);
   const dns = flattenDns(api.dns);
   const lines = [
     `# Reconnaissance Report`,
     `**Target:** \`${targetStr}\``,
-    `**Score:** ${score}/100`,
     `**Generated:** ${new Date().toISOString()}`,
     "", "## DNS Records",
   ];
@@ -121,27 +120,6 @@ function genMarkdownExport(api: ReconApiResult, targetStr: string, score: number
   return lines.join("\n");
 }
 
-function computeScore(api: ReconApiResult): { score: number; confidence: string; tone: "success" | "warning" | "destructive" } {
-  let score = 0;
-  const http = getHttp(api.http);
-  const ssl = getSsl(api.ssl);
-  const dns = flattenDns(api.dns);
-  if (!ssl) score += 10;
-  if (http) {
-    const h = http.headers;
-    const absent = ["strict-transport-security", "content-security-policy", "x-frame-options", "x-content-type-options", "referrer-policy"]
-      .filter((k) => !h[k]).length;
-    score += absent * 4;
-    if (http.status_code === 301 || http.status_code === 302) score += 5;
-  }
-  if (dns.A.length === 0 && dns.AAAA.length === 0) score += 15;
-  if (dns.MX.length === 0) score += 3;
-  const total = Math.min(100, score);
-  const tone = total < 20 ? "success" : total < 50 ? "warning" : "destructive";
-  const confidence = total < 15 ? "low" : total < 40 ? "moderate" : total < 70 ? "high" : "very high";
-  return { score: total, confidence, tone };
-}
-
 function ReconPage() {
   const [target, setTarget] = useState("");
   const [loading, setLoading] = useState(false);
@@ -153,7 +131,6 @@ function ReconPage() {
   const http = result ? getHttp(result.http) : null;
   const ssl = result ? getSsl(result.ssl) : null;
   const signals = result ? findSignals(result) : [];
-  const analysis = result ? computeScore(result) : null;
 
   async function handleRun() {
     if (!target.trim()) return;
@@ -195,7 +172,6 @@ function ReconPage() {
       <StatusBar stats={[
         { label: "Status", value: loading ? "probing..." : error ? "error" : result ? "Snapshot ready" : "Idle", tone: error ? "destructive" : loading ? "warning" : result ? "success" : "muted" },
         { label: "Sources", value: "DNS · TLS · HTTP", tone: "primary" },
-        { label: "Score", value: analysis ? `${analysis.score}/100` : "—", tone: analysis?.tone },
         { label: "Active probing", value: "off", tone: "muted" },
       ]} />
 
@@ -232,9 +208,8 @@ function ReconPage() {
           {/* Verdict Banner */}
           <VerdictBanner
             verdict={result.target.hostname || target}
-            tone={analysis?.tone ?? "success"}
-            icon={analysis?.tone === "destructive" ? ShieldX : analysis?.tone === "warning" ? AlertTriangle : ShieldCheck}
-            score={analysis ? `${analysis.score}/100` : undefined}
+            tone={signals.some((s) => s.sev === "destructive") ? "destructive" : signals.some((s) => s.sev === "warning") ? "warning" : "success"}
+            icon={signals.some((s) => s.sev === "destructive") ? ShieldX : signals.some((s) => s.sev === "warning") ? AlertTriangle : ShieldCheck}
             details={[
               result.target.type === "domain" ? `Root: ${result.target.root_domain}` : `Type: ${result.target.type}`,
               dns ? `${Object.values(dns).flat().length} DNS records` : "",
@@ -258,11 +233,6 @@ function ReconPage() {
               { label: "SANs", value: ssl?.subject_alt_names?.length ?? 0 },
             ]}
           />
-
-          {/* Risk Score */}
-          {analysis && (
-            <RiskScore score={analysis.score} label="Exposure Risk" confidence={analysis.confidence} tone={analysis.tone} />
-          )}
 
           {result.warning && (
             <Panel title="Warning" icon={AlertTriangle}>
@@ -395,7 +365,7 @@ function ReconPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => {
-                    const md = genMarkdownExport(result, target, analysis!.score, signals);
+                    const md = genMarkdownExport(result, target, signals);
                     const blob = new Blob([md], { type: "text/markdown" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
@@ -408,8 +378,8 @@ function ReconPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const md = genMarkdownExport(result, target, analysis!.score, signals);
-                    navigator.clipboard.writeText(md);
+                    const md = genMarkdownExport(result, target, signals);
+                    try { navigator.clipboard.writeText(md); } catch {/* noop */}
                   }}
                   className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >

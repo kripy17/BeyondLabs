@@ -8,6 +8,7 @@ import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS } from "@/lib/ioc-patterns";
 import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
@@ -92,19 +93,6 @@ const RX = {
 };
 
 const SENDER_TLDS = new Set(["tk","ml","ga","cf","gq","xyz","top","download","review","work","date","men","loan","win","bid","cam","click","quest","trade","webcam","cyou","bond"]);
-const SUSPICIOUS_TLDS = new Set(["tk","ml","ga","cf","gq","xyz","top","download","review","work","date","men","loan","win","bid","cam","click","quest","trade","webcam","science","party","gdn","racing","accountant","country","faith","online","site","rest","cyou","bond","bar"]);
-const SHORTENERS = new Set(["bit.ly","tinyurl.com","ow.ly","is.gd","buff.ly","shorturl.at","cutt.ly","t.co","goo.gl","tiny.cc","cli.gs","url.ie","rb.gy","short.link"]);
-const LOLBINS = ["powershell","cmd.exe","wscript","cscript","mshta","regsvr32","rundll32","wmic","certutil","bitsadmin","msiexec"];
-const DOWNLOAD_CRADLES = ["Invoke-WebRequest","iwr","wget","curl","Invoke-RestMethod","irm","Start-BitsTransfer","(new-object system.net.webclient).downloadstring"];
-const AMSI_BYPASS_PATTERNS = ["amsiutils","amsiinitfailed","system.management.automation.amsiutils"];
-
-const SECRET_RX: { type: string; re: RegExp }[] = [
-  { type: "AWS Access Key", re: /AKIA[0-9A-Z]{16}\b/g },
-  { type: "GitHub Token", re: /(?:ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9]{36}\b/g },
-  { type: "JWT Token", re: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g },
-  { type: "Slack Token", re: /xox[baprs]-[a-zA-Z0-9-]{10,48}\b/g },
-  { type: "Private Key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g },
-];
 
 type AuthState = "pass" | "fail" | "softfail" | "none";
 
@@ -312,7 +300,7 @@ function PhishingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>("");
   const [runs, setRuns] = useState(() => pendingRef.current ? 1 : 0);
-  const [apiResult, setApiResult] = useState<any>(null);
+  const [apiResult, setApiResult] = useState<Record<string, any> | null>(null);
   const navigate = useNavigate();
   const has = input.trim().length > 0;
   const committed = runs > 0 && has;
@@ -512,6 +500,7 @@ function PhishingPage() {
               run={{ label: "analyse", icon: ShieldAlert, hint: "\u2318\u21B5", onClick: run, disabled: !has || !!loading }}
               onClear={clear}
               rows={10}
+              placeholder="[WAITING_FOR_INPUT]\n\nPaste raw email source including headers — or drop a .eml file."
               notice={notice || undefined}
             />
           </>
@@ -528,7 +517,7 @@ function PhishingPage() {
                 caseId={`BA-PH-${String(data.findings.length).padStart(2, "0")}`}
                 title={data.verdict}
                 subtitle="Authentication snapshot computed from the message's Authentication-Results header."
-                reasons={data.findings.slice(0, 3).map((f) => f.t)}
+                reasons={data.findings.slice(0, 3).map((f: { t: string }) => f.t)}
                 metrics={[
                   { label: "Findings", value: data.findings.length, tone: data.findings.length > 0 ? "warning" : "success" },
                   { label: "SPF",   value: data.spf.toUpperCase(),   tone: data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : data.spf === "pass" ? "success" : "default" },
@@ -690,7 +679,7 @@ function PhishingPage() {
                         return (
                           <tr key={i} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "")}>
                             <td className="px-2 py-1.5 text-foreground/90">{b.signal}</td>
-                            <td className="px-2 py-1.5"><Chip tone={tone as any}>{b.state}</Chip></td>
+                            <td className="px-2 py-1.5"><Chip tone={tone as "destructive" | "warning" | "default"}>{b.state}</Chip></td>
                             <td className="px-2 py-1.5 text-foreground/90">+{wt}</td>
                             <td className="px-2 py-1.5">
                               <div className="flex items-center gap-2">
@@ -711,7 +700,7 @@ function PhishingPage() {
               {/* Evidence cards */}
               <SectionBar id="EV" label="Evidence cards" meta="reason · limitation · action" />
               <div className="grid gap-3 md:grid-cols-2">
-                {data.findings.length === 0 ? <Empty title="No suspicious patterns triggered" /> : data.findings.map((f, i) => (
+                {data.findings.length === 0 ? <Empty title="No suspicious patterns triggered" /> : data.findings.map((f: { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }, i: number) => (
                   <EvidenceCard key={i} severity={f.sev} title={f.t} reason={f.r} action={f.a} limitation="Heuristic — confirm against gateway logs and user report." />
                 ))}
               </div>
@@ -773,7 +762,7 @@ function PhishingPage() {
   );
 }
 
-function buildFromApi(apiResult: any, input: string, committed: boolean) {
+function buildFromApi(apiResult: Record<string, any> | null, input: string, committed: boolean) {
   if (!apiResult || !committed) return null;
   const refanged = refang(input);
   const body = extractBody(input);
@@ -790,7 +779,7 @@ function buildFromApi(apiResult: any, input: string, committed: boolean) {
   const dkim: AuthState = auth.dkim === "pass" ? "pass" : auth.dkim === "softfail" ? "softfail" : auth.dkim === "fail" || auth.dkim === "not_found" ? "fail" : "none";
   const dmarc: AuthState = auth.dmarc === "pass" ? "pass" : auth.dmarc === "softfail" ? "softfail" : auth.dmarc === "fail" || auth.dmarc === "not_found" ? "fail" : "none";
 
-  const combined: any[] = apiResult.combined_findings || [];
+  const combined = apiResult.combined_findings || [];
   const findings = combined.map((f: any) => ({
     sev: f.severity === "high" ? "destructive" as const : f.severity === "medium" ? "warning" as const : "info" as const,
     t: f.title,
@@ -865,7 +854,7 @@ function buildFromApi(apiResult: any, input: string, committed: boolean) {
   };
 }
 
-function genBodySignals(body: string, iocs: any): { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[] {
+function genBodySignals(body: string, iocs: { urls: string[] }): { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[] {
   const s: { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[] = [];
   const lower = body.toLowerCase();
   if (/<form/i.test(body) && /action\s*=\s*["']?https?:\/\//i.test(body))

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/soc/Workspace";
+import { SectionBar, Panel, SendToRow, Chip, KeyFields, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/soc/Workspace";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, StickyNote, Save, X, ListFilter, Info } from "lucide-react";
 import { mapMitre, generateSigmaRule } from "@/api/detection";
@@ -19,6 +19,10 @@ type Tpl = {
   technique: { id: string; name: string; tactic: string; platform: string; source: string };
   severity: "low" | "medium" | "high" | "critical";
 };
+
+type MitreMatch = { technique_id: string; technique: string; tactic: string; confidence: string; matched_keywords?: string[] };
+type MitreResult = { total_matches: number; matches: MitreMatch[]; note?: string };
+type GenResult = { sigma_yaml?: string; mitre_mapping?: { matches?: MitreMatch[] }; _show?: boolean };
 
 const TEMPLATES: Record<Format, Tpl> = {
   sigma: {
@@ -245,14 +249,14 @@ function DetectionPage() {
   const [event, setEvent] = useState(TEMPLATES.sigma.event);
   const [copied, setCopied] = useState(false);
 
-  const [mitreResults, setMitreResults] = useState<any>(null);
+  const [mitreResults, setMitreResults] = useState<MitreResult | null>(null);
   const [mitreLoading, setMitreLoading] = useState(false);
   const [mitreError, setMitreError] = useState<string | null>(null);
 
   const [genDescription, setGenDescription] = useState("");
   const [genSeverity, setGenSeverity] = useState<string>("medium");
   const [genLoading, setGenLoading] = useState(false);
-  const [genResult, setGenResult] = useState<any>(null);
+  const [genResult, setGenResult] = useState<GenResult | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
   /* ── Rule library ── */
@@ -284,7 +288,7 @@ function DetectionPage() {
     try {
       const text = [rule, event].filter(Boolean).join("\n");
       const res = await mapMitre(text);
-      setMitreResults(res);
+      setMitreResults(res as MitreResult);
     } catch (e: any) {
       setMitreError(e?.message || "MITRE mapping failed");
     } finally {
@@ -319,13 +323,12 @@ function DetectionPage() {
     }
   };
 
-  const copy = () => { navigator.clipboard.writeText(rule); setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  const copy = () => { try { navigator.clipboard.writeText(rule); } catch {/* noop */} setCopied(true); setTimeout(() => setCopied(false), 1200); };
   const clearMitre = () => setMitreResults(null);
 
   const ruleLines = rule.split("\n");
   const eventLines = event.split("\n");
   const iocs = useMemo(() => extractIocs(event), [event]);
-  const score = result.hit ? (tpl.severity === "critical" ? 85 : tpl.severity === "high" ? 65 : tpl.severity === "medium" ? 40 : 20) : 0;
 
   /* ── Library actions ── */
   const saveCurrent = () => {
@@ -471,9 +474,9 @@ function DetectionPage() {
           ) : (
             <div className="space-y-3">
               <pre className="max-h-60 overflow-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{genResult.sigma_yaml}</pre>
-              {genResult.mitre_mapping?.matches?.length > 0 && (
+              {genResult.mitre_mapping?.matches && genResult.mitre_mapping.matches.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {genResult.mitre_mapping.matches.map((m: any) => (
+                  {genResult.mitre_mapping.matches.map((m: MitreMatch) => (
                     <Chip key={m.technique_id} tone="warning">{m.technique_id} — {m.technique}</Chip>
                   ))}
                 </div>
@@ -720,7 +723,6 @@ function DetectionPage() {
           verdict={result.hit ? "Rule matches event" : "No match"}
           tone={result.hit ? "warning" : "success"}
           icon={result.hit ? AlertTriangle : ShieldCheck}
-          score={`${score}/100`}
           details={[
             result.hit ? `${result.hits.length} token(s): ${result.hits.join(", ")}` : "",
             `${fmt.toUpperCase()} · ${tpl.severity} severity`,
@@ -738,17 +740,9 @@ function DetectionPage() {
             { label: "MITRE", value: mitreResults?.matches?.[0]?.technique_id || tpl.technique.id, tone: "warning", icon: Crosshair },
             { label: "Severity", value: tpl.severity, tone: tpl.severity === "critical" || tpl.severity === "high" ? "destructive" : tpl.severity === "medium" ? "warning" : "default" },
             { label: "Tokens", value: result.hits.length },
-            { label: "Confidence", value: `${score}%`, tone: score >= 60 ? "warning" : "success", icon: Activity },
             { label: "Platform", value: mitreResults?.matches?.[0]?.technique || tpl.technique.platform.split("/")[0] },
             { label: "Tactic", value: mitreResults?.matches?.[0]?.tactic || tpl.technique.tactic },
           ]}
-        />
-
-        <RiskScore
-          score={score}
-          label="Detection Confidence"
-          confidence={score < 20 ? "low" : score < 50 ? "moderate" : score < 80 ? "high" : "very high"}
-          tone={score < 20 ? "success" : score < 60 ? "warning" : "destructive"}
         />
 
         {/* MITRE Mapping + Evidence side-by-side */}
@@ -764,9 +758,9 @@ function DetectionPage() {
                 </div>
               ) : mitreError ? (
                 <p className="text-mono text-[11px] text-destructive">{mitreError}</p>
-              ) : mitreResults?.matches?.length > 0 ? (
+              ) : mitreResults && mitreResults.matches && mitreResults.matches.length > 0 ? (
                 <div className="space-y-3">
-                  {mitreResults.matches.map((m: any) => (
+                  {mitreResults.matches.map((m: MitreMatch) => (
                     <div key={m.technique_id} className="rounded border border-border/50 bg-background/30 p-2">
                       <div className="flex items-center justify-between">
                         <span className="text-mono text-[11px] font-semibold text-foreground">{m.technique_id}</span>
@@ -774,7 +768,7 @@ function DetectionPage() {
                       </div>
                       <p className="mt-0.5 text-[12px] text-foreground/90">{m.technique}</p>
                       <p className="text-[11px] text-muted-foreground">{m.tactic}</p>
-                      {m.matched_keywords?.length > 0 && (
+                      {m.matched_keywords && m.matched_keywords.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {m.matched_keywords.map((kw: string) => (
                             <Chip key={kw} tone="info">{kw}</Chip>
@@ -783,7 +777,9 @@ function DetectionPage() {
                       )}
                     </div>
                   ))}
-                  <p className="text-[10px] text-muted-foreground italic">{mitreResults.total_matches} technique(s) mapped · {mitreResults.note}</p>
+                  {mitreResults.note && (
+                    <p className="text-[10px] text-muted-foreground italic">{mitreResults.total_matches} technique(s) mapped · {mitreResults.note}</p>
+                  )}
                 </div>
               ) : (
                 <p className="py-2 text-mono text-[11px] text-muted-foreground">Click "evaluate" to map rule + event text against MITRE ATT&CK.</p>

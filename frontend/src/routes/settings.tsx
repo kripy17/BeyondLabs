@@ -88,7 +88,7 @@ function SettingsPage() {
   return (
     <PageShell
       eyebrow="// settings"
-      title="Workspace."
+      title="Workspace"
       description="Theme, layout, typography, motion. Everything persists locally — no account, no sync."
       crumbs={[{ label: "Settings" }]}
       actions={

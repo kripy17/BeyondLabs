@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
 import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck } from "lucide-react";
@@ -68,7 +68,23 @@ function GuidePage() {
   const [activeId, setActiveId] = useState<string>(PLAYBOOKS[0].id);
   const [query, setQuery] = useState("");
   const [sev, setSev] = useState<Severity | "ALL">("ALL");
-  const [done, setDone] = useState<Record<string, Set<number>>>({});
+  const [done, setDone] = useState<Record<string, Set<number>>>(() => {
+    try {
+      const raw = localStorage.getItem("ba.guide.done.v1");
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, number[]>;
+      return Object.fromEntries(
+        Object.entries(parsed).map(([k, v]) => [k, new Set(v)])
+      );
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    const serialized = Object.fromEntries(
+      Object.entries(done).map(([k, v]) => [k, [...v]])
+    );
+    localStorage.setItem("ba.guide.done.v1", JSON.stringify(serialized));
+  }, [done]);
 
   const list = useMemo(() => PLAYBOOKS.filter((p) =>
     (sev === "ALL" || p.severity === sev) &&

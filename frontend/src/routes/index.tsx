@@ -71,7 +71,7 @@ function Dashboard() {
   return (
     <PageShell
       eyebrow="// workbench · session"
-      title="Command Deck."
+      title="Command Deck"
       description="Pick a track, resume recent work, or jump straight into any workspace. Everything stays on this machine."
       actions={
         <Button asChild size="sm" className="text-mono gap-1.5">

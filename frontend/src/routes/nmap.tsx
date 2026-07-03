@@ -14,6 +14,8 @@ import {
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
 
+type NmapScanResult = { stdout?: string; stderr?: string; error?: string; success?: boolean };
+
 const MODES = {
   discovery: { label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes.",          backend: "quick_tcp" },
   fast:      { label: "Top-100 TCP",       args: "-sS --top-ports 100 -Pn",                    risk: "medium", desc: "SYN scan of the 100 most common TCP ports.",           backend: "quick_tcp" },
@@ -86,7 +88,7 @@ function NmapPage() {
     }
   }
 
-  const scanResult = realResult?.scan as Record<string, unknown> | undefined;
+  const scanResult = realResult?.scan as NmapScanResult | undefined;
 
   return (
     <PageShell
@@ -247,13 +249,13 @@ function NmapPage() {
         scanResult ? (
           scanResult.error ? (
             <Panel>
-              <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{(scanResult as any).error}</div>
+              <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{scanResult.error}</div>
             </Panel>
           ) : (
             <TerminalOutput
               command={cmd}
-              body={(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
-              stderr={scanResult.stderr as string | undefined}
+              body={scanResult.stdout || scanResult.stderr || JSON.stringify(scanResult, null, 2)}
+              stderr={scanResult.stderr}
               status={scanResult.success ? "completed" : "failed"}
               onClear={() => setRealResult(null)}
               filename={`nmap-${target}.txt`}
@@ -264,11 +266,11 @@ function NmapPage() {
         <Panel><p className="text-mono text-[11px] text-muted-foreground">Confirm permission and execute the scan to see results.</p></Panel>
       )}
 
-      {realResult && scanResult && !!(scanResult as Record<string, unknown>).stdout && (
+      {realResult && scanResult && scanResult.stdout && (
         <Panel title="Report" meta="markdown" collapsible storageKey="ba.panel.nmap.report" defaultCollapsed actions={
           <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
         }>
-          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, (scanResult as Record<string, unknown>).stdout as string)}</pre>
+          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, scanResult.stdout ?? "")}</pre>
         </Panel>
       )}
 

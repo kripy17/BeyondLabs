@@ -5,6 +5,7 @@ import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { safeAnalyzeUrl } from "@/api/backend";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS } from "@/lib/ioc-patterns";
 import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
@@ -56,18 +57,6 @@ const SAMPLES: Record<string, string> = {
 };
 
 const HISTORY_KEY = "beyondarch.urlHistory";
-
-const SECRET_RX: { type: string; re: RegExp }[] = [
-  { type: "AWS Access Key", re: /AKIA[0-9A-Z]{16}\b/g },
-  { type: "GitHub Token", re: /(?:ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9]{36}\b/g },
-  { type: "JWT Token", re: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g },
-  { type: "Slack Token", re: /xox[baprs]-[a-zA-Z0-9-]{10,48}\b/g },
-  { type: "Private Key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g },
-];
-
-const SUSPICIOUS_TLDS = new Set(["xyz", "top", "club", "work", "bid", "download", "review", "country", "kim", "cfd", "trade", "date", "loan", "win", "mom", "men", "click", "rest", "gdn", "link", "site", "online", "tech", "space", "press", "host", "wiki", "ink", "ru", "cn", "tk", "ml", "ga", "cf"]);
-
-const SHORTENERS = /^(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|ow\.ly|buff\.ly|shorturl\.at|rb\.gy|surl\.li|cli\.gs|lnkd\.in|rebrandly|vur\.me|cutt\.ly|short\.link|tiny\.cc)$/i;
 
 const FILE_EXT_RX = /\.(exe|msi|scr|ps1|vbs|docm|xlsm|pptm|zip|rar|7z|iso|dmg|bat|cmd|jar|wsf|js|vbe|pif|gadget|application|appref-ms)$/i;
 
@@ -231,7 +220,7 @@ function UrlPage() {
     const punycode = host.includes("xn--");
     const longPath = path.length > 40;
     const subdomainAbuse = host.split(".").length > 3;
-    const isShortener = SHORTENERS.test(host);
+    const isShortener = SHORTENERS.has(host.replace(/^www\./, ""));
     const defangedOriginal = /\[\.\]|hxxps?:\/\//i.test(raw);
     const fileExt = (path.match(FILE_EXT_RX)?.[1] || null);
     const hasEmbeddedCreds = !!(parsed.username || parsed.password);

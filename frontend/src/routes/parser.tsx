@@ -10,6 +10,7 @@ import {
   FileWarning, Activity, Globe, Hash, AtSign, Bug, Crosshair, Network, Copy, Check,
   Sparkles, FileText, Workflow, AlertTriangle, ShieldAlert, Key, Download,
 } from "lucide-react";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS } from "@/lib/ioc-patterns";
 
 export const Route = createFileRoute("/parser")({ component: ParserPage });
 
@@ -38,20 +39,7 @@ const RX = {
   ATTACK: /\bT\d{4}(?:\.\d{3})?\b/g,
 };
 
-const SECRET_RX: { type: string; re: RegExp }[] = [
-  { type: "AWS Access Key", re: /AKIA[0-9A-Z]{16}\b/g },
-  { type: "GitHub Token", re: /(?:ghp_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9]{36}\b|github_pat_[a-zA-Z0-9_]{22,}\b/g },
-  { type: "JWT Token", re: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g },
-  { type: "Slack Token", re: /xox[baprs]-[a-zA-Z0-9-]{10,48}\b/g },
-  { type: "Private Key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g },
-  { type: "Discord Token", re: /[MN][a-zA-Z0-9_-]{23,25}\.[a-zA-Z0-9_-]{6,7}\.[a-zA-Z0-9_-]{27,}/g },
-];
 
-const SUSPICIOUS_TLDS = new Set(["tk","ml","ga","cf","gq","xyz","top","download","review","work","date","men","loan","win","bid","cam","click","quest","trade","webcam","science","party","gdn","racing","accountant","country","faith","online","site","rest","cyou","bond","bar"]);
-const SHORTENERS = new Set(["bit.ly","tinyurl.com","ow.ly","is.gd","buff.ly","shorturl.at","cutt.ly","t.co","goo.gl","tiny.cc","cli.gs","url.ie","rb.gy","short.link","shrten.com","v.gd","snipr.com","snipurl.com"]);
-const LOLBINS = ["powershell","cmd.exe","wscript","cscript","mshta","regsvr32","rundll32","wmic","certutil","bitsadmin","msiexec","scrcons","wshom.ocx","shell32"];
-const DOWNLOAD_CRADLES = ["Invoke-WebRequest","iwr","wget","curl","Invoke-RestMethod","irm","Start-BitsTransfer","bitsadmin /transfer","(new-object system.net.webclient).downloadstring","(new-object system.net.webclient).downloadfile","System.Net.WebClient","XMLHttpRequest","WinHttp.WinHttpRequest"];
-const AMSI_BYPASS_PATTERNS = ["amsiutils","amsiinitfailed","system.management.automation.amsiutils","etw"];
 
 const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
   URL: [{ id: "T1566", name: "Phishing" }],
@@ -213,25 +201,10 @@ function collectMitre(iocs: Record<string, string[]>, signals: Signal[], cmds: C
   return m;
 }
 
-function computeConfidence(iocs: Record<string, string[]>, signals: Signal[], secrets: Secret[], cmds: CmdFinding[]): { score: number; breakdown: string[] } {
-  let score = 10;
-  const b: string[] = ["Base confidence: 10%"];
-  const active = Object.values(iocs).filter((v) => v.length).length;
-  if (iocs.URL.length || iocs.Domain.length || iocs.Email.length) { score += 15; b.push("Communication indicators: +15%"); }
-  if (iocs.MD5.length || iocs.SHA256.length) { score += 15; b.push("File hashes: +15%"); }
-  if (active >= 3) { score += 10 * Math.min(active - 2, 3); b.push(`IOC diversity (${active} types): +${10 * Math.min(active - 2, 3)}%`); }
-  const sigScore = signals.filter((s) => s.severity === "destructive").length * 15 + signals.filter((s) => s.severity === "warning").length * 8 + signals.filter((s) => s.severity === "info").length * 3;
-  if (sigScore > 0) { const added = Math.min(sigScore, 30); score += added; b.push(`Signal severity: +${added}%`); }
-  if (secrets.length > 0) { score += 10; b.push("Secrets/credentials found: +10%"); }
-  if (cmds.length > 0) { score += 10; b.push("Command line findings: +10%"); }
-  if (/From:|Subject:|Authentication-Results/i.test(iocs.URL.length ? "" : "")) {} 
-  return { score: Math.min(95, Math.round(score)), breakdown: b };
-}
-
-function genMarkdownExport(input: string, iocs: Record<string, string[]>, signals: Signal[], total: number, family: string, primary: string, confScore: number, secrets: Secret[], cmds: CmdFinding[], mitre: { id: string; name: string }[]): string {
+function genMarkdownExport(input: string, iocs: Record<string, string[]>, signals: Signal[], total: number, family: string, primary: string, secrets: Secret[], cmds: CmdFinding[], mitre: { id: string; name: string }[]): string {
   const lines = [
     `# Smart Parser Report — ${primary}`,
-    `**Family:** ${family}  **IOCs:** ${total}  **Confidence:** ${confScore}%`,
+    `**Family:** ${family}  **IOCs:** ${total}`,
     "",
     "## Indicators",
     ...Object.entries(iocs).filter(([, v]) => v.length).flatMap(([k, v]) => [`### ${k} (${v.length})`, ...v.map((i) => `- \`${i}\``), ""]),
@@ -288,7 +261,6 @@ function ParserPage() {
     const cmds = scanCmdLines(t);
     const signals = collectSignals(t, iocs, total);
     const mitre = collectMitre(iocs, signals, cmds);
-    const conf = computeConfidence(iocs, signals, secrets, cmds);
     const urlAnalysis = iocs.URL.length ? iocs.URL.map((u) => {
       try {
         const parsed = new URL(refang(u));
@@ -298,10 +270,10 @@ function ParserPage() {
       } catch { return null; }
     }).filter(Boolean) : [];
 
-    return { family, primary, reasons, lines, total, iocs, secrets, cmds, signals, mitre, conf, urlAnalysis };
+    return { family, primary, reasons, lines, total, iocs, secrets, cmds, signals, mitre, urlAnalysis };
   }, [input]);
 
-  const copy = (k: string, txt: string) => { navigator.clipboard.writeText(txt); setCopied(k); setTimeout(() => setCopied(""), 1200); };
+  const copy = (k: string, txt: string) => { try { navigator.clipboard.writeText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
 
   const kinds = result ? Object.entries(result.iocs).filter(([, v]) => v.length) : [];
   const visible = result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [];
@@ -350,7 +322,7 @@ function ParserPage() {
         ]}
       />
 
-      <SectionBar id="OT" label="Output · detected" meta={result ? `${result.total} indicators · ${result.signals.length} signals · ${result.conf.score}% confidence` : "awaiting input"} />
+      <SectionBar id="OT" label="Output · detected" meta={result ? `${result.total} indicators · ${result.signals.length} signals` : "awaiting input"} />
       {!result ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Panel title="What the parser recovers" icon={Sparkles} meta="11 samples · 11 IOC families">
@@ -395,7 +367,6 @@ function ParserPage() {
               { label: "Family", value: result.family.split(" / ")[0], tone: "primary" },
               { label: "IOCs", value: result.total, tone: "warning" },
               { label: "Signals", value: result.signals.length, tone: result.signals.length >= 3 ? "destructive" : "warning" },
-              { label: "Confidence", value: result.conf.score >= 70 ? "high" : result.conf.score >= 40 ? "medium" : "low", tone: result.conf.score >= 70 ? "success" : result.conf.score >= 40 ? "warning" : "default" },
             ]}
           />
 
@@ -404,7 +375,7 @@ function ParserPage() {
             <FileText className="mt-0.5 h-3.5 w-3.5 text-primary shrink-0" />
             <p className="text-[12px] leading-snug text-foreground/90">
               <span className="text-mono text-[10px] uppercase tracking-widest text-primary">summary · </span>
-              Parsed a <strong className="text-foreground">{result.family.toLowerCase()}</strong> artifact across {result.lines} line{result.lines === 1 ? "" : "s"}. Recovered <strong className="text-foreground">{result.total}</strong> indicator{result.total === 1 ? "" : "s"} across {kinds.length} famil{kinds.length === 1 ? "y" : "ies"} with <strong className="text-foreground">{result.conf.score}%</strong> confidence.
+              Parsed a <strong className="text-foreground">{result.family.toLowerCase()}</strong> artifact across {result.lines} line{result.lines === 1 ? "" : "s"}. Recovered <strong className="text-foreground">{result.total}</strong> indicator{result.total === 1 ? "" : "s"} across {kinds.length} famil{kinds.length === 1 ? "y" : "ies"}.
               {result.signals.length ? ` ${result.signals.length} signal${result.signals.length === 1 ? "" : "s"} generated.` : ""}
               {result.secrets.length ? ` ${result.secrets.length} potential secret${result.secrets.length === 1 ? "" : "s"} redacted.` : ""}
             </p>
@@ -652,7 +623,7 @@ function ParserPage() {
             <Panel title="Export Report" icon={Download}>
               <button
                 onClick={() => {
-                  const md = genMarkdownExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.conf.score, result.secrets, result.cmds, result.mitre);
+                  const md = genMarkdownExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre);
                   const blob = new Blob([md], { type: "text/markdown" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.md`; a.click();
@@ -671,6 +642,7 @@ function ParserPage() {
               { label: "Attachment Triage", to: "/attachment", icon: FileWarning },
               { label: "Detection & MITRE", to: "/mitre", icon: Crosshair },
               { label: "Logs & Alerts", to: "/logs", icon: Database },
+              { label: "Case Notebook", to: "/case", icon: ArrowRight },
             ]} />
           </div>
         </div>

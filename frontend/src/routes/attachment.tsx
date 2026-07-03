@@ -199,7 +199,7 @@ function AttachmentPage() {
                   <code className="mt-1 block break-all rounded border border-border/50 bg-card/40 p-3 text-mono text-[12px] leading-relaxed text-foreground/90 select-all">{zoomedHash.value}</code>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => { navigator.clipboard.writeText(zoomedHash.value); setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
+                  <button onClick={() => { try { navigator.clipboard.writeText(zoomedHash.value); } catch {/* noop */} setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
                     className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
                     {hashCopied === zoomedHash.algo ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {hashCopied === zoomedHash.algo ? "copied" : "copy hash"}

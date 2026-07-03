@@ -265,8 +265,8 @@ function SiemPage() {
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
   const [apiEvents, setApiEvents] = useState<Event[]>([]);
   const [apiDetections, setApiDetections] = useState<any[]>([]);
-  const [apiMetrics, setApiMetrics] = useState<any>(null);
-  const [apiIocs, setApiIocs] = useState<any>(null);
+  const [apiMetrics, setApiMetrics] = useState<Record<string, unknown> | null>(null);
+  const [apiIocs, setApiIocs] = useState<{ ips?: string[]; urls?: string[]; emails?: string[]; domains?: string[] } | null>(null);
   const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -557,7 +557,32 @@ function SiemPage() {
 
       {/* SIEM Summary Narrative toggle */}
       {has && (
-        <Panel title="SIEM Summary Narrative" icon={FileText}>
+        <Panel title="SIEM Summary Narrative" icon={FileText} actions={
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                const md = [`# SIEM Summary`, `**Events:** ${filtered.length}`, `**Top Source:** ${fieldTopSrc}`, `**Highest Sev:** ${highCount}`, `**Findings:** ${findings.length}`, "", "## Events", ...filtered.map((e) => `| ${e.ts} | ${e.src} | ${e.dst} | ${e.sig} | ${e.sev} |`), "", "## Findings", ...findings.map((f) => `- [${f.sev}] ${f.title}`)].join("\n");
+                const blob = new Blob([md], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `siem-report-${Date.now()}.md`; a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"
+              title="Export as Markdown"
+            ><Download className="h-3 w-3" /> MD</button>
+            <button
+              onClick={() => {
+                const csv = ["timestamp,src,dst,user,signature,severity", ...filtered.map((e) => `"${e.ts}","${e.src}","${e.dst}","${e.user}","${e.sig}","${e.sev}"`)].join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `siem-export-${Date.now()}.csv`; a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              title="Export as CSV"
+            ><Download className="h-3 w-3" /> CSV</button>
+          </div>
+        }>
           <button
             onClick={() => setShowNarrative(!showNarrative)}
             className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"

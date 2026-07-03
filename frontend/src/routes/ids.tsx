@@ -8,6 +8,30 @@ import { getIdsRuleTemplates, buildIdsRule, explainIdsRule } from "@/api/detecti
 export const Route = createFileRoute("/ids")({ component: IdsPage });
 
 type Tok = { k: "kw" | "addr" | "op" | "port" | "str" | "field" | "punct" | "txt"; v: string };
+
+type BuildRuleResult = {
+  rule: string;
+  engine: string;
+  rule_type: string;
+  warnings?: string[];
+  engine_notes?: string[];
+  explanation?: string[];
+};
+
+type ExplainRuleResult = {
+  parsed: boolean;
+  error?: string;
+  parsed_rule?: { action?: string; protocol?: string; src_ip?: string; src_port?: string; dst_ip?: string; dst_port?: string };
+  warnings?: string[];
+  explanation?: string[];
+};
+
+type RuleTemplateData = {
+  engine?: string; action?: string; protocol?: string; src_ip?: string; src_port?: string;
+  direction?: string; dst_ip?: string; dst_port?: string; msg?: string; content?: string;
+  pcre?: string; flow?: string; classtype?: string; priority?: string; sid?: string;
+  rev?: string; nocase?: boolean; http_uri?: boolean; http_header?: boolean;
+};
 function tokenize(rule: string): Tok[] {
   const out: Tok[] = [];
   const re = /(alert|tcp|udp|http|tls|icmp|any)|("(?:[^"\\]|\\.)*")|(->|<-|<>)|(\b\d+\b)|(\$\w+)|(\b(?:msg|content|nocase|flow|classtype|sid|rev|reference|threshold|pcre|http\.\w+|metadata):)|([;()])|(\s+)|(.)/g;
@@ -37,7 +61,7 @@ const TOK_CLASS: Record<Tok["k"], string> = {
 };
 
 function IdsPage() {
-  const [templates, setTemplates] = useState<Record<string, any> | null>(null);
+  const [templates, setTemplates] = useState<Record<string, { data: RuleTemplateData }> | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [buildLoading, setBuildLoading] = useState(false);
@@ -63,15 +87,15 @@ function IdsPage() {
   const [httpUri, setHttpUri] = useState(false);
   const [httpHeader, setHttpHeader] = useState(false);
 
-  const [result, setResult] = useState<any>(null);
-  const [explainResult, setExplainResult] = useState<any>(null);
+  const [result, setResult] = useState<BuildRuleResult | null>(null);
+  const [explainResult, setExplainResult] = useState<ExplainRuleResult | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getIdsRuleTemplates()
-      .then((data) => { setTemplates(data as Record<string, string>); setSelectedKey(Object.keys(data as Record<string, string>)[0] ?? null); })
+      .then((data) => { setTemplates(data as Record<string, { data: RuleTemplateData }>); setSelectedKey(Object.keys(data as Record<string, { data: RuleTemplateData }>)[0] ?? null); })
       .catch(() => { setTemplates({}); })
       .finally(() => setLoading(false));
   }, []);
@@ -115,7 +139,7 @@ function IdsPage() {
         src_ip: srcIp, src_port: srcPort, direction, dst_ip: dstIp, dst_port: dstPort,
         msg, content, pcre, flow, classtype, priority, sid, rev,
         extra_options: extraOptions, nocase, http_uri: httpUri, http_header: httpHeader,
-      });
+      }) as BuildRuleResult;
       setResult(res);
     } catch (e: any) {
       setError(e?.message || "Build failed");
@@ -129,7 +153,7 @@ function IdsPage() {
     setExplainLoading(true);
     setExplainResult(null);
     try {
-      const res = await explainIdsRule(result.rule);
+      const res = await explainIdsRule(result.rule) as ExplainRuleResult;
       setExplainResult(res);
     } catch (e: any) {
       setExplainResult({ parsed: false, error: e?.message || "Explain failed" });
@@ -143,7 +167,6 @@ function IdsPage() {
   const templateKeys = templates ? Object.keys(templates) : [];
   const templateList = templateKeys.map((k) => ({ key: k, ...templates![k] }));
   const toks = useMemo(() => result?.rule ? tokenize(result.rule) : [], [result?.rule]);
-  const score = result?.warnings?.some((w: string) => w.includes("too broad") || w.includes("Unknown")) ? 30 : 70;
 
   return (
     <PageShell
@@ -280,12 +303,11 @@ function IdsPage() {
           <div className="space-y-5">
             <VerdictBanner
               verdict={result.rule.split("(")[0]?.trim() || "IDS Rule"}
-              tone={result.warnings?.length > 0 ? "warning" : "success"}
-              icon={result.warnings?.length > 0 ? AlertTriangle : ShieldCheck}
-              score={`${score}/100`}
+              tone={result.warnings && result.warnings.length > 0 ? "warning" : "success"}
+              icon={result.warnings && result.warnings.length > 0 ? AlertTriangle : ShieldCheck}
               details={[
                 `Engine: ${result.engine} · ${result.rule_type}`,
-                result.warnings?.length > 0 ? `${result.warnings.length} warning(s)` : "No warnings",
+                result.warnings && result.warnings.length > 0 ? `${result.warnings.length} warning(s)` : "No warnings",
               ].filter(Boolean)}
             />
 
@@ -293,7 +315,7 @@ function IdsPage() {
               columns={4}
               metrics={[
                 { label: "Engine", value: result.engine.toUpperCase(), tone: "primary" },
-                { label: "Warnings", value: String(result.warnings?.length || 0), tone: result.warnings?.length > 0 ? "warning" : "success", icon: Activity },
+                { label: "Warnings", value: String(result.warnings?.length || 0), tone: result.warnings && result.warnings.length > 0 ? "warning" : "success", icon: Activity },
                 { label: "SID", value: sid },
                 { label: "State", value: "draft", tone: "default" },
               ]}
@@ -312,7 +334,7 @@ function IdsPage() {
               </pre>
             </Panel>
 
-            {result.warnings?.length > 0 && (
+            {result.warnings && result.warnings.length > 0 && (
               <Panel title="Warnings" icon={AlertTriangle}>
                 <ul className="space-y-1">
                   {result.warnings.map((w: string, i: number) => (
@@ -325,7 +347,7 @@ function IdsPage() {
               </Panel>
             )}
 
-            {result.engine_notes?.length > 0 && (
+            {result.engine_notes && result.engine_notes.length > 0 && (
               <Panel title="Engine notes" icon={Shield}>
                 <ul className="space-y-1">
                   {result.engine_notes.map((n: string, i: number) => (
@@ -338,7 +360,7 @@ function IdsPage() {
               </Panel>
             )}
 
-            {result.explanation?.length > 0 && (
+            {result.explanation && result.explanation.length > 0 && (
               <Panel title="Rule explanation" icon={Scan}>
                 <ol className="space-y-2">
                   {result.explanation.map((e: string, i: number) => (
@@ -365,7 +387,7 @@ function IdsPage() {
                         { label: "Dst", value: `${explainResult.parsed_rule?.dst_ip || "—"}:${explainResult.parsed_rule?.dst_port || "—"}` },
                       ]} />
                     </div>
-                    {explainResult.warnings?.length > 0 && (
+                    {explainResult.warnings && explainResult.warnings.length > 0 && (
                       <div className="space-y-1">
                         {explainResult.warnings.map((w: string, i: number) => (
                           <div key={i} className="flex items-start gap-2 rounded border border-border/50 bg-background/30 px-2 py-1">
@@ -375,7 +397,7 @@ function IdsPage() {
                         ))}
                       </div>
                     )}
-                    {explainResult.explanation?.length > 0 && (
+                    {explainResult.explanation && explainResult.explanation.length > 0 && (
                       <div className="space-y-1.5">
                         {explainResult.explanation.map((e: string, i: number) => (
                           <p key={i} className="text-[11.5px] leading-relaxed text-foreground/80">{e}</p>

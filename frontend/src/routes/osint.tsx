@@ -226,7 +226,7 @@ function OsintPage() {
 
       <StatusBar stats={[
         { label: "Status",    value: ready ? "Ready" : "Idle", tone: ready ? "success" : "muted" },
-        { label: "Detected",  value: KIND_META[kind].label, tone: (KIND_META[kind].tone === "info" ? "primary" : KIND_META[kind].tone) as any },
+        { label: "Detected",  value: KIND_META[kind].label, tone: (KIND_META[kind].tone === "info" ? "primary" : KIND_META[kind].tone) as "primary" | "warning" },
         { label: "Pivots",    value: `${applicable.length}/${TOOLS.length}` },
         { label: "History",   value: history.length },
         { label: "Pinned",    value: pinned.length, tone: pinned.length ? "primary" : "muted" },
@@ -252,7 +252,7 @@ function OsintPage() {
               { label: "Reputation", value: applicable.filter((t) => t.cat === "Reputation").length, tone: "warning" },
               { label: "Exposure", value: applicable.filter((t) => t.cat === "Exposure").length, tone: "info" },
               { label: "Other", value: applicable.filter((t) => !["Reputation", "Exposure"].includes(t.cat)).length },
-              { label: "Detected", value: KIND_META[kind].label, tone: KIND_META[kind].tone as any },
+              { label: "Detected", value: KIND_META[kind].label, tone: (KIND_META[kind].tone === "info" ? "primary" : KIND_META[kind].tone) as "primary" | "warning" },
               { label: "CLI cmds", value: cli.length },
               { label: "History", value: history.length },
               { label: "Pinned", value: pinned.length, tone: pinned.length > 0 ? "primary" : "default" },
