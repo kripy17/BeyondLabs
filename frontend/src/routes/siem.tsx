@@ -6,6 +6,7 @@ import {
   IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
   Empty, Chip, EvidenceCard, IocInventory,
 } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import {
   Database, Search, ArrowRight, Zap, ShieldAlert, Activity, Filter,
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
@@ -266,6 +267,7 @@ function SiemPage() {
   const [apiDetections, setApiDetections] = useState<any[]>([]);
   const [apiMetrics, setApiMetrics] = useState<any>(null);
   const [apiIocs, setApiIocs] = useState<any>(null);
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
@@ -524,9 +526,19 @@ function SiemPage() {
 
       <SectionBar id="OT" label="Output · events + analysis" meta={`${findings.length} finding(s) · ${mitre.length} mitre`} />
 
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
       {/* AnalystOutputCard-style summary */}
-      <ResultBanner
-        badge="siem_summary"
+        <OutputFilter query={filterText.toLowerCase()}>
+        <ResultBanner
+          badge="siem_summary"
         title={`${filtered.length} events · ${findings.length} detection lead(s)`}
         subtitle={activeEvents.length ? `${activeEvents.length} total event(s) · ` + (chips.length ? `filtered: ${chips.map((c) => `${c.field}=${c.value}`).join(" · ")}` : "click cells to pin filters, use range pills to scope") : "Paste logs above and click ingest to begin."}
         reasons={[
@@ -683,7 +695,7 @@ function SiemPage() {
 
       {/* MITRE ATT&CK — grouped by tactic */}
       {tacticCoverage.length > 0 && (
-        <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`}>
+        <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.siem.mitre-tactics" defaultCollapsed>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {tacticCoverage.map((t) => (
               <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
@@ -704,7 +716,7 @@ function SiemPage() {
 
       {/* MITRE flat list (kept for full reference) */}
       {mitre.length > 0 && (
-        <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
+        <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.siem.mitre-techniques" defaultCollapsed>
           <div className="flex flex-wrap gap-2">
             {mitre.map((m) => (
               <span key={m} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
@@ -720,10 +732,9 @@ function SiemPage() {
 
       {/* IOC Inventory */}
       {iocs.length > 0 && (
-        <IocInventory
-          groups={iocs}
-          onSendTo={() => {}}
-        />
+        <Panel title="IOC Inventory" icon={Database} collapsible storageKey="ba.panel.siem.iocs" defaultCollapsed>
+          <IocInventory groups={iocs} onSendTo={() => {}} />
+        </Panel>
       )}
 
       <SendToRow targets={[
@@ -732,6 +743,7 @@ function SiemPage() {
         { label: "MITRE Coverage", to: "/mitre",     icon: ArrowRight },
         { label: "Case Notebook",  to: "/case",      icon: ArrowRight },
       ]} />
+      </OutputFilter>
 
       {/* Modal */}
       {modal && (

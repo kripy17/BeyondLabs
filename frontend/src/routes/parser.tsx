@@ -253,6 +253,7 @@ function genMarkdownExport(input: string, iocs: Record<string, string[]>, signal
 function ParserPage() {
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<string>("ALL");
+  const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
 
@@ -417,7 +418,8 @@ function ParserPage() {
                 return (
                   <button
                     key={k}
-                    onClick={() => setTab(tab === k ? "ALL" : k)}
+                    onClick={() => setFocusedKind(k)}
+                    title={`Click to focus ${k} detail view`}
                     className={
                       "group flex items-center gap-2.5 rounded-md border px-3 py-2.5 text-left transition-all " +
                       (tab === k ? "border-primary/70 bg-primary/10" : "border-primary/25 bg-primary/[0.04] hover:border-primary/50 hover:bg-primary/[0.08]")
@@ -444,6 +446,63 @@ function ParserPage() {
               </div>
             )}
           </Panel>
+
+          {/* Zoomed detail view */}
+          {focusedKind && (() => {
+            const k = focusedKind;
+            const items = result.iocs[k];
+            const meta = KIND_META[k as keyof typeof KIND_META];
+            if (!meta || !items?.length) return null;
+            const Icon = meta.icon;
+            const allText = items.map(transform).join("\n");
+            return (
+              <Panel
+                title={`Detail · ${k}`}
+                icon={Icon}
+                meta={`${items.length} item${items.length === 1 ? "" : "s"}`}
+                actions={
+                  <button onClick={() => setFocusedKind(null)}
+                    className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                    zoom out
+                  </button>
+                }
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <span>{k}</span>
+                      <Chip tone={meta.tone}>{items.length}</Chip>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => copy(k, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                        {copied === k ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
+                      </button>
+                      {meta.pivot && (
+                        <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                          pivot <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-[50vh] overflow-y-auto rounded border border-border/50 bg-background/40">
+                    {items.map((it: string, idx: number) => (
+                      <div key={idx} className="group flex items-center justify-between gap-2 border-b border-border/30 px-3 py-2 hover:bg-primary/[0.03]">
+                        <code className="flex-1 truncate text-mono text-[11px] text-foreground/90">{transform(it)}</code>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => copy(it, transform(it))} className="rounded border border-border/60 bg-card/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                            {copied === it ? "copied" : "copy"}
+                          </button>
+                          {k === "URL" && (
+                            <Link to="/url" className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-primary hover:bg-primary/20">analyze</Link>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Panel>
+            );
+          })()}
 
           {/* Confidence + Signals */}
           <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">

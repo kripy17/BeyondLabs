@@ -77,6 +77,11 @@ export type Prefs = {
   sansFont: SansFont;
   monoFont: MonoFont;
   fontScale: number; // 0.85 - 1.15 (root font-size multiplier)
+  letterSpacing: number; // -0.02 - 0.06 (em)
+  monoLigatures: boolean;
+  panelOpacity: number; // 0.75 - 1
+  zebraStripes: boolean;
+  focusRingBoost: boolean;
   reduceMotion: boolean;
   slashOpensPalette: boolean;
   showBreadcrumb: boolean;
@@ -102,6 +107,11 @@ const DEFAULT: Prefs = {
   sansFont: "Space Grotesk",
   monoFont: "JetBrains Mono",
   fontScale: 1,
+  letterSpacing: 0,
+  monoLigatures: true,
+  panelOpacity: 1,
+  zebraStripes: true,
+  focusRingBoost: false,
   reduceMotion: false,
   slashOpensPalette: true,
   showBreadcrumb: true,
@@ -218,9 +228,14 @@ function applyToDOM(p: Prefs) {
   r.style.setProperty("--font-sans", SANS_STACK[p.sansFont]);
   r.style.setProperty("--font-mono", MONO_STACK[p.monoFont]);
   r.style.setProperty("--ba-font-scale", String(p.fontScale));
+  r.style.setProperty("--ba-letter-spacing", `${p.letterSpacing}em`);
+  r.style.setProperty("--ba-panel-opacity", String(p.panelOpacity));
+  r.style.setProperty("--ba-mono-features", p.monoLigatures ? `"calt", "liga"` : `"calt" off, "liga" off`);
   r.dataset.density = p.density;
   r.dataset.motion = p.reduceMotion ? "reduce" : "full";
   r.dataset.topbar = p.showTopbar ? "on" : "off";
+  r.dataset.zebra = p.zebraStripes ? "on" : "off";
+  r.dataset.focusBoost = p.focusRingBoost ? "on" : "off";
 
   // Custom theme builder — overrides token block when active.
   if (r.dataset.theme === "custom") {

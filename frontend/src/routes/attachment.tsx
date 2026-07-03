@@ -6,7 +6,7 @@ import {
   Panel, EvidenceCard, SendToRow, Empty, Chip, RiskScore,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
-import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity } from "lucide-react";
+import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity, Copy, Check, X } from "lucide-react";
 import { uploadMalwareFile } from "@/api/backend";
 
 export const Route = createFileRoute("/attachment")({ component: AttachmentPage });
@@ -34,6 +34,8 @@ function AttachmentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
+  const [zoomedHash, setZoomedHash] = useState<{ algo: string; value: string; bits: number } | null>(null);
+  const [hashCopied, setHashCopied] = useState("");
 
   async function handleUpload() {
     if (!file) return;
@@ -164,7 +166,7 @@ function AttachmentPage() {
               ]).map((h) => (
                 <button
                   key={h.algo}
-                  onClick={() => navigator.clipboard.writeText(h.value)}
+                  onClick={() => setZoomedHash({ algo: h.algo, value: h.value, bits: h.bits })}
                   className="group rounded-md border border-border/60 bg-card/50 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card/80"
                 >
                   <div className="flex items-center justify-between">
@@ -172,11 +174,48 @@ function AttachmentPage() {
                     <Chip tone={h.tone}>{h.bits}-bit</Chip>
                   </div>
                   <code className="mt-1.5 block break-all text-mono text-[10.5px] leading-snug text-foreground/90 group-hover:text-primary">{h.value}</code>
-                  <span className="mt-1 block text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">click to copy</span>
+                  <span className="mt-1 block text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">click to inspect</span>
                 </button>
               ))}
             </div>
           </Panel>
+
+          {/* Zoomed hash detail */}
+          {zoomedHash && (
+            <Panel
+              title={`Detail · ${zoomedHash.algo}`}
+              icon={Hash}
+              meta={`${zoomedHash.bits}-bit`}
+              actions={
+                <button onClick={() => setZoomedHash(null)}
+                  className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                  close <X className="ml-1 inline h-3 w-3" />
+                </button>
+              }
+            >
+              <div className="space-y-3">
+                <div>
+                  <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Full hash</div>
+                  <code className="mt-1 block break-all rounded border border-border/50 bg-card/40 p-3 text-mono text-[12px] leading-relaxed text-foreground/90 select-all">{zoomedHash.value}</code>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => { navigator.clipboard.writeText(zoomedHash.value); setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    {hashCopied === zoomedHash.algo ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {hashCopied === zoomedHash.algo ? "copied" : "copy hash"}
+                  </button>
+                  <a href={`https://www.virustotal.com/gui/file/${zoomedHash.algo === "MD5" ? result.hashes.md5 : zoomedHash.algo === "SHA-1" ? result.hashes.sha1 : result.hashes.sha256}`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    <ExternalLink className="h-3.5 w-3.5" /> VirusTotal
+                  </a>
+                  <a href={`https://bazaar.abuse.ch/sample/${zoomedHash.algo === "MD5" ? result.hashes.md5 : zoomedHash.algo === "SHA-1" ? result.hashes.sha1 : result.hashes.sha256}/`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    <ExternalLink className="h-3.5 w-3.5" /> MalwareBazaar
+                  </a>
+                </div>
+              </div>
+            </Panel>
+          )}
 
           {/* File Identity + External References side-by-side */}
           <TwoColumnOutput

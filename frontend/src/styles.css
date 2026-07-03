@@ -406,10 +406,29 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
+    letter-spacing: var(--ba-letter-spacing, 0em);
   }
-  code, pre, kbd, .font-mono {
+  code, pre, kbd, .font-mono, .text-mono {
     font-family: var(--font-mono);
+    font-feature-settings: var(--ba-mono-features, "calt", "liga");
   }
+
+  .ba-card,
+  [data-card="surface"] {
+    opacity: var(--ba-panel-opacity, 1);
+  }
+
+  html[data-zebra="on"] tbody tr:nth-child(even),
+  html[data-zebra="on"] [data-zebra-row]:nth-child(even) {
+    background: color-mix(in oklab, var(--muted) 40%, transparent);
+  }
+
+  html[data-focus-boost="on"] :focus-visible {
+    outline: 3px solid var(--ring) !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--ring) 35%, transparent) !important;
+  }
+
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 45%, transparent);
     color: var(--foreground);
@@ -1000,4 +1019,81 @@ body::before {
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
+}
+
+/* ── Newsprint / halftone textures ────────────────────── */
+
+/* Brutalist-light: dot-grid + line + red column mark on body */
+[data-theme="brutalist-light"] {
+  body {
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+/* Newsprint-dark: dot-grid on body, wavy pattern on cards */
+[data-theme="newsprint-dark"] {
+  body {
+    background-image:
+      radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .ba-card, [class*="rounded-"] {
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        transparent 0 4px,
+        color-mix(in oklab, var(--foreground) 3%, transparent) 4px 5px
+      );
+  }
+}
+
+/* Panel stagger animation — apply to page sections for rhythm */
+@keyframes ba-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ba-fade-in {
+  animation: ba-fade-in 0.25s ease-out both;
+}
+.ba-fade-in:nth-child(1) { animation-delay: 0ms; }
+.ba-fade-in:nth-child(2) { animation-delay: 40ms; }
+.ba-fade-in:nth-child(3) { animation-delay: 80ms; }
+.ba-fade-in:nth-child(4) { animation-delay: 120ms; }
+.ba-fade-in:nth-child(5) { animation-delay: 160ms; }
+.ba-fade-in:nth-child(6) { animation-delay: 200ms; }
+.ba-fade-in:nth-child(7) { animation-delay: 240ms; }
+.ba-fade-in:nth-child(8) { animation-delay: 280ms; }
+.ba-fade-in:nth-child(9) { animation-delay: 320ms; }
+.ba-fade-in:nth-child(10) { animation-delay: 360ms; }
+
+/* Skeleton pulse — smoother than default animate-pulse */
+.ba-skeleton {
+  background: linear-gradient(90deg, transparent 25%, hsl(var(--primary)/0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: ba-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes ba-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Masthead double-underline with red column mark */
+[data-theme="brutalist-light"] h1:first-of-type,
+[data-theme="newsprint-dark"] h1:first-of-type {
+  position: relative;
+  border-bottom: 2px solid var(--foreground);
+  padding-bottom: 0.35em;
+  margin-bottom: 0.5em;
+  &::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--destructive);
+  }
 }

@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, Chip, SendToRow, StatusBar } from "@/components/soc/Workspace";
+import { TerminalOutput } from "@/components/soc/TerminalOutput";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { takePendingArtifact } from "@/lib/handoff";
 import { runReconNmapScan } from "@/api/backend";
 import { toast } from "sonner";
 import {
   Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
-  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2,
+  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2, Search,
 } from "lucide-react";
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
@@ -52,6 +54,7 @@ function NmapPage() {
   const [running, setRunning] = useState(false);
   const [realResult, setRealResult] = useState<Record<string, unknown> | null>(null);
 
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   useEffect(() => { const h = takePendingArtifact(); if (h?.value) setTarget(h.value); }, []);
 
   const has = target.trim().length > 0;
@@ -187,7 +190,27 @@ function NmapPage() {
         </div>
       )}
 
-      <SectionBar id="OT" label="Output · command" />
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
+      <OutputFilter query={filterText.toLowerCase()}>
+      <div className="flex items-center gap-2">
+        <SectionBar id="CM" label="Command" meta={MODES[mode].args} />
+        <button
+          onClick={toggleFilter}
+          className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+          title="Toggle output filter (⌘F)"
+        >
+          <Search className="h-3 w-3" />
+          filter
+        </button>
+      </div>
       <Panel icon={Terminal} title="Command" meta={`${MODES[mode].args.split(/\s+/).length + 2} flags`} actions={
         <div className="flex items-center gap-1">
           <button onClick={() => copy(cmd, "cmd")} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase hover:border-primary/40 hover:text-primary">
@@ -227,11 +250,14 @@ function NmapPage() {
               <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] text-destructive">{(scanResult as any).error}</div>
             </Panel>
           ) : (
-            <Panel title="Scan output" icon={Terminal} meta={scanResult.success ? "completed" : "failed"}>
-              <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] text-foreground/90 max-h-80 whitespace-pre-wrap">
-                {(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
-              </pre>
-            </Panel>
+            <TerminalOutput
+              command={cmd}
+              body={(scanResult.stdout as string) || (scanResult.stderr as string) || JSON.stringify(scanResult, null, 2)}
+              stderr={scanResult.stderr as string | undefined}
+              status={scanResult.success ? "completed" : "failed"}
+              onClear={() => setRealResult(null)}
+              filename={`nmap-${target}.txt`}
+            />
           )
         ) : null
       ) : (
@@ -239,7 +265,7 @@ function NmapPage() {
       )}
 
       {realResult && scanResult && !!(scanResult as Record<string, unknown>).stdout && (
-        <Panel title="Report" meta="markdown" actions={
+        <Panel title="Report" meta="markdown" collapsible storageKey="ba.panel.nmap.report" defaultCollapsed actions={
           <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
         }>
           <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, (scanResult as Record<string, unknown>).stdout as string)}</pre>
@@ -252,6 +278,7 @@ function NmapPage() {
         { label: "Case Notebook",  to: "/case",      icon: Server },
         { label: "OSINT pivot",    to: "/osint",     icon: Globe2 },
       ]} />
+      </OutputFilter>
     </PageShell>
   );
 }

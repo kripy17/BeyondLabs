@@ -1,18 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Zap, Eraser, CornerDownLeft } from "lucide-react";
-
-/* ============================================================
- * ToolShell — adaptive workspace skeleton for every tool page.
- *
- * Provides:
- *  · Header strip: tool id chip, title, one-line purpose, state pill
- *  · Guided single-flow body: intake first, run controls, then output.
- *    `layout="split"` is kept for backwards compatibility but no longer
- *    renders a two-column split.
- *  · Sticky run bar with ⌘↵ run / ⌘. clear hotkeys
- *  · Per-tool output emphasis is left to children
- * ============================================================ */
+import { Zap, Eraser, CornerDownLeft, Search } from "lucide-react";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 
 export type ToolState = "idle" | "ready" | "parsing" | "error";
 
@@ -28,7 +17,6 @@ export function ToolShell({
   title,
   purpose,
   state = "idle",
-  layout = "stack",
   intake,
   output,
   onRun,
@@ -41,7 +29,6 @@ export function ToolShell({
   title: string;
   purpose: string;
   state?: ToolState;
-  layout?: "split" | "stack";
   intake: ReactNode;
   output: ReactNode;
   onRun?: () => void;
@@ -50,7 +37,6 @@ export function ToolShell({
   runLabel?: string;
   meta?: ReactNode;
 }) {
-  /* Hotkeys: ⌘/Ctrl+Enter → run, ⌘/Ctrl+. → clear */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
@@ -67,9 +53,10 @@ export function ToolShell({
     return () => window.removeEventListener("keydown", handler);
   }, [canRun, onRun, onClear]);
 
+  const { filterText, setFilterText, showFilter, toggleFilter } = useOutputFilter();
+
   return (
     <div className="ba-fade-in space-y-4">
-      {/* Header strip */}
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 pb-3 sm:flex sm:flex-wrap">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_8%,transparent)]">
@@ -82,6 +69,14 @@ export function ToolShell({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleFilter}
+            className={"inline-flex items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+            title="Toggle output filter (⌘F)"
+          >
+            <Search className="h-3 w-3" />
+            filter
+          </button>
           {meta}
           <span
             className={
@@ -95,15 +90,26 @@ export function ToolShell({
         </div>
       </header>
 
-      {/* Intake-first flow */}
-      <div className={"space-y-4 " + (layout === "split" ? "ba-stagger" : "")}>
-        <section className="rounded-lg border border-border/70 bg-card/35 p-3 shadow-[0_18px_70px_-55px_var(--primary)] sm:p-4">
-          <div className="space-y-3">{intake}</div>
-        </section>
-        <RunBar canRun={canRun} onRun={onRun} onClear={onClear} runLabel={runLabel} sticky />
-        <div className="mx-auto h-7 w-px bg-gradient-to-b from-primary/50 via-border/70 to-transparent" aria-hidden />
-        <section className="min-w-0 space-y-4">{output}</section>
-      </div>
+      <section className="rounded-lg border border-border/70 bg-card/35 p-3 shadow-[0_18px_70px_-55px_var(--primary)] sm:p-4">
+        <div className="space-y-3">{intake}</div>
+      </section>
+
+      <RunBar canRun={canRun} onRun={onRun} onClear={onClear} runLabel={runLabel} sticky />
+
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+           onClose={toggleFilter}
+        />
+      )}
+
+      <div className="mx-auto h-7 w-px bg-gradient-to-b from-primary/50 via-border/70 to-transparent" aria-hidden />
+
+      <section className="min-w-0 space-y-4">
+        <OutputFilter query={filterText.toLowerCase()}>{output}</OutputFilter>
+      </section>
     </div>
   );
 }

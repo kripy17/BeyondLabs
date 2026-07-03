@@ -1,21 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
 import {
-  Panel, SectionBar, Chip, Field, Empty, ResultBanner, SendToRow,
+  Panel, SectionBar, Chip, Field, Empty, ResultBanner, SendToRow, EvidenceCard,
 } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { PanelSkeleton } from "@/components/Skeleton";
+import { TerminalOutput } from "@/components/soc/TerminalOutput";
 import type { LucideIcon } from "lucide-react";
 import {
   Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
   FileText, Cloud, Server, Image as ImageIcon, Terminal, Copy, Check,
   X, AlertTriangle, ChevronRight, Sparkles, Send, Pin, PinOff,
-  Loader2, Bug,
+  Loader2, Bug, History, RotateCcw, Clock, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/hacking-toolkit")({ component: HackingToolkitPage });
+
+const CACHE_KEY = "ba.hacking.catalog.v2";
+const PIN_KEY = "ba.hacking.pinned";
+const HISTORY_KEY = "ba.hacking.history.v3";
+const MAX_HISTORY = 100;
 
 const ICON_MAP: Record<string, LucideIcon> = {
   search: Search, globe: Globe2, lock: KeyRound, wifi: Wifi, zap: Zap,
@@ -56,32 +64,69 @@ const PRESETS: Record<string, { label: string; args: string }[]> = {
   sublist3r: [{ label: "Default", args: "" }],
 };
 
-const PIN_KEY = "ba.hacking.pinned";
-
 type BackendTool = { id: string; name: string; binary: string; installed: boolean };
 type BackendCategory = { id: string; name: string; icon: string; tools: BackendTool[] };
 
+type HistoryEntry = {
+  id: string;
+  toolId: string;
+  toolName: string;
+  binary: string;
+  catName: string;
+  target: string;
+  args: string;
+  command: string;
+  status: string;
+  body: string;
+  ts: number;
+};
+
+function genId() { return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+
+function loadHistory(): HistoryEntry[] {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory(h: HistoryEntry[]) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, MAX_HISTORY))); } catch {}
+}
+
 function HackingToolkitPage() {
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [cats, setCats] = useState<BackendCategory[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [activeCatId, setActiveCatId] = useState<string>("");
   const [activeToolId, setActiveToolId] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [targets, setTargets] = useState<Record<string, string>>({});
-  const [argsMap, setArgsMap] = useState<Record<string, string>>({});
+  const [targets, setTargets] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("ba.hacking.targets.v2") || "{}"); } catch { return {}; }
+  });
+  const [argsMap, setArgsMap] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("ba.hacking.args.v2") || "{}"); } catch { return {}; }
+  });
   const [outputs, setOutputs] = useState<Record<string, { command: string; status: string; body: string } | null>>({});
   const [running, setRunning] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("");
 
+  /* Persist targets/args */
+  useEffect(() => { try { localStorage.setItem("ba.hacking.targets.v2", JSON.stringify(targets)); } catch {} }, [targets]);
+  useEffect(() => { try { localStorage.setItem("ba.hacking.args.v2", JSON.stringify(argsMap)); } catch {} }, [argsMap]);
+
+  /* Load catalog */
   useEffect(() => {
     getHackingtoolCategories()
       .then((res: any) => {
         if (res.categories) {
           setCats(res.categories);
           setInstalled(res.installed ?? false);
+          setOffline(false);
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(res.categories)); } catch {}
           if (res.categories.length > 0) {
             setActiveCatId(res.categories[0].id);
             if (res.categories[0].tools.length > 0) {
@@ -92,7 +137,19 @@ function HackingToolkitPage() {
         setLoading(false);
       })
       .catch((err: any) => {
-        setBackendError(err?.message || "Cannot reach backend");
+        /* Offline fallback: load cached catalog */
+        const cached = loadCachedCatalog();
+        if (cached) {
+          setCats(cached);
+          setInstalled(false);
+          setOffline(true);
+          if (cached.length > 0) {
+            setActiveCatId(cached[0].id);
+            if (cached[0].tools.length > 0) setActiveToolId(cached[0].tools[0].id);
+          }
+        } else {
+          setBackendError(err?.message || "Cannot reach backend");
+        }
         setLoading(false);
       });
   }, []);
@@ -171,18 +228,39 @@ function HackingToolkitPage() {
         args,
       });
       const body = res.stdout || res.stderr || res.error || JSON.stringify(res, null, 2);
+      const status = res.error ? "error" : (res.status === "completed" ? "completed" : "failed");
+      const entry: HistoryEntry = {
+        id: genId(),
+        toolId: activeTool.id,
+        toolName: activeTool.name,
+        binary: activeTool.binary,
+        catName: activeCat.name,
+        target, args,
+        command: res.command || cmd,
+        status,
+        body,
+        ts: Date.now(),
+      };
+      setHistory(prev => { const next = [entry, ...prev].slice(0, MAX_HISTORY); saveHistory(next); return next; });
       setOutputs((p) => ({
         ...p,
         [activeTool.id]: {
           command: res.command || cmd,
-          status: res.error ? "error" : (res.status === "completed" ? "completed" : "failed"),
+          status,
           body,
         },
       }));
     } catch (err: any) {
+      const body = err?.message || "API call failed";
+      const entry: HistoryEntry = {
+        id: genId(), toolId: activeTool.id, toolName: activeTool.name,
+        binary: activeTool.binary, catName: activeCat.name,
+        target, args, command: cmd, status: "error", body, ts: Date.now(),
+      };
+      setHistory(prev => { const next = [entry, ...prev].slice(0, MAX_HISTORY); saveHistory(next); return next; });
       setOutputs((p) => ({
         ...p,
-        [activeTool.id]: { command: cmd, status: "error", body: err?.message || "API call failed" },
+        [activeTool.id]: { command: cmd, status: "error", body },
       }));
     } finally {
       setRunning(null);
@@ -202,6 +280,20 @@ function HackingToolkitPage() {
     { label: "pinned", value: String(pinnedCount), tone: pinnedCount > 0 ? "success" : "default" },
   ];
 
+  const historyLc = historyFilter.trim().toLowerCase();
+  const filteredHistory = historyLc
+    ? history.filter(h => h.toolName.toLowerCase().includes(historyLc) || h.target.toLowerCase().includes(historyLc) || h.command.toLowerCase().includes(historyLc))
+    : history;
+
+  const clearHistory = () => { setHistory([]); saveHistory([]); };
+  const replayHistory = (h: HistoryEntry) => {
+    const cat = cats?.find(c => c.tools.some(t => t.id === h.toolId));
+    if (cat) { setActiveCatId(cat.id); setActiveToolId(h.toolId); }
+    setTargets(p => ({ ...p, [h.toolId]: h.target }));
+    setArgsMap(p => ({ ...p, [h.toolId]: h.args }));
+    setShowHistory(false);
+  };
+
   return (
     <PageShell
       eyebrow="Offensive"
@@ -209,16 +301,16 @@ function HackingToolkitPage() {
       description="Browse 50+ offensive-security tools by category, build commands with presets, and run against locally installed binaries via the BeyondArch backend."
       crumbs={[{ label: "Workbench", href: "/" }, { label: "Offensive" }, { label: "Hacking Toolkit" }]}
       meta={metaItems}
-      actions={<PreviewBadge label={installed ? "live backend" : "offline catalog"} />}
+      actions={<PreviewBadge label={offline ? "offline catalog" : (installed ? "live backend" : "catalog")} />}
     >
       {loading && (
-        <Panel className="flex items-center gap-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span className="text-mono text-[11px] text-muted-foreground">Checking local tool environment…</span>
-        </Panel>
+        <div className="space-y-3">
+          <PanelSkeleton title lines={4} />
+          <PanelSkeleton title lines={2} />
+        </div>
       )}
 
-      {!loading && backendError && (
+      {!loading && backendError && !cats && (
         <Panel className="border-warning/30 bg-warning/5">
           <div className="flex items-start gap-3 px-4 py-2.5">
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
@@ -226,7 +318,22 @@ function HackingToolkitPage() {
             </span>
             <div className="min-w-0 text-[12px] leading-relaxed text-foreground/85">
               <span className="font-semibold text-warning">Cannot reach backend.</span>{" "}
-              Start the FastAPI server to check locally installed tools and run real binaries.{" "}
+              No cached catalog available. Start the FastAPI server to use toolkit features.{" "}
+              <code className="text-mono text-[11px] text-foreground">cd backend && uvicorn app.main:app --reload</code>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {offline && (
+        <Panel className="border-warning/30 bg-warning/5">
+          <div className="flex items-start gap-3 px-4 py-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 text-[12px] leading-relaxed text-foreground/85">
+              <span className="font-semibold text-warning">Offline mode.</span>{" "}
+              Backend unreachable — showing cached tool catalog. Tool execution requires the backend.{" "}
               <code className="text-mono text-[11px] text-foreground">cd backend && uvicorn app.main:app --reload</code>
             </div>
           </div>
@@ -235,7 +342,7 @@ function HackingToolkitPage() {
 
       {!loading && !backendError && cats && (
         <>
-          {!installed && (
+          {!installed && !offline && (
             <Panel className="border-warning/30 bg-warning/5">
               <div className="flex items-start gap-3 px-4 py-2.5">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
@@ -250,9 +357,8 @@ function HackingToolkitPage() {
             </Panel>
           )}
 
-          {/* Two-column workspace */}
           <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-            {/* ── Left rail: categories + tools ── */}
+            {/* ── Left rail ── */}
             <div className="space-y-3 lg:sticky lg:top-16 lg:self-start">
               <Panel bodyClassName="p-0">
                 <div className="border-b border-border p-2">
@@ -360,7 +466,7 @@ function HackingToolkitPage() {
               </Panel>
             </div>
 
-            {/* ── Right column: detail + intake + output ── */}
+            {/* ── Right column ── */}
             <div className="min-w-0 space-y-4">
               {!activeTool ? (
                 <Empty icon={Terminal} title="No tool selected" hint="Choose a tool from the left rail to get started." />
@@ -454,19 +560,97 @@ function HackingToolkitPage() {
                         </button>
                         <button
                           onClick={run}
-                          disabled={running === activeTool.id}
+                          disabled={running === activeTool.id || offline}
                           className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono text-[11px] font-semibold uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                         >
                           {running === activeTool.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bug className="h-3 w-3" />}
                           {running === activeTool.id ? "running…" : "run"}
                         </button>
+                        {offline && <span className="text-mono text-[9px] text-muted-foreground">(offline — cannot run)</span>}
                       </div>
                     </Panel>
                   </div>
 
-                  {/* Output */}
+                  {/* Output + History */}
                   <div>
-                    <SectionBar id="OT" label="Output" meta={output ? output.status : "no run yet"} />
+                    <div className="flex items-center gap-2">
+                      <SectionBar id="OT" label="Output" meta={output ? output.status : "no run yet"} />
+                      <button
+                        onClick={toggleFilter}
+                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+                      >
+                        <Search className="h-3 w-3" />
+                        filter
+                      </button>
+                      <button
+                        onClick={() => setShowHistory(s => !s)}
+                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showHistory ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+                      >
+                        <History className="h-3 w-3" />
+                        history
+                        {history.length > 0 && <Chip tone={showHistory ? "primary" : "default"}>{history.length}</Chip>}
+                      </button>
+                    </div>
+
+                    {showFilter && (
+                      <OutputFilterBar
+                        filterText={filterText}
+                        onChange={setFilterText}
+                        onClear={() => setFilterText("")}
+                        onClose={() => { setShowFilter(false); setFilterText(""); }}
+                      />
+                    )}
+
+                    {showHistory && (
+                      <Panel title="Command history" icon={History} meta={`${history.length} entries`} className="mb-3" actions={
+                        history.length > 0 && (
+                          <button onClick={clearHistory} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3 w-3" /> clear all
+                          </button>
+                        )
+                      }>
+                        <div className="relative mb-2">
+                          <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            value={historyFilter}
+                            onChange={e => setHistoryFilter(e.target.value)}
+                            placeholder="filter history…"
+                            className="h-7 w-full rounded border border-border bg-background/60 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                          />
+                        </div>
+                        {filteredHistory.length === 0 ? (
+                          <div className="py-4 text-center text-mono text-[11px] text-muted-foreground">{history.length === 0 ? "No runs yet. Run a tool to see history here." : "No entries match the filter."}</div>
+                        ) : (
+                          <div className="max-h-80 space-y-1 overflow-auto">
+                            {filteredHistory.map(h => (
+                              <div key={h.id} className="group flex items-start justify-between gap-2 rounded border border-border/40 bg-background/30 px-2.5 py-1.5 hover:border-primary/30">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-mono text-[11px] font-semibold text-foreground/85">{h.toolName}</span>
+                                    <Chip tone={h.status === "completed" ? "success" : h.status === "error" ? "destructive" : "warning"}>{h.status}</Chip>
+                                  </div>
+                                  <div className="mt-0.5 truncate text-mono text-[10px] text-muted-foreground">
+                                    <span className="text-primary/70">$</span> {h.command}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-mono text-[9px] text-muted-foreground">
+                                    <Clock className="inline h-2.5 w-2.5" />
+                                    <span>{new Date(h.ts).toLocaleString()}</span>
+                                    <span>· {h.catName}</span>
+                                    <span>· {h.body.length} b</span>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                  <button onClick={() => replayHistory(h)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[9px] uppercase text-muted-foreground hover:text-primary" title="Replay">replay</button>
+                                  <button onClick={() => copyText(h.id, h.body)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[9px] uppercase text-muted-foreground hover:text-primary" title="Copy output">{copied === h.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </Panel>
+                    )}
+
+                    <OutputFilter query={filterText.toLowerCase()}>
                     {!output ? (
                       <Empty
                         icon={Terminal}
@@ -488,30 +672,13 @@ function HackingToolkitPage() {
                           ]}
                         />
 
-                        <Panel className="mt-3" bodyClassName="p-0">
-                          <div className="flex items-center justify-between border-b border-border bg-muted/20 px-3 py-2">
-                            <span className="truncate text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                              <span className="text-primary/70">$</span> {output.command}
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => copyText("out", output.body)}
-                                className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/50 hover:text-primary"
-                              >
-                                {copied === "out" ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />} copy
-                              </button>
-                              <button
-                                onClick={() => setOutputs((p) => ({ ...p, [activeTool.id]: null }))}
-                                className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-destructive/50 hover:text-destructive"
-                              >
-                                <X className="h-3 w-3" /> clear
-                              </button>
-                            </div>
-                          </div>
-                          <pre className="max-h-96 overflow-auto whitespace-pre-wrap bg-background/40 px-4 py-3 text-mono text-[11.5px] leading-relaxed text-foreground/90">
-{output.body}
-                          </pre>
-                        </Panel>
+                        <TerminalOutput
+                          command={output.command}
+                          body={output.body}
+                          status={output.status}
+                          onClear={() => setOutputs((p) => ({ ...p, [activeTool.id]: null }))}
+                          filename={`hacking-${activeTool.id}.txt`}
+                        />
 
                         {target && (
                           <div className="mt-3">
@@ -525,23 +692,22 @@ function HackingToolkitPage() {
                             />
                           </div>
                         )}
+
+                        <div className="mt-3">
+                          <Panel title="Tool facts" icon={Terminal} collapsible storageKey="ba.panel.hacking.facts" defaultCollapsed>
+                            <div className="grid gap-x-6 sm:grid-cols-2">
+                              <Field label="binary" value={<code className="text-mono">{activeTool.binary}</code>} />
+                              <Field label="category" value={activeCat?.name ?? ""} />
+                              <Field label="id" value={<code className="text-mono">{activeTool.id}</code>} tone="muted" />
+                              <Field label="presets" value={String(presets.length)} tone={presets.length ? "primary" : "muted"} />
+                              <Field label="installed" value={activeTool.installed ? "yes" : "no"} tone={activeTool.installed ? "success" : "warning"} />
+                              <Field label="pinned" value={pinned.has(activeTool.id) ? "yes" : "no"} tone={pinned.has(activeTool.id) ? "success" : "muted"} />
+                            </div>
+                          </Panel>
+                        </div>
                       </>
                     )}
-                  </div>
-
-                  {/* Tool facts */}
-                  <div>
-                    <SectionBar id="CF" label="Tool facts" />
-                    <Panel bodyClassName="px-4 py-3">
-                      <div className="grid gap-x-6 sm:grid-cols-2">
-                        <Field label="binary" value={<code className="text-mono">{activeTool.binary}</code>} />
-                        <Field label="category" value={activeCat?.name ?? ""} />
-                        <Field label="id" value={<code className="text-mono">{activeTool.id}</code>} tone="muted" />
-                        <Field label="presets" value={String(presets.length)} tone={presets.length ? "primary" : "muted"} />
-                        <Field label="installed" value={activeTool.installed ? "yes" : "no"} tone={activeTool.installed ? "success" : "warning"} />
-                        <Field label="pinned" value={pinned.has(activeTool.id) ? "yes" : "no"} tone={pinned.has(activeTool.id) ? "success" : "muted"} />
-                      </div>
-                    </Panel>
+                    </OutputFilter>
                   </div>
                 </>
               )}
@@ -551,4 +717,12 @@ function HackingToolkitPage() {
       )}
     </PageShell>
   );
+}
+
+function loadCachedCatalog(): BackendCategory[] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
 }

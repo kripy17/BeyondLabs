@@ -7,6 +7,8 @@ import { usePrefs } from "@/lib/prefs";
 import { NumberTicker } from "@/components/magic/NumberTicker";
 
 import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
+import { Marquee } from "@/components/magic/Marquee";
+import { WorkflowRibbon } from "@/components/soc/WorkflowRibbon";
 import { MetricGrid } from "@/components/soc/Workspace";
 import {
   ArrowRight, Plus, ArrowUpRight, Wand2, Radar, Target, Pin, Clock,
@@ -82,6 +84,9 @@ function Dashboard() {
     >
       {/* 1 · Command strip — live status, session id, env, palette hint */}
       <CommandStrip />
+
+      {/* 1b · Investigation flow ribbon */}
+      <WorkflowRibbon />
 
       {/* 2 · Dashboard metrics */}
       <MetricGrid
@@ -169,6 +174,17 @@ function Dashboard() {
 
 /* ----------------------------- Command strip ------------------------------ */
 
+const SIGNALS = [
+  "SPF/DMARC fail on example-login.com · 08:23:14",
+  "Sigma T1059.001 match · PowerShell encode detected",
+  "YARA cred_stealer.rule hit on invoice.docm",
+  "SSH brute-force surge from 185.220.101.7 · 47 attempts",
+  "C2 beacon interval detected · 192.168.1.220 → 203.0.113.88:8443",
+  "New TLD .click registration for paypa1-verify.com",
+  "Suricata ET CNNIC alert · outbound to known-bad ASN",
+  "DNS query for xn--pple-43d.com · typo-squat candidate",
+];
+
 function CommandStrip() {
   const [now, setNow] = useState<Date>(() => new Date());
   useEffect(() => {
@@ -199,6 +215,15 @@ function CommandStrip() {
             no upload · no detonation
           </span>
         </div>
+      </div>
+      <div className="border-t border-border/50 bg-background/40">
+        <Marquee speed={45} className="py-1.5">
+          {SIGNALS.map((s, i) => (
+            <span key={i} className="mx-3 inline-flex items-center gap-1.5 text-mono text-[10.5px] text-muted-foreground">
+              <CircleDot className="h-2 w-2 text-primary/70" /> {s}
+            </span>
+          ))}
+        </Marquee>
       </div>
     </section>
   );

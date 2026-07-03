@@ -509,6 +509,28 @@ function SettingsPage() {
               </Button>
             </div>
           </div>
+
+          <div>
+            <Label>letter spacing · {prefs.letterSpacing >= 0 ? "+" : ""}{prefs.letterSpacing.toFixed(3)}em</Label>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-mono text-[10px] text-muted-foreground" style={{ letterSpacing: "-0.02em" }}>tight</span>
+              <Slider
+                value={[prefs.letterSpacing]}
+                onValueChange={(v) => setPrefs({ letterSpacing: v[0] })}
+                min={-0.02} max={0.06} step={0.005}
+                className="flex-1"
+              />
+              <span className="text-mono text-[11px] text-muted-foreground" style={{ letterSpacing: "0.06em" }}>loose</span>
+              <Button variant="ghost" size="sm" className="text-mono text-[11px]" onClick={() => setPrefs({ letterSpacing: 0 })}>
+                reset
+              </Button>
+            </div>
+          </div>
+
+          <Row label="Monospace ligatures" desc="Turn on programming ligatures (&rarr;, !=, ===, ...) in code/data.">
+            <Switch checked={prefs.monoLigatures} onCheckedChange={(v) => setPrefs({ monoLigatures: v })} />
+          </Row>
+
           <div className="grid gap-5 md:grid-cols-2">
             <FontPicker
               title="sans (UI)"
@@ -600,6 +622,33 @@ function SettingsPage() {
           <Row label="Show topbar" desc="Toggle the topbar on screens that don't need it.">
             <Switch checked={prefs.showTopbar} onCheckedChange={(v) => setPrefs({ showTopbar: v })} />
           </Row>
+          <Row label="Zebra rows" desc="Alternate shading on tables &amp; IOC inventories for scan-ability.">
+            <Switch checked={prefs.zebraStripes} onCheckedChange={(v) => setPrefs({ zebraStripes: v })} />
+          </Row>
+          <Row label="High-contrast focus" desc="Thicker focus ring + glow for keyboard-only navigation.">
+            <Switch checked={prefs.focusRingBoost} onCheckedChange={(v) => setPrefs({ focusRingBoost: v })} />
+          </Row>
+          <div className="md:col-span-2 rounded-md border border-border/70 bg-card/40 px-3 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-mono text-[12px] font-medium text-foreground">Panel opacity &middot; {Math.round(prefs.panelOpacity * 100)}%</div>
+                <div className="text-[11px] text-muted-foreground">Blend workspace cards with the theme backdrop.</div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-mono text-[11px]" onClick={() => setPrefs({ panelOpacity: 1 })}>
+                reset
+              </Button>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-mono text-[10px] text-muted-foreground">75%</span>
+              <Slider
+                value={[prefs.panelOpacity]}
+                onValueChange={(v) => setPrefs({ panelOpacity: v[0] })}
+                min={0.75} max={1} step={0.01}
+                className="flex-1"
+              />
+              <span className="text-mono text-[10px] text-muted-foreground">100%</span>
+            </div>
+          </div>
           <Row label="Clear recents" desc="Wipe the recent-workspace history.">
             <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={clearRecents}>
               <Trash2 className="h-3.5 w-3.5" /> clear

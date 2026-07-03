@@ -6,6 +6,7 @@ import {
   Panel, SendToRow, Empty, Chip, RiskScore, EvidenceCard, IocInventory,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { toast } from "sonner";
 import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Download, Hash, Network, ShieldCheck, ShieldX, Activity } from "lucide-react";
 import { passiveRecon } from "@/api/backend";
@@ -145,6 +146,7 @@ function ReconPage() {
   const [target, setTarget] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [result, setResult] = useState<ReconApiResult | null>(null);
 
   const dns = result ? flattenDns(result.dns) : null;
@@ -199,6 +201,15 @@ function ReconPage() {
 
       <SectionBar id="OT" label="Output · passive snapshot" meta={result ? `${signals.length} signals` : "enter a target to populate"} />
 
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
       {!result && !loading && !error && (
         <Empty icon={Globe2} title="No target loaded" hint="Enter a domain above and click enumerate to run passive recon." />
       )}
@@ -216,6 +227,7 @@ function ReconPage() {
       )}
 
       {result && !loading && (
+        <OutputFilter query={filterText.toLowerCase()}>
         <div className="space-y-5">
           {/* Verdict Banner */}
           <VerdictBanner
@@ -259,7 +271,7 @@ function ReconPage() {
           )}
 
           {result.whois && "skipped" in result.whois && (
-            <Panel title="WHOIS / RDAP" icon={Search} meta="skipped — passive mode">
+            <Panel title="WHOIS / RDAP" icon={Search} meta="skipped — passive mode" collapsible storageKey="ba.panel.recon.whois" defaultCollapsed>
               <p className="text-mono text-[11px] text-muted-foreground">{result.whois.skipped}</p>
             </Panel>
           )}
@@ -337,7 +349,7 @@ function ReconPage() {
 
           {/* HTTP Headers - collapsible for long lists */}
           {http && (
-            <Panel title="HTTP Headers" icon={Server} meta={`${http.status_code} · ${http.server || "unknown"}`} collapsible defaultCollapsed={Object.keys(http.headers).length > 10}>
+            <Panel title="HTTP Headers" icon={Server} meta={`${http.status_code} · ${http.server || "unknown"}`} collapsible storageKey="ba.panel.recon.http" defaultCollapsed={Object.keys(http.headers).length > 10}>
               <KeyFields items={[
                 { label: "URL", value: http.url },
                 { label: "Status", value: http.status_code, tone: http.status_code < 400 ? "success" : "warning" },
@@ -379,7 +391,7 @@ function ReconPage() {
 
           {/* Export */}
           {result.target.hostname && (
-            <Panel title="Export" icon={Download}>
+            <Panel title="Export" icon={Download} collapsible storageKey="ba.panel.recon.export" defaultCollapsed>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => {
@@ -415,6 +427,7 @@ function ReconPage() {
             { label: "Case Notebook", to: "/case", icon: ArrowRight },
           ]} />
         </div>
+        </OutputFilter>
       )}
     </PageShell>
   );

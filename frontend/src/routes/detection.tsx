@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
-import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2 } from "lucide-react";
+import { SectionBar, Panel, SendToRow, Chip, KeyFields, RiskScore, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
+import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, StickyNote, Save, X, ListFilter, Info } from "lucide-react";
 import { mapMitre, generateSigmaRule } from "@/api/detection";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
@@ -29,7 +30,7 @@ logsource:
   category: process_creation
 detection:
   selection:
-    Image|endswith: '\\powershell.exe'
+    Image|endswith: '\\\\powershell.exe'
     CommandLine|contains: '-EncodedCommand'
   condition: selection
 tags:
@@ -128,7 +129,117 @@ function genReport(tpl: Tpl, result: { hit: boolean; hits: string[] }, rule: str
   ].join("\n");
 }
 
+/* ── Rule library types ── */
+type SavedRule = { id: string; name: string; format: Format; rule: string; event: string; created: number; updated: number; tags: string[] };
+const RULES_KEY = "ba.detection.rules.v2";
+
+function loadRules(): SavedRule[] {
+  try { return JSON.parse(localStorage.getItem(RULES_KEY) || "[]"); } catch { return []; }
+}
+function saveRules(r: SavedRule[]) {
+  try { localStorage.setItem(RULES_KEY, JSON.stringify(r)); } catch {}
+}
+function genId() { return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+
+/* ── Rule validation ── */
+type ValidationMsg = { type: "error" | "warning"; msg: string; line?: number };
+function validateRule(rule: string, fmt: Format): ValidationMsg[] {
+  const out: ValidationMsg[] = [];
+  const lines = rule.split("\n");
+  if (!rule.trim()) { out.push({ type: "error", msg: "Rule body is empty" }); return out; }
+  if (fmt === "sigma") {
+    if (!/^[a-z]/m.test(rule)) out.push({ type: "error", msg: "Sigma rules should start with a top-level YAML key" });
+    if (!/title:\s*\S/.test(rule)) out.push({ type: "error", msg: "Missing required field: title" });
+    if (!/detection:/m.test(rule)) out.push({ type: "error", msg: "Missing required section: detection" });
+    if (!/condition:\s*\S/.test(rule)) out.push({ type: "error", msg: "Missing required field: condition" });
+    if (!/logsource:/m.test(rule)) out.push({ type: "warning", msg: "Missing logsource section — rule may be hard to deploy" });
+    if (!/level:\s*\S/.test(rule)) out.push({ type: "warning", msg: "Missing level (severity) field" });
+    if (/id:\s*\S/.test(rule) && !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(rule)) out.push({ type: "warning", msg: "id does not look like a UUID" });
+  } else if (fmt === "yara") {
+    if (!/^\s*rule\s+\w+/m.test(rule)) out.push({ type: "error", msg: "YARA rule must start with 'rule <name>'" });
+    if (!/condition:/m.test(rule)) out.push({ type: "error", msg: "Missing required section: condition" });
+    if (!/strings:/m.test(rule)) out.push({ type: "warning", msg: "No strings section — rule may never match" });
+    if (/^\s*\$\w+\s*=\s*"[^"]*"\s*$/m.test(rule) === false && /strings:/m.test(rule)) out.push({ type: "warning", msg: "Strings section exists but no valid string definitions found" });
+  } else if (fmt === "kql") {
+    if (!/\|/.test(rule)) out.push({ type: "warning", msg: "KQL query has no pipe operators — likely incomplete" });
+    if (!/where\s/i.test(rule)) out.push({ type: "warning", msg: "No 'where' clause — query returns all rows" });
+    if (!/project\s/i.test(rule)) out.push({ type: "warning", msg: "No 'project' clause — consider limiting columns" });
+  }
+  return out;
+}
+
+/* ── Rule structure analysis ── */
+type RuleField = { key: string; value: string };
+function analyzeRule(rule: string, fmt: Format): RuleField[] {
+  const fields: RuleField[] = [];
+  if (fmt === "sigma") {
+    const mTitle = rule.match(/^title:\s*(.+)$/m);
+    if (mTitle) fields.push({ key: "title", value: mTitle[1] });
+    const mId = rule.match(/^id:\s*(.+)$/m);
+    if (mId) fields.push({ key: "id", value: mId[1] });
+    const mStatus = rule.match(/^status:\s*(.+)$/m);
+    if (mStatus) fields.push({ key: "status", value: mStatus[1] });
+    const mLevel = rule.match(/^level:\s*(.+)$/m);
+    if (mLevel) fields.push({ key: "level", value: mLevel[1] });
+    const mProduct = rule.match(/product:\s*(.+)$/m);
+    if (mProduct) fields.push({ key: "logsource.product", value: mProduct[1] });
+    const mCategory = rule.match(/category:\s*(.+)$/m);
+    if (mCategory) fields.push({ key: "logsource.category", value: mCategory[1] });
+    const mCondition = rule.match(/condition:\s*(.+)$/m);
+    if (mCondition) fields.push({ key: "condition", value: mCondition[1] });
+    const tagsMatch = rule.match(/tags:\s*\n((?:\s+- .+\n?)*)/);
+    if (tagsMatch) {
+      const tags = tagsMatch[1].match(/- (.+)/g)?.map(t => t.replace(/^-\s*/, "").trim()) ?? [];
+      fields.push({ key: "tags", value: tags.join(", ") || "—" });
+    }
+    const mDesc = rule.match(/^description:\s*(.+)$/m);
+    if (mDesc) fields.push({ key: "description", value: mDesc[1] });
+    const mAuthor = rule.match(/^author:\s*(.+)$/m);
+    if (mAuthor) fields.push({ key: "author", value: mAuthor[1] });
+  } else if (fmt === "yara") {
+    const mName = rule.match(/^\s*rule\s+(\w+)/m);
+    if (mName) fields.push({ key: "rule name", value: mName[1] });
+    const metas = rule.match(/^\s+(\w+)\s*=\s*"([^"]*)"$/gm);
+    if (metas) metas.forEach((m) => {
+      const p = m.match(/^\s+(\w+)\s*=\s*"([^"]*)"$/);
+      if (p) fields.push({ key: `meta.${p[1]}`, value: p[2] });
+    });
+    const strings = rule.match(/^\s+\$(\w+)\s*=\s*"([^"]*)"/gm);
+    if (strings) strings.forEach((s) => {
+      const p = s.match(/^\s+\$(\w+)\s*=\s*"([^"]*)"/);
+      if (p) fields.push({ key: `string.${p[1]}`, value: p[2] });
+    });
+    const cMatch = rule.match(/condition:\s*(.+?)$/m);
+    if (cMatch) fields.push({ key: "condition", value: cMatch[1].trim() });
+  } else if (fmt === "kql") {
+    const tableMatch = rule.match(/^(\w+)/);
+    if (tableMatch && !/^(let|\/\/)/i.test(tableMatch[1])) fields.push({ key: "table", value: tableMatch[1] });
+    const wheres = rule.match(/\|\s*where\s+(.+?)(?=\s*\|)/gi);
+    if (wheres) wheres.forEach((w) => fields.push({ key: "filter", value: w.replace(/^\|\s*where\s+/i, "").trim() }));
+    const projects = rule.match(/\|\s*project\s+(.+?)(?=\s*\|)/gi);
+    if (projects) projects.forEach((p) => fields.push({ key: "project", value: p.replace(/^\|\s*project\s+/i, "").trim() }));
+    const hasOps = rule.match(/\|\s*\w+/g);
+    if (hasOps) fields.push({ key: "operators", value: hasOps.map(o => o.replace("|", "").trim()).filter(Boolean).join(", ") });
+  }
+  return fields;
+}
+
+const DETECTION_REF = `
+### Detection sources
+| Source | Format | Description |
+|--------|--------|-------------|
+| **Sigma** | .yml | Generic SIEM rule format |
+| **YARA** | .yar | File/memory signature |
+| **KQL** | .kql | Defender/Azure query |
+#### Related pages
+- [MITRE Coverage →](/mitre) -- track detection coverage per technique
+- [SOC Guide →](/guide) -- playbook-aligned detection context
+- [IDS Engine →](/ids) -- Suricata/Snort rule builder
+`;
+
 function DetectionPage() {
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
+  const [hasRun, setHasRun] = useState(false);
   const [fmt, setFmt] = useState<Format>("sigma");
   const [rule, setRule] = useState(TEMPLATES.sigma.rule);
   const [event, setEvent] = useState(TEMPLATES.sigma.event);
@@ -144,14 +255,30 @@ function DetectionPage() {
   const [genResult, setGenResult] = useState<any>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
+  /* ── Rule library ── */
+  const [showLib, setShowLib] = useState(false);
+  const [savedRules, setSavedRules] = useState<SavedRule[]>(() => loadRules());
+  const [libName, setLibName] = useState("");
+  const [libTags, setLibTags] = useState("");
+  const [libNotice, setLibNotice] = useState("");
+
+  /* ── Validation & analysis ── */
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  const validation = useMemo(() => validateRule(rule, fmt), [rule, fmt]);
+  const analysis = useMemo(() => analyzeRule(rule, fmt), [rule, fmt]);
+  const hasErrors = validation.some(v => v.type === "error");
+  const hasWarnings = validation.some(v => v.type === "warning");
+
   const tpl = TEMPLATES[fmt];
   const result = useMemo(() => tpl.matcher(event), [tpl, event]);
 
-  const switchFmt = (f: Format) => { setFmt(f); setRule(TEMPLATES[f].rule); setEvent(TEMPLATES[f].event); setMitreResults(null); setMitreError(null); setGenResult(null); setGenError(null); };
-  const reset = () => { setRule(tpl.rule); setEvent(tpl.event); };
+  const switchFmt = (f: Format) => { setFmt(f); setRule(TEMPLATES[f].rule); setEvent(TEMPLATES[f].event); setMitreResults(null); setMitreError(null); setGenResult(null); setGenError(null); setShowLib(false); };
+  const reset = () => { setRule(tpl.rule); setEvent(tpl.event); setHasRun(false); setMitreResults(null); };
 
   const handleEvaluate = useCallback(async () => {
     if (mitreLoading) return;
+    setHasRun(true);
     setMitreLoading(true);
     setMitreError(null);
     try {
@@ -200,6 +327,46 @@ function DetectionPage() {
   const iocs = useMemo(() => extractIocs(event), [event]);
   const score = result.hit ? (tpl.severity === "critical" ? 85 : tpl.severity === "high" ? 65 : tpl.severity === "medium" ? 40 : 20) : 0;
 
+  /* ── Library actions ── */
+  const saveCurrent = () => {
+    const name = libName.trim() || `Rule ${savedRules.length + 1}`;
+    const tags = libTags.split(",").map(t => t.trim()).filter(Boolean);
+    const existing = savedRules.findIndex(r => r.name === name && r.format === fmt);
+    const entry: SavedRule = { id: existing >= 0 ? savedRules[existing].id : genId(), name, format: fmt, rule, event, created: existing >= 0 ? savedRules[existing].created : Date.now(), updated: Date.now(), tags };
+    let next: SavedRule[];
+    if (existing >= 0) { next = [...savedRules]; next[existing] = entry; }
+    else next = [...savedRules, entry];
+    setSavedRules(next);
+    saveRules(next);
+    setLibNotice(`Saved "${name}"`);
+    setTimeout(() => setLibNotice(""), 2000);
+  };
+  const loadRule = (r: SavedRule) => {
+    setFmt(r.format);
+    setRule(r.rule);
+    setEvent(r.event);
+    setHasRun(false);
+    setMitreResults(null);
+    setShowLib(false);
+  };
+  const deleteRule = (id: string) => {
+    const next = savedRules.filter(r => r.id !== id);
+    setSavedRules(next);
+    saveRules(next);
+  };
+  const duplicateRule = (r: SavedRule) => {
+    const entry: SavedRule = { ...r, id: genId(), name: `${r.name} (copy)`, created: Date.now(), updated: Date.now() };
+    const next = [...savedRules, entry];
+    setSavedRules(next);
+    saveRules(next);
+    loadRule(entry);
+  };
+
+  const fmtRules = savedRules.filter(r => r.format === fmt);
+  const otherRules = savedRules.filter(r => r.format !== fmt);
+
+  const refIcon = (f: Format) => { const Ic = FMT_ICONS[f]; return <Ic className="h-3 w-3" />; };
+
   return (
     <PageShell
       eyebrow="DETECTION / RULE EDITOR"
@@ -225,7 +392,7 @@ function DetectionPage() {
             >
               <div className="flex items-center gap-2.5">
                 <span className={"grid h-7 w-7 place-items-center rounded border " + (active ? "border-primary/60 bg-primary/20 text-primary" : "border-border/60 bg-background/60 text-muted-foreground")}>
-                  {(() => { const Ic = FMT_ICONS[f]; return <Ic className="h-3.5 w-3.5" strokeWidth={2.25} />; })()}
+                  {refIcon(f)}
                 </span>
                 <div>
                   <div className={"text-mono text-[11px] uppercase tracking-widest " + (active ? "text-primary" : "text-foreground/90")}>{f}</div>
@@ -316,6 +483,87 @@ function DetectionPage() {
         </Panel>
       )}
 
+      {/* Rule library button + panel */}
+      <div className="mb-3">
+        <button onClick={() => setShowLib(s => !s)} className={"inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showLib ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+          <BookMarked className="h-3 w-3" />
+          rule library
+          {savedRules.length > 0 && <Chip tone={showLib ? "primary" : "default"}>{savedRules.length}</Chip>}
+        </button>
+      </div>
+
+      {showLib && (
+        <Panel title="Rule library" icon={BookMarked} meta={`${savedRules.length} saved · ${fmtRules.length} in ${fmt}`} className="mb-4" actions={
+          <span className="flex items-center gap-1.5 text-mono text-[10px] text-muted-foreground">
+            {libNotice && <span className="text-success">{libNotice}</span>}
+          </span>
+        }>
+          {/* Save current */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-border/60 bg-background/30 p-2">
+            <input
+              value={libName}
+              onChange={e => setLibName(e.target.value)}
+              placeholder={`Rule name… (default: Rule ${savedRules.length + 1})`}
+              className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+            />
+            <input
+              value={libTags}
+              onChange={e => setLibTags(e.target.value)}
+              placeholder="tags (comma)"
+              className="w-32 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+            />
+            <button onClick={saveCurrent} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-1 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+              <Save className="h-3 w-3" /> save current
+            </button>
+          </div>
+
+          {savedRules.length === 0 ? (
+            <div className="text-center text-mono text-[11px] text-muted-foreground py-4">No rules saved yet. Write a rule and save it above.</div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-auto">
+              {fmtRules.map(r => (
+                <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border/50 bg-background/30 px-3 py-2 hover:border-primary/30">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-mono text-[12px] font-semibold text-foreground/90">{r.name}</span>
+                      {r.tags.map(t => <Chip key={t} tone="info">{t}</Chip>)}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                      <span className="uppercase tracking-widest">{r.format}</span>
+                      <span>· {r.rule.length} chars</span>
+                      <span>· saved {new Date(r.updated).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /> load</button>
+                    <button onClick={() => duplicateRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Copy className="inline h-3 w-3" /></button>
+                    <button onClick={() => deleteRule(r.id)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-destructive"><Trash2 className="inline h-3 w-3" /></button>
+                  </div>
+                </div>
+              ))}
+              {otherRules.length > 0 && (
+                <details className="group">
+                  <summary className="cursor-pointer px-1 pt-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                    other formats ({otherRules.length})
+                  </summary>
+                  <div className="mt-1 space-y-1">
+                    {otherRules.map(r => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border/30 bg-background/20 px-2.5 py-1.5">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-mono text-[11px] text-foreground/80">{r.name}</span>
+                          <span className="ml-2 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{r.format}</span>
+                        </div>
+                        <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+        </Panel>
+      )}
+
       <div className="grid gap-3 lg:grid-cols-5">
         {/* Rule editor with line numbers + live syntax preview */}
         <Panel
@@ -325,6 +573,15 @@ function DetectionPage() {
           className="lg:col-span-3"
           actions={
             <>
+              {/* Validation badge */}
+              {rule.trim() && (hasErrors || hasWarnings) && (
+                <span className={"inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-mono text-[10px] " + (hasErrors ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-warning/40 bg-warning/10 text-warning")}>
+                  {hasErrors ? `${validation.filter(v => v.type === "error").length} err` : `${validation.filter(v => v.type === "warning").length} warn`}
+                </span>
+              )}
+              <button onClick={() => setShowAnalysis(s => !s)} className={"inline-flex items-center gap-1 rounded border px-2 py-0.5 text-mono text-[10px] uppercase " + (showAnalysis ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+                <Info className="h-3 w-3" /> analyze
+              </button>
               <button onClick={reset} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> reset</button>
               <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">{copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}</button>
             </>
@@ -351,6 +608,18 @@ function DetectionPage() {
               />
             </div>
           </div>
+
+          {/* Inline validation results */}
+          {rule.trim() && (hasErrors || hasWarnings) && (
+            <div className="mt-2 space-y-1">
+              {validation.map((v, i) => (
+                <div key={i} className={"flex items-start gap-2 rounded px-2 py-1 text-mono text-[10px] " + (v.type === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning")}>
+                  <span className="mt-0.5 shrink-0">{v.type === "error" ? <X className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}</span>
+                  <span>{v.msg}{v.line != null ? ` (line ${v.line})` : ""}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
 
         {/* Simulation pane */}
@@ -405,10 +674,48 @@ function DetectionPage() {
         </Panel>
       </div>
 
-      <SectionBar id="OT" label="Output · verdict & mapping" meta={result.hit ? "rule would fire" : "rule does not match"} />
+      {/* Structural analysis panel */}
+      {showAnalysis && analysis.length > 0 && (
+        <Panel title={`Rule structure · ${fmt}`} icon={ListFilter} meta={`${analysis.length} fields`} className="mt-3">
+          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {analysis.map((f) => (
+              <div key={f.key} className="rounded border border-border/40 bg-background/30 px-2.5 py-1.5">
+                <div className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{f.key}</div>
+                <div className="mt-0.5 truncate text-mono text-[11px] text-foreground/90" title={f.value}>{f.value}</div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
-      <div className="space-y-5">
-        {/* Verdict Banner */}
+      <div className="flex items-center gap-2">
+        <SectionBar id="OT" label="Output · verdict & mapping" meta={result.hit ? "rule would fire" : "rule does not match"} />
+        {hasRun && (
+          <button
+            onClick={toggleFilter}
+            className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+            title="Toggle output filter (⌘F)"
+          >
+            <Search className="h-3 w-3" />
+            filter
+          </button>
+        )}
+      </div>
+
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
+      {!hasRun ? (
+        <Empty icon={ShieldAlert} title="Ready to evaluate" hint="Click 'evaluate' in the simulate pane to run the rule against the event and map to MITRE ATT&CK." />
+      ) : (
+        <OutputFilter query={filterText.toLowerCase()}>
+        <div className="space-y-5">
         <VerdictBanner
           verdict={result.hit ? "Rule matches event" : "No match"}
           tone={result.hit ? "warning" : "success"}
@@ -448,7 +755,7 @@ function DetectionPage() {
         <TwoColumnOutput
           ratio="1:1"
           left={
-            <Panel title="MITRE ATT&CK mapping" icon={Crosshair} actions={
+            <Panel title="MITRE ATT&CK mapping" icon={Crosshair} collapsible storageKey="ba.panel.detection.mitre" defaultCollapsed actions={
               mitreResults ? <button onClick={clearMitre} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> clear</button> : undefined
             }>
               {mitreLoading ? (
@@ -493,7 +800,7 @@ function DetectionPage() {
         />
 
         {/* IOCs in event */}
-        <Panel title="IOCs in event" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`}>
+        <Panel title="IOCs in event" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`} collapsible storageKey="ba.panel.detection.iocs" defaultCollapsed>
           <KeyFields items={[
             { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
             { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
@@ -526,6 +833,8 @@ function DetectionPage() {
           { label: "Case Notebook", to: "/case", icon: Database },
         ]} />
       </div>
+      </OutputFilter>
+      )}
     </PageShell>
   );
 }

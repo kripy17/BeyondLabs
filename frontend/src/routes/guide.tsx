@@ -9,12 +9,14 @@ export const Route = createFileRoute("/guide")({ component: GuidePage });
 type Severity = "P1" | "P2" | "P3";
 type Playbook = {
   id: string; title: string; severity: Severity; eta: string; category: string;
-  icon: typeof Mail; summary: string; steps: { text: string; pivot?: { to: string; label: string } }[];
+  icon: typeof Mail; summary: string; attack: string[];
+  steps: { text: string; pivot?: { to: string; label: string } }[];
 };
 
 const PLAYBOOKS: Playbook[] = [
   { id: "phish", title: "Phishing email reported", severity: "P2", eta: "15m", category: "Email", icon: Mail,
     summary: "User-reported lure: confirm verdict, scrub URLs, contain account exposure, document.",
+    attack: ["T1566", "T1204"],
     steps: [
       { text: "Pause any new inbox rules and forwarders on the reporting account.", pivot: { to: "/logs", label: "Logs" } },
       { text: "Pull full message source including raw headers." },
@@ -27,6 +29,7 @@ const PLAYBOOKS: Playbook[] = [
   },
   { id: "ssh", title: "SSH brute-force surge", severity: "P3", eta: "10m", category: "Network", icon: KeyRound,
     summary: "Spike in failed SSH attempts — confirm source, block, audit successes.",
+    attack: ["T1110"],
     steps: [
       { text: "Confirm the source IP, geo, and target account list.", pivot: { to: "/osint", label: "OSINT" } },
       { text: "Block source at perimeter or fail2ban." },
@@ -37,6 +40,7 @@ const PLAYBOOKS: Playbook[] = [
   },
   { id: "macro", title: "Macro-enabled attachment delivered", severity: "P2", eta: "20m", category: "Email", icon: FileWarning,
     summary: "Quarantine, hash, and contain before any user contact.",
+    attack: ["T1204", "T1059"],
     steps: [
       { text: "Quarantine the message at the mail gateway." },
       { text: "Hash the file and pivot in Attachment Triage.", pivot: { to: "/attachment", label: "Attachment" } },
@@ -47,6 +51,7 @@ const PLAYBOOKS: Playbook[] = [
   },
   { id: "c2", title: "Outbound C2-like beacon", severity: "P1", eta: "30m", category: "Network", icon: Activity,
     summary: "Suspected command-and-control: cut traffic, snapshot, escalate.",
+    attack: ["T1071", "T1571"],
     steps: [
       { text: "Capture host, user, destination, port, and beacon cadence." },
       { text: "Sever outbound traffic at proxy or firewall." },
@@ -181,6 +186,19 @@ function GuidePage() {
             actions={<Chip tone={SEV_COLOR[active.severity]}>{active.severity}</Chip>}
           >
             <p className="mb-3 text-[12px] leading-relaxed text-foreground/80">{active.summary}</p>
+
+            {active.attack.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">MITRE</span>
+                {active.attack.map((id) => (
+                  <Link key={id} to="/mitre"
+                    className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20"
+                  >
+                    {id}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             <div className="mb-3 flex items-center gap-3">
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/40">

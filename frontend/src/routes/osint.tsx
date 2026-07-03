@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, StatusBar, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret } from "@/api/backend";
@@ -104,6 +105,7 @@ function OsintPage() {
     } catch {}
   }, []);
 
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [osintResult, setOsintResult] = useState<Record<string, unknown> | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<Record<string, unknown> | null>(null);
@@ -286,8 +288,28 @@ function OsintPage() {
         </Panel>
       )}
 
-      <SectionBar id="OT" label="Output · external pivots" meta={`${applicable.length} matching · ${cats.length} categories`} />
+      <div className="flex items-center gap-2">
+        <SectionBar id="OT" label="Output · external pivots" meta={`${applicable.length} matching · ${cats.length} categories`} />
+        <button
+          onClick={toggleFilter}
+          className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+          title="Toggle output filter (⌘F)"
+        >
+          <Search className="h-3 w-3" />
+          filter
+        </button>
+      </div>
 
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
+      <OutputFilter query={filterText.toLowerCase()}>
       <CollapsibleSection id="PV" label="External Service Pivots" meta={`${applicable.length} services · ${cats.length} categories`} icon={ExternalLink}>
         <div className="grid gap-3 lg:grid-cols-2">
           {cats.map((c) => {
@@ -491,6 +513,7 @@ function OsintPage() {
         { label: "Detection", to: "/detection", icon: ArrowRight },
         { label: "Logs & Alerts", to: "/logs", icon: Database },
       ]} />
+      </OutputFilter>
     </PageShell>
   );
 

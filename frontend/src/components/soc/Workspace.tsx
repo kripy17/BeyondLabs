@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import {
   Check, Copy, Eraser, Loader2, Play, Upload, ChevronDown, ChevronRight,
   ArrowDownToLine, ArrowUpFromLine, Clock, Filter, Settings2, Sparkles,
@@ -65,6 +65,10 @@ export function Panel({
   children,
   className = "",
   bodyClassName = "",
+  collapsible,
+  defaultCollapsed,
+  storageKey,
+  sticky,
 }: {
   title?: string;
   icon?: LucideIcon;
@@ -75,24 +79,53 @@ export function Panel({
   bodyClassName?: string;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
+  storageKey?: string;
+  sticky?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (storageKey) {
+      try { return JSON.parse(localStorage.getItem(storageKey) || "null") ?? !!defaultCollapsed; } catch {}
+    }
+    return !!defaultCollapsed;
+  });
+
+  const toggle = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  }, [storageKey]);
+
+  const canCollapse = collapsible && !!title;
+
   return (
-    <section className={"group/panel relative overflow-hidden rounded-md border border-border bg-card/60 transition-colors hover:border-primary/30 " + className}>
+    <section className={"group/panel ba-fade-in relative overflow-hidden rounded-md border border-border bg-card/60 transition-colors hover:border-primary/30 " + (sticky ? "sticky top-0 z-10 shadow-sm" : "") + " " + className}>
       <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-2 w-2 border-l border-t border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       <span aria-hidden className="pointer-events-none absolute right-0 top-0 h-2 w-2 border-r border-t border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       <span aria-hidden className="pointer-events-none absolute left-0 bottom-0 h-2 w-2 border-l border-b border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       <span aria-hidden className="pointer-events-none absolute right-0 bottom-0 h-2 w-2 border-r border-b border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       {title && (
-        <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <header
+          className={"flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 " + (canCollapse ? "cursor-pointer select-none hover:bg-card/40" : "")}
+          onClick={canCollapse ? toggle : undefined}
+        >
           <div className="flex items-center gap-2 min-w-0">
+            {canCollapse && (
+              <ChevronDown className={"h-3 w-3 shrink-0 text-muted-foreground transition-transform " + (collapsed ? "-rotate-90" : "")} />
+            )}
             {Icon && <Icon className="h-3.5 w-3.5 text-primary shrink-0" />}
             <h3 className="text-mono text-[11px] uppercase tracking-[0.22em] truncate">{title}</h3>
             {meta && <span className="text-mono text-[10px] text-muted-foreground shrink-0">· {meta}</span>}
           </div>
-          {actions && <div className="flex items-center gap-1.5">{actions}</div>}
+          {actions && <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>{actions}</div>}
         </header>
       )}
-      <div className={"p-4 " + bodyClassName}>{children}</div>
+      {(!canCollapse || !collapsed) && (
+        <div className={"p-4 " + bodyClassName}>{children}</div>
+      )}
     </section>
   );
 }
@@ -489,6 +522,7 @@ export function ResultBanner({
   subtitle,
   reasons,
   metrics,
+  sticky,
 }: {
   badge: string;
   caseId?: string;
@@ -496,9 +530,10 @@ export function ResultBanner({
   subtitle?: string;
   reasons?: string[];
   metrics?: { label: string; value: ReactNode; tone?: "primary" | "warning" | "destructive" | "success" | "default" }[];
+  sticky?: boolean;
 }) {
   return (
-    <Panel className="relative overflow-hidden bg-gradient-to-br from-card/85 via-card/55 to-card/30">
+    <Panel sticky={sticky} className="relative overflow-hidden bg-gradient-to-br from-card/85 via-card/55 to-card/30">
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-primary/80 via-primary/40 to-transparent" />
       <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:radial-gradient(hsl(var(--primary))_1px,transparent_1px)] [background-size:14px_14px]" />
       <div className="relative grid gap-4 md:grid-cols-[1.4fr_1fr]">

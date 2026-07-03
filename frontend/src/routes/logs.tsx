@@ -5,10 +5,13 @@ import {
   IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
   Empty, KeyFields, IocInventory, Chip, EvidenceCard,
 } from "@/components/soc/Workspace";
+import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
+import { BulkActionBar, useSelection } from "@/components/soc/BulkActionBar";
 import { parseLogs } from "@/api/backend";
 import {
   Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter,
   Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight, Loader2,
+  Check, Copy, Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/logs")({ component: LogsPage });
@@ -281,12 +284,15 @@ function LogsPage() {
   const [input, setInput] = useState(() => readInitialPrefill());
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
   const [range, setRange] = useState<Range>(() => loadPersist<Range>(LOCALSTORE_RANGE, "all"));
+  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"painted" | "raw" | "table">("painted");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
   const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
+  const findingSel = useSelection();
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const flash = (msg: string) => {
@@ -464,9 +470,20 @@ function LogsPage() {
       </div>
 
       <SectionBar id="OT" label="Output · entities + findings" meta={parsed ? `${parsed.classification} · ${findings.length} finding(s)` : "awaiting input"} />
+
+      {showFilter && (
+        <OutputFilterBar
+          filterText={filterText}
+          onChange={setFilterText}
+          onClear={() => setFilterText("")}
+          onClose={() => { setShowFilter(false); setFilterText(""); }}
+        />
+      )}
+
       {!parsed ? (
         <Empty icon={Database} title="No log loaded" hint="Paste a few lines or load a sample to extract entities and a detection lead." />
       ) : (
+        <OutputFilter query={filterText.toLowerCase()}>
         <div className="space-y-3">
           <ResultBanner
             badge="log_decision"
@@ -488,46 +505,97 @@ function LogsPage() {
             ]}
           />
 
-          {/* Painted viewer with line expansion */}
-          <Panel title="Painted log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}>
-            <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
-              {filteredLines.length === 0 ? (
-                <div className="text-muted-foreground">No lines match the active filters.</div>
-              ) : filteredLines.map(({ ln, i }) => {
-                const isExpanded = expandedLine === i;
-                return (
-                  <div key={i}>
-                    <div
-                      className={`flex cursor-pointer gap-3 rounded-sm transition-colors hover:bg-primary/[0.04] ${isExpanded ? "bg-primary/5" : ""}`}
-                      onClick={() => setExpandedLine(isExpanded ? null : i)}
-                    >
-                      <span className="flex select-none items-start gap-1 pt-0.5 text-right text-muted-foreground/60" style={{ minWidth: 42 }}>
-                        <span className="text-[10px]">{isExpanded ? <ChevronDown className="inline h-3 w-3" /> : <ChevronRight className="inline h-3 w-3" />}</span>
-                        <span>{i + 1}</span>
-                      </span>
-                      <span className="flex-1">
-                        {paint(ln).map((tk, j) => <span key={j} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
-                      </span>
-                    </div>
-                    {isExpanded && (
-                      <div className="ml-10 mb-2 mt-1 rounded border border-border/50 bg-card/40 p-2.5">
-                        <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Line {i + 1} · Actions</div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <button onClick={() => addChip("ip", ln.match(IPV4_RE)?.[0] ?? ln)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Filter IP</button>
-                          <button onClick={() => { copy(ln); flash("Line copied"); }} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy</button>
-                          <button onClick={() => setModal({ title: "Line Detail", subtitle: `Line ${i + 1}`, data: { line_number: i + 1, text: ln, entities: { ips: ln.match(IPV4_RE) ?? [] } } })} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
-                          <button onClick={() => handleSendTo("siem")} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Send to SIEM</button>
+          {/* Tabbed log viewer */}
+          <Panel title="Log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}
+            actions={
+              <div className="flex items-center gap-1">
+                {(["painted", "raw", "table"] as const).map((m) => (
+                  <button key={m} onClick={() => setViewMode(m)}
+                    className={"rounded border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest transition-colors " +
+                      (viewMode === m ? "border-primary/60 bg-primary/15 text-primary" : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground")}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            }>
+            {filteredLines.length === 0 ? (
+              <div className="rounded border border-border/50 bg-background/60 p-3 text-mono text-[11px] text-muted-foreground">No lines match the active filters.</div>
+            ) : viewMode === "painted" ? (
+              <>
+                <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
+                  {filteredLines.map(({ ln, i }) => {
+                    const isExpanded = expandedLine === i;
+                    return (
+                      <div key={i}>
+                        <div
+                          className={`flex cursor-pointer gap-3 rounded-sm transition-colors hover:bg-primary/[0.04] ${isExpanded ? "bg-primary/5" : ""}`}
+                          onClick={() => setExpandedLine(isExpanded ? null : i)}
+                        >
+                          <span className="flex select-none items-start gap-1 pt-0.5 text-right text-muted-foreground/60" style={{ minWidth: 42 }}>
+                            <span className="text-[10px]">{isExpanded ? <ChevronDown className="inline h-3 w-3" /> : <ChevronRight className="inline h-3 w-3" />}</span>
+                            <span>{i + 1}</span>
+                          </span>
+                          <span className="flex-1">
+                            {paint(ln).map((tk, j) => <span key={j} className={TOK_CLASS[tk.k]}>{tk.v}</span>)}
+                          </span>
                         </div>
+                        {isExpanded && (
+                          <div className="ml-10 mb-2 mt-1 rounded border border-border/50 bg-card/40 p-2.5">
+                            <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Line {i + 1} · Actions</div>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              <button onClick={() => addChip("ip", ln.match(IPV4_RE)?.[0] ?? ln)} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Filter IP</button>
+                              <button onClick={() => { copy(ln); flash("Line copied"); }} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy</button>
+                              <button onClick={() => setModal({ title: "Line Detail", subtitle: `Line ${i + 1}`, data: { line_number: i + 1, text: ln, entities: { ips: ln.match(IPV4_RE) ?? [] } } })} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
+                              <button onClick={() => handleSendTo("siem")} className="rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Send to SIEM</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })}
+                </pre>
+                <div className="mt-2 flex flex-wrap gap-2 text-mono text-[10px] text-muted-foreground">
+                  legend: <span className="text-info">IP</span> <span className="text-accent">port N</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
+                  <span className="ml-auto text-[10px]">click a line to expand</span>
+                </div>
+              </>
+            ) : viewMode === "raw" ? (
+              <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[12px] leading-relaxed">
+                {filteredLines.map(({ ln, i }) => (
+                  <div key={i} className="flex gap-3">
+                    <span className="select-none text-right text-[10px] text-muted-foreground/40" style={{ minWidth: 32 }}>{i + 1}</span>
+                    <span>{ln}</span>
                   </div>
-                );
-              })}
-            </pre>
-            <div className="mt-2 flex flex-wrap gap-2 text-mono text-[10px] text-muted-foreground">
-              legend: <span className="text-info">IP</span> <span className="text-accent">port N</span> <span className="text-warning">process</span> <span className="text-primary">keyword</span> <span className="text-success">string</span>
-              <span className="ml-auto text-[10px]">click a line to expand</span>
-            </div>
+                ))}
+              </pre>
+            ) : (
+              <div className="overflow-x-auto rounded border border-border/50 bg-background/60">
+                <table className="min-w-full border-collapse text-mono text-[11px]">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-card/50 text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <th className="px-2 py-1.5 font-normal">#</th>
+                      <th className="px-2 py-1.5 font-normal">Time</th>
+                      <th className="px-2 py-1.5 font-normal">Source IP</th>
+                      <th className="px-2 py-1.5 font-normal">Content</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLines.map(({ ln, i }) => {
+                      const ts = ln.match(TS_RE)?.[0] ?? "";
+                      const srcIp = ln.match(IPV4_RE)?.[0] ?? "";
+                      return (
+                        <tr key={i} className="border-b border-border/30 hover:bg-primary/[0.03]">
+                          <td className="px-2 py-1 text-[10px] text-muted-foreground/60">{i + 1}</td>
+                          <td className="px-2 py-1 text-info/80">{ts}</td>
+                          <td className="px-2 py-1 text-info">{srcIp}</td>
+                          <td className="px-2 py-1 text-foreground/80 truncate max-w-[600px]">{ln}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
 
           <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
@@ -573,10 +641,32 @@ function LogsPage() {
             </Panel>
           </div>
 
-          {/* Evidence cards */}
+          {/* Evidence cards with bulk selection */}
+          <BulkActionBar
+            selected={findingSel.selected}
+            total={findings.length}
+            onSelectAll={() => findingSel.selectAll(findings.length)}
+            onClear={findingSel.clear}
+            actions={[
+              { label: "copy titles", icon: Copy, onClick: (indices) => { const txt = indices.map(i => findings[i].title).join("\n"); navigator.clipboard.writeText(txt); }, tone: "default" },
+              { label: "send to case", icon: Send, onClick: (indices) => { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "findings", content: indices.map(i => findings[i].title).join("\n"), source: "Logs & Alerts" })); }, tone: "primary" },
+              { label: "select all", icon: Check, onClick: () => findingSel.selectAll(findings.length), tone: "default" },
+            ]}
+          />
           <div className="grid gap-3 md:grid-cols-2">
             {findings.map((f, i) => (
-              <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
+              <div key={i} className="group relative">
+                <label className="absolute left-1 top-2 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border/60 bg-card/80 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 has-[:checked]:opacity-100 has-[:checked]:border-primary/60 has-[:checked]:bg-primary/10 has-[:checked]:text-primary">
+                  <input
+                    type="checkbox"
+                    checked={findingSel.selected.has(i)}
+                    onChange={() => findingSel.toggle(i, false)}
+                    onClick={(e) => { if (e.shiftKey) { e.preventDefault(); findingSel.toggle(i, true); } }}
+                    className="h-3 w-3 accent-primary"
+                  />
+                </label>
+                <EvidenceCard severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Analysis based on pattern matching — confirm with full context." />
+              </div>
             ))}
           </div>
 
@@ -584,7 +674,7 @@ function LogsPage() {
 
           {/* MITRE ATT&CK — grouped by tactic */}
           {tacticCoverage.length > 0 && (
-            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`}>
+            <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.logs.mitre-tactics" defaultCollapsed>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {tacticCoverage.map((t) => (
                   <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
@@ -605,7 +695,7 @@ function LogsPage() {
 
           {/* MITRE flat list */}
           {mitre.length > 0 && (
-            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`}>
+            <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.logs.mitre-techniques" defaultCollapsed>
               <div className="flex flex-wrap gap-2">
                 {mitre.map((m) => (
                   <span key={m.id} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
@@ -621,7 +711,7 @@ function LogsPage() {
 
           {/* URLs extracted */}
           {parsed.urls.length > 0 && (
-            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`}>
+            <Panel title="Extracted URLs" meta={`${parsed.urls.length}`} collapsible storageKey="ba.panel.logs.urls" defaultCollapsed>
               <ul className="space-y-1">
                 {parsed.urls.map((u) => (
                   <li key={u} className="border-b border-border/40 py-1 text-mono text-[11px] text-foreground/90">{u}</li>
@@ -630,14 +720,16 @@ function LogsPage() {
             </Panel>
           )}
 
-          <IocInventory groups={[
-            { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
-            { kind: "User", items: parsed.users, tone: "info" as const },
-            { kind: "Process", items: parsed.procs, tone: "warning" as const },
-            { kind: "Host", items: parsed.hosts },
-            { kind: "Signature", items: parsed.sigs },
-            { kind: "URL", items: parsed.urls, tone: "warning" as const },
-          ]} onSendTo={() => {}} />
+          <Panel title="IOC Inventory" icon={Database} collapsible storageKey="ba.panel.logs.iocs" defaultCollapsed>
+            <IocInventory groups={[
+              { kind: "IPv4", items: parsed.ips, tone: "warning" as const },
+              { kind: "User", items: parsed.users, tone: "info" as const },
+              { kind: "Process", items: parsed.procs, tone: "warning" as const },
+              { kind: "Host", items: parsed.hosts },
+              { kind: "Signature", items: parsed.sigs },
+              { kind: "URL", items: parsed.urls, tone: "warning" as const },
+            ]} onSendTo={() => {}} />
+          </Panel>
 
           <SendToRow targets={[
             { label: "SIEM Workspace", to: "/siem", icon: Database },
@@ -646,6 +738,7 @@ function LogsPage() {
             { label: "Case Notebook", to: "/case", icon: ArrowRight },
           ]} />
         </div>
+        </OutputFilter>
       )}
 
       {/* Modal */}

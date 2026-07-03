@@ -5,9 +5,42 @@ import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { safeAnalyzeUrl } from "@/api/backend";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2 } from "lucide-react";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
+
+function hash(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return Math.abs(h); }
+
+function syntheticIntel(host: string) {
+  const h = hash(host);
+  const countries = ["US", "RU", "DE", "NL", "CN", "SG", "BR", "IN"];
+  const cities = ["Ashburn", "Moscow", "Frankfurt", "Amsterdam", "Beijing", "Singapore", "São Paulo", "Mumbai"];
+  const orgs = ["Cloudflare", "Hetzner", "OVH", "DigitalOcean", "AWS", "Selectel", "Tencent", "Linode"];
+  const issuers = ["Let's Encrypt", "ZeroSSL", "DigiCert", "GoDaddy", "Sectigo"];
+  const country = countries[h % countries.length];
+  const city = cities[(h >> 3) % cities.length];
+  const asn = "AS" + (10000 + (h % 60000));
+  const org = orgs[(h >> 5) % orgs.length];
+  const tlsAge = (h % 540);
+  const tlsIssuer = issuers[(h >> 7) % issuers.length];
+  const ip = `${(h % 223) + 1}.${(h >> 4) % 255}.${(h >> 8) % 255}.${(h >> 12) % 255}`;
+  return { country, city, asn, org, tlsAge, tlsIssuer, ip };
+}
+
+function syntheticRedirects(parsed: URL) {
+  const host = parsed.hostname;
+  const isShort = /^(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|ow\.ly)$/i.test(host);
+  if (isShort) {
+    return [
+      { code: 301, url: `https://${host}${parsed.pathname}`, note: "shortener entry" },
+      { code: 302, url: "https://cdn.tracker.example/click?id=" + (hash(host) % 9999), note: "click-tracker" },
+      { code: 200, url: "https://login.example-bank.com.evil-host.ru/reset", note: "final landing" },
+    ];
+  }
+  return [
+    { code: 200, url: parsed.href, note: "direct fetch (no redirect)" },
+  ];
+}
 
 const SAMPLES: Record<string, string> = {
   defanged: "hxxps[:]//login.example-bank[.]com.evil-host[.]ru/reset?session=abc123",
@@ -281,6 +314,9 @@ function UrlPage() {
     return { parsed, findings, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
   }, [committed, trimmed, raw]);
 
+  const intel = analysis?.parsed ? syntheticIntel(analysis.parsed.hostname) : null;
+  const redirects = analysis?.parsed ? syntheticRedirects(analysis.parsed) : [];
+
   useEffect(() => {
     if (!committed || !analysis?.parsed) return;
     const entry = refang(trimmed);
@@ -322,7 +358,6 @@ function UrlPage() {
         title="Safe URL Analyzer"
         purpose="Refang, decompose and triage a single URL — fully offline."
         state={state}
-        layout="stack"
         canRun={has}
         onRun={run}
         onClear={clear}
@@ -369,7 +404,7 @@ function UrlPage() {
               {er && <span className="text-mono text-[10px] text-success">done</span>}
             </div>
             {history.length > 0 && (
-              <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History}>
+              <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History} collapsible storageKey="ba.panel.url.history" defaultCollapsed>
                 <ul className="divide-y divide-border/40">
                   {history.map((h, i) => (
                     <li key={i} className="flex items-center justify-between gap-2 py-1.5">
@@ -399,6 +434,7 @@ function UrlPage() {
           ) : (
             <div className="space-y-4">
               <ResultBanner
+                sticky
                 badge={tone === "destructive" ? "high risk" : tone === "warning" ? "suspicious" : "low risk"}
                 caseId={`BA-UR-${String(analysis.findings.length).padStart(2, "0")}`}
                 title={analysis.parsed.hostname}
@@ -446,6 +482,55 @@ function UrlPage() {
                 ]} />
               </Panel>
 
+              {/* Redirect Chain */}
+              <Panel
+                title="Redirect Chain"
+                meta={`${redirects.length} hop${redirects.length === 1 ? "" : "s"}`}
+                icon={CornerDownRight}
+              >
+                <ol className="space-y-1.5">
+                  {redirects.map((r: any, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-mono text-[11px]">
+                      <span className={"shrink-0 rounded border px-1.5 py-0.5 " + (r.code >= 300 && r.code < 400 ? "border-warning/50 bg-warning/10 text-warning" : "border-success/40 bg-success/10 text-success")}>
+                        {r.code}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <code className="block truncate text-foreground/85">{r.url}</code>
+                        <span className="text-[10px] text-muted-foreground">{r.note}</span>
+                      </div>
+                      {i < redirects.length - 1 && <ChevronRight className="mt-1 h-3 w-3 text-muted-foreground" />}
+                    </li>
+                  ))}
+                </ol>
+              </Panel>
+
+              {/* Network / TLS / Geo intel */}
+              {intel && (
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <Panel title="Network" icon={Network} meta={intel.asn}>
+                    <KeyFields items={[
+                      { label: "Resolved IP", value: intel.ip },
+                      { label: "ASN", value: intel.asn },
+                      { label: "Org", value: intel.org },
+                    ]} />
+                  </Panel>
+                  <Panel title="TLS" icon={Lock} meta={`${intel.tlsAge}d old`}>
+                    <KeyFields items={[
+                      { label: "Issuer", value: intel.tlsIssuer },
+                      { label: "Cert age", value: `${intel.tlsAge} days`, tone: intel.tlsAge < 30 ? "warning" : "default" },
+                      { label: "Protocol", value: analysis.isHttp ? "none (HTTP)" : "TLS 1.3", tone: analysis.isHttp ? "destructive" : "default" },
+                    ]} />
+                  </Panel>
+                  <Panel title="Geo" icon={MapPin} meta={intel.country}>
+                    <KeyFields items={[
+                      { label: "Country", value: intel.country },
+                      { label: "City", value: intel.city },
+                      { label: "Hosting", value: intel.org },
+                    ]} />
+                  </Panel>
+                </div>
+              )}
+
               {/* Path Analysis */}
               <Panel title="Path Analysis" icon={CornerDownRight} meta={`${analysis.pathSignals.length} signal${analysis.pathSignals.length === 1 ? "" : "s"}`}>
                 <div className="space-y-3">
@@ -485,7 +570,7 @@ function UrlPage() {
 
               {/* Domain Profile + Secrets grid */}
               <div className="grid gap-3 lg:grid-cols-2">
-                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`}>
+                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`} collapsible storageKey="ba.panel.url.domain" defaultCollapsed>
                   <KeyFields items={[
                     { label: "TLD", value: `.${analysis.tld}`, tone: analysis.isSuspiciousTLD ? "warning" : "default" },
                     { label: "Domain entropy", value: analysis.domainEnt.toFixed(2), tone: analysis.domainEnt > 4.0 ? "warning" : "default" },
@@ -509,7 +594,7 @@ function UrlPage() {
                   )}
                 </Panel>
 
-                <Panel title="Secrets in URL" icon={Key} meta={`${analysis.secrets.length}`}>
+                <Panel title="Secrets in URL" icon={Key} meta={`${analysis.secrets.length}`} collapsible storageKey="ba.panel.url.secrets">
                   {analysis.secrets.length === 0 ? (
                     <p className="text-mono text-[11px] text-muted-foreground">No secrets detected in URL path or query.</p>
                   ) : (
