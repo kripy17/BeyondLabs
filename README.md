@@ -2,50 +2,94 @@
 
 # BeyondArch
 
-**Local-first SOC Analyst Workbench**
+**Local-First SOC Analyst Workbench**
 
-[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://react.dev)
-[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=fff)](https://vite.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=fff)](https://fastapi.tiangolo.com)
-[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff)](https://python.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](https://typescriptlang.org)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-eee?logo=linux&logoColor=000)]()
+Artifact triage · Phishing review · SIEM log analysis · Detection engineering
+— all local-first, privacy-preserving, and analyst-led.
+
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=fff)](https://vite.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=fff)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=fff)](https://python.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=fff)](https://typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8B0000?style=for-the-badge&labelColor=000000)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8B0000?style=for-the-badge&labelColor=000000)](CONTRIBUTING.md)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-000000?style=for-the-badge&logo=linux&logoColor=eeeeee)]()
+
+**[Quick Start](#quick-start)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Architecture](#investigation-flow)** &nbsp;·&nbsp; **[Safety Model](#safety-model)** &nbsp;·&nbsp; **[Contributing](CONTRIBUTING.md)**
+
+</div>
+
+<br>
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Settings & Customization](#settings--customization)
+- [Investigation Flow](#investigation-flow)
+- [Quick Start](#quick-start)
+- [Safety Model](#safety-model)
+- [Storage](#storage)
+- [Repo Layout](#repo-layout)
+- [Health Checks](#health-checks)
+- [Demo Workflow](#demo-workflow)
+- [Development](#development)
+- [Host Dependencies](#host-dependencies)
+- [Known Limitations](#known-limitations)
+- [Release Checklist](#release-checklist)
 
 ---
 
-Artifact triage. Phishing review. SIEM log analysis. Detection engineering.
-All **local-first**, **privacy-preserving**, and **analyst-led**.
+## Overview
 
-Runs on **Linux**, **macOS**, and **Windows**.
+BeyondArch is a **local-first** workbench for defensive analysts. It handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine, with nothing shipped off to a third party. It runs on **Linux**, **macOS**, and **Windows**.
 
-</div>
+Every signal it surfaces is meant to be **honest and local**, never fabricated — see [Safety Model](#safety-model) for the specifics.
 
 ---
 
 ## Features
 
+### Triage & Analysis
 | Capability | What it does |
 |-----------|-------------|
 | **Artifact Intake** | Paste hashes, IPs, URLs, emails — auto-extract IOCs with defang/refang |
 | **Phishing Triage** | Analyse email headers, auth (SPF/DKIM/DMARC), URLs, and body signals |
 | **Safe URL Analysis** | Static URL dissection — scheme, host, path, params, TLD scoring |
 | **Attachment Triage** | Static metadata extraction for common document formats |
+
+### SIEM, Detection & Alerts
+| Capability | What it does |
+|-----------|-------------|
 | **SIEM Workspace** | Paste syslog/JSONL/CSV event streams with filter, pivot, and export |
 | **Logs & Alerts** | Parse auth logs, web access logs, IDS alerts, firewall logs |
 | **Detection Engineering** | Build Suricata/Snort/Sigma/YARA/KQL rules from templates with lint + explain |
 | **MITRE ATT&CK** | Interactive coverage matrix with localStorage persistence |
-| **SOC Guide** | Command reference, event ID lookup, detection patterns |
-| **Recon & OSINT** | Bounded DNS/whois/nmap workflows for authorized targets |
-| **CyberChef / Chef** | Encoding, decoding, hashing, compression, string manipulation |
-| **Case & Report** | Timeline + analyst notes + markdown report export with handoff chain |
-| **Hacking Toolkit** | Curated tool catalog (nmap, metasploit, hashcat, sqlmap, etc.) with preset args and run history |
-| **Nmap Runner** | Interactive nmap scan interface with preset profiles and output parsing |
 | **IDS Alerts** | Parse, categorize, and investigate IDS/IPS alert feeds |
-| **Settings** | Full workspace customization — see below |
 
-### Settings & Customization
+### Recon & Toolkit
+| Capability | What it does |
+|-----------|-------------|
+| **Recon & OSINT** | Bounded DNS/whois/nmap workflows for authorized targets |
+| **Nmap Runner** | Interactive nmap scan interface with preset profiles and output parsing |
+| **Hacking Toolkit** | Curated tool catalog (nmap, metasploit, hashcat, sqlmap, etc.) with preset args and run history |
+| **CyberChef / Chef** | Encoding, decoding, hashing, compression, string manipulation |
+
+### Reference & Reporting
+| Capability | What it does |
+|-----------|-------------|
+| **SOC Guide** | Command reference, event ID lookup, detection patterns |
+| **Case & Report** | Timeline + analyst notes + markdown report export with handoff chain |
+
+### Workspace
+| Capability | What it does |
+|-----------|-------------|
+| **Settings** | Full workspace customization — see [below](#settings--customization) |
+
+---
+
+## Settings & Customization
 
 | Feature | Details |
 |---------|---------|
@@ -58,37 +102,39 @@ Runs on **Linux**, **macOS**, and **Windows**.
 | **Motion & QoL** | Status bar toggle, scroll indicators, copy button visibility |
 | **Storage & Backup** | Session-only / Persist / None modes; JSON export/import |
 
-### Investigation Flow
+---
+
+## Investigation Flow
 
 ```
-                    ┌──────────────────────┐
+                    ┌───────────────────────┐
                     │   Artifact Intake     │
                     │ (hash, URL, email,    │
                     │  IP, log line, file)  │
-                    └──────────┬───────────┘
+                    └──────────┬────────────┘
                                │
-                    ┌──────────▼───────────┐
-                    │   Triage Workspace   │
-                    │ Phishing · URL · Att.│
-                    └──────────┬───────────┘
+                    ┌──────────▼────────────┐
+                    │   Triage Workspace    │
+                    │ Phishing · URL · Att. │
+                    └──────────┬────────────┘
                                │
-                    ┌──────────▼───────────┐
-                    │   SIEM + Log Review  │
-                    │ Filter · Pivot ·     │
-                    │ Detection Matching   │
-                    └──────────┬───────────┘
+                    ┌──────────▼────────────┐
+                    │   SIEM + Log Review   │
+                    │ Filter · Pivot ·      │
+                    │ Detection Matching    │
+                    └──────────┬────────────┘
                                │
-                    ┌──────────▼───────────┐
-                    │ Detection & MITRE    │
-                    │ Rule Building ·      │
-                    │ Coverage Mapping     │
-                    └──────────┬───────────┘
+                    ┌──────────▼────────────┐
+                    │  Detection & MITRE    │
+                    │ Rule Building ·       │
+                    │ Coverage Mapping      │
+                    └──────────┬────────────┘
                                │
-                    ┌──────────▼───────────┐
-                    │ Case & Report        │
-                    │ Timeline · Notes ·   │
-                    │ Markdown Export      │
-                    └──────────────────────┘
+                    ┌──────────▼────────────┐
+                    │   Case & Report       │
+                    │ Timeline · Notes ·    │
+                    │ Markdown Export       │
+                    └───────────────────────┘
 ```
 
 Every workspace connects through **`beyondarch.pendingArtifact`** — a localStorage handoff channel. Send findings between pages without losing context.
