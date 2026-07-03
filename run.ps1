@@ -42,7 +42,7 @@ if ($Help) {
   Write-Host "  -FrontendOnly    Frontend only"
   Write-Host "  -HostName <ip>   Bind address (default: 127.0.0.1)"
   Write-Host "  -BackendPort <n> Port (default: 8000)"
-  Write-Host "  -FrontendPort<n> Port (default: 5173)"
+  Write-Host "  -FrontendPort <n> Port (default: 5173)"
   exit 0
 }
 

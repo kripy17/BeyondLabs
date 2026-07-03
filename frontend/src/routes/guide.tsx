@@ -137,7 +137,7 @@ function GuidePage() {
 
       <SectionBar id="IN" label="Filter · pick a scenario" meta={`${list.length} match${list.length === 1 ? "" : "es"}`} />
 
-      <div className="grid gap-3 lg:grid-cols-[18rem_1fr]">
+      <div className="grid gap-3 grid-cols-[18rem_1fr]">
         {/* Left rail: search + severity filter + playbook list */}
         <div className="space-y-2">
           <Panel>
@@ -244,7 +244,7 @@ function GuidePage() {
             </ol>
           </Panel>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 grid-cols-2">
             <Panel title="Always" icon={CheckCircle2}>
               <ul className="space-y-1.5 text-[12px] text-foreground/85">
                 <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" /> Preserve evidence before remediation.</li>

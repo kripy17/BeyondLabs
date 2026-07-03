@@ -181,7 +181,7 @@ function IdsPage() {
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> loading templates…
         </div>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 grid-cols-4">
           {templateList.map((t) => {
             const sel = selectedKey === t.key;
             return (
@@ -199,7 +199,7 @@ function IdsPage() {
 
       <SectionBar id="PR" label="Parameters" />
       <Panel title="Rule parameters" icon={Shield}>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 grid-cols-2 grid-cols-4">
           <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">engine
             <select value={engine} onChange={(e) => setEngine(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground">
               <option value="snort">snort</option><option value="suricata">suricata</option><option value="generic">generic</option>
@@ -245,7 +245,7 @@ function IdsPage() {
             <input value={classtype} onChange={(e) => setClasstype(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground" />
           </label>
         </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="mt-2 grid gap-2 grid-cols-2">
           <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">msg
             <input value={msg} onChange={(e) => setMsg(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground" />
           </label>
@@ -253,7 +253,7 @@ function IdsPage() {
             <input value={flow} onChange={(e) => setFlow(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground" placeholder="to_server,established" />
           </label>
         </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="mt-2 grid gap-2 grid-cols-2">
           <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">content match
             <input value={content} onChange={(e) => setContent(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground" placeholder="literal string to match" />
           </label>
@@ -379,7 +379,7 @@ function IdsPage() {
                   <p className="text-mono text-[11px] text-destructive">{explainResult.error || "Could not parse rule"}</p>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid gap-2 sm:grid-cols-4">
+                    <div className="grid gap-2 grid-cols-4">
                       <KeyFields items={[
                         { label: "Action", value: explainResult.parsed_rule?.action || "—" },
                         { label: "Protocol", value: explainResult.parsed_rule?.protocol || "—" },
@@ -410,7 +410,7 @@ function IdsPage() {
             )}
 
             <CollapsibleSection id="EV" label="Evidence" meta="limitations & next steps" icon={AlertTriangle}>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 <EvidenceCard severity="warning" title="Generated rule — analyst review required" reason="Rule syntax matches the engine format but has not been validated against live traffic." action="Deploy to a test sensor first. Run suricata -T or snort -T to validate." limitation="Generated rules are starting points. Tune thresholds and content matches per your environment." />
                 <EvidenceCard severity="info" title={`Engine: ${result.engine}`} reason={`Warnings: ${result.warnings?.length || 0}. Rule type: ${result.rule_type}`} action="Consider adding threshold, reference, and metadata options for production." limitation="No PCAP-level validation — false-positive rate is unknown." />
               </div>

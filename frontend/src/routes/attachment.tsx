@@ -157,7 +157,7 @@ function AttachmentPage() {
 
           {/* Cryptographic Identity */}
           <Panel title="Cryptographic Identity" icon={Hash} meta="4 algorithms">
-            <div className="grid gap-2 md:grid-cols-4">
+            <div className="grid gap-2 grid-cols-4">
               {([
                 { algo: "MD5", value: result.hashes.md5, bits: 128, tone: "default" as const },
                 { algo: "SHA-1", value: result.hashes.sha1, bits: 160, tone: "warning" as const },
@@ -272,7 +272,7 @@ function AttachmentPage() {
           {/* Findings */}
           {result.findings.length > 0 && (
             <CollapsibleSection id="FN" label="Findings" meta={`${result.findings.length} total`} icon={AlertTriangle}>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 {result.findings.map((f, i) => (
                   <EvidenceCard
                     key={i}

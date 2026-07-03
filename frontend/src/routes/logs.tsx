@@ -598,7 +598,7 @@ function LogsPage() {
             )}
           </Panel>
 
-          <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+          <div className="grid gap-3 grid-cols-[2fr_1fr]">
             <Panel title="Decision" icon={Activity}>
               <KeyFields items={[
                 { label: "Classification", value: parsed.classification, tone: "primary" },
@@ -653,7 +653,7 @@ function LogsPage() {
               { label: "select all", icon: Check, onClick: () => findingSel.selectAll(findings.length), tone: "default" },
             ]}
           />
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 grid-cols-2">
             {findings.map((f, i) => (
               <div key={i} className="group relative">
                 <label className="absolute left-1 top-2 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border/60 bg-card/80 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 has-[:checked]:opacity-100 has-[:checked]:border-primary/60 has-[:checked]:bg-primary/10 has-[:checked]:text-primary">
@@ -675,7 +675,7 @@ function LogsPage() {
           {/* MITRE ATT&CK — grouped by tactic */}
           {tacticCoverage.length > 0 && (
             <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.logs.mitre-tactics" defaultCollapsed>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-2 grid-cols-3">
                 {tacticCoverage.map((t) => (
                   <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">

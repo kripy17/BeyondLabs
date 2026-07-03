@@ -694,7 +694,7 @@ function ChefPage() {
 
 
       {/* 3-pane CyberChef layout: Operations | Recipe | Input/Output stacked */}
-      <div className="grid gap-3 lg:grid-cols-[240px_300px_minmax(0,1fr)]">
+      <div className="grid gap-3 grid-cols-[240px_300px_minmax(0,1fr)]">
 
         {/* PANE 1 — Operations */}
         <aside className="flex h-[calc(100vh-260px)] min-h-[560px] flex-col overflow-hidden rounded-md border border-border bg-card/40">

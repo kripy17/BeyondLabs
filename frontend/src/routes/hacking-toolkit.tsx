@@ -357,9 +357,9 @@ function HackingToolkitPage() {
             </Panel>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <div className="grid gap-4 grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
             {/* ── Left rail ── */}
-            <div className="space-y-3 lg:sticky lg:top-16 lg:self-start">
+            <div className="space-y-3 sticky top-16 self-start">
               <Panel bodyClassName="p-0">
                 <div className="border-b border-border p-2">
                   <div className="relative">
@@ -506,8 +506,8 @@ function HackingToolkitPage() {
                   <div>
                     <SectionBar id="IN" label="Intake" meta="target · args · preset" />
                     <Panel bodyClassName="p-0">
-                      <div className="grid gap-0 md:grid-cols-[1fr_1fr]">
-                        <div className="border-b border-border/60 p-3 md:border-b-0 md:border-r">
+                      <div className="grid gap-0 grid-cols-[1fr_1fr]">
+                        <div className="border-b border-border/60 p-3 border-b-0 border-r">
                           <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Target</label>
                           <input
                             value={target}
@@ -695,7 +695,7 @@ function HackingToolkitPage() {
 
                         <div className="mt-3">
                           <Panel title="Tool facts" icon={Terminal} collapsible storageKey="ba.panel.hacking.facts" defaultCollapsed>
-                            <div className="grid gap-x-6 sm:grid-cols-2">
+                            <div className="grid gap-x-6 grid-cols-2">
                               <Field label="binary" value={<code className="text-mono">{activeTool.binary}</code>} />
                               <Field label="category" value={activeCat?.name ?? ""} />
                               <Field label="id" value={<code className="text-mono">{activeTool.id}</code>} tone="muted" />

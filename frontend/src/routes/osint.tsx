@@ -311,7 +311,7 @@ function OsintPage() {
 
       <OutputFilter query={filterText.toLowerCase()}>
       <CollapsibleSection id="PV" label="External Service Pivots" meta={`${applicable.length} services · ${cats.length} categories`} icon={ExternalLink}>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 grid-cols-2">
           {cats.map((c) => {
             const items = TOOLS.filter((t) => t.cat === c);
             const meta = CAT_META[c] ?? { icon: Globe2, tone: "primary" as const };
@@ -431,7 +431,7 @@ function OsintPage() {
               <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(toolOutput, null, 2)}</pre>
             </div>
           )}
-          <div className="grid gap-1.5 sm:grid-cols-2">
+          <div className="grid gap-1.5 grid-cols-2">
             {Object.entries((toolStatus as any).runnable).map(([id, meta]: [string, any]) => (
               <div key={id} className={"flex items-center justify-between gap-2 rounded border px-2.5 py-1.5 " + (meta.available ? "border-border/60 bg-background/30" : "border-border/30 bg-background/10 opacity-50")}>
                 <div className="min-w-0">
@@ -482,7 +482,7 @@ function OsintPage() {
 
       {ready && (
         <Panel icon={Sparkles} title="Send target to" meta="continue the investigation">
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-1.5 grid-cols-2 grid-cols-3">
             {[
               { label: "Safe URL Analyzer", to: "/url",       icon: Globe2,   kind: "url",    when: kind === "domain" || kind === "raw" },
               { label: "Phishing Analyzer", to: "/phishing",  icon: Send,     kind: "email",  when: kind === "email" },

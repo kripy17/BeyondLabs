@@ -380,7 +380,7 @@ function DetectionPage() {
       <SectionBar id="IN" label="Intake · format & rule body" meta={`${ruleLines.length} lines · ${rule.length} chars`} />
 
       {/* Format selector with descriptive cards */}
-      <div className="mb-3 grid gap-2 sm:grid-cols-4">
+      <div className="mb-3 grid gap-2 grid-cols-4">
         {(["sigma", "yara", "kql"] as Format[]).map((f) => {
           const active = fmt === f;
           const desc = f === "sigma" ? "Vendor-neutral log rule" : f === "yara" ? "File / memory signature" : "Defender / Azure query";
@@ -567,13 +567,13 @@ function DetectionPage() {
         </Panel>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-5">
+      <div className="grid gap-3 grid-cols-5">
         {/* Rule editor with line numbers + live syntax preview */}
         <Panel
           title={`rule · ${fmt}`}
           icon={FileCode2}
           meta={`${ruleLines.length} ln`}
-          className="lg:col-span-3"
+          className="col-span-3"
           actions={
             <>
               {/* Validation badge */}
@@ -630,7 +630,7 @@ function DetectionPage() {
           title="simulate · event"
           icon={Sparkles}
           meta={`${eventLines.length} ln`}
-          className="lg:col-span-2"
+          className="col-span-2"
           actions={<Chip tone={result.hit ? "destructive" : "default"}>{result.hit ? "MATCH" : "no match"}</Chip>}
         >
           <div className="relative overflow-hidden rounded border border-border/60 bg-background/60">
@@ -680,7 +680,7 @@ function DetectionPage() {
       {/* Structural analysis panel */}
       {showAnalysis && analysis.length > 0 && (
         <Panel title={`Rule structure · ${fmt}`} icon={ListFilter} meta={`${analysis.length} fields`} className="mt-3">
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-1.5 grid-cols-2 grid-cols-3">
             {analysis.map((f) => (
               <div key={f.key} className="rounded border border-border/40 bg-background/30 px-2.5 py-1.5">
                 <div className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{f.key}</div>

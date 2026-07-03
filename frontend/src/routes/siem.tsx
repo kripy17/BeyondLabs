@@ -430,7 +430,7 @@ function SiemPage() {
     >
       <SectionBar id="IN" label="Intake · query + paste" meta={`${filtered.length} / ${activeEvents.length} events`} />
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 grid-cols-2">
         <IntakeCard
           icon={Search}
           title="Event Search"
@@ -627,7 +627,7 @@ function SiemPage() {
         )}
       </Panel>
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-3 grid-cols-[2fr_1fr]">
         <Panel title="Events" icon={Activity} actions={<Chip tone="primary"><Filter className="h-3 w-3" /> {q || `${filtered.length} rows`}</Chip>}>
           <div className="max-h-[600px] overflow-auto rounded border border-border/40">
             <table className="w-full text-mono text-[11px]">
@@ -711,7 +711,7 @@ function SiemPage() {
 
       {/* Findings */}
       {findings.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 grid-cols-2">
           {findings.map((f, i) => (
             <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Correlation based on available event fields — confirm with full packet capture." />
           ))}
@@ -721,7 +721,7 @@ function SiemPage() {
       {/* MITRE ATT&CK — grouped by tactic */}
       {tacticCoverage.length > 0 && (
         <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.siem.mitre-tactics" defaultCollapsed>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 grid-cols-2 grid-cols-3">
             {tacticCoverage.map((t) => (
               <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">
@@ -818,7 +818,7 @@ function EventExpanded({ event, onFilter, onSendTo, onShowJson }: {
         <button onClick={() => onSendTo("detection-mitre")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Detection & MITRE</button>
         <button onClick={() => onSendTo("soc-guide")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">SOC Guide</button>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 grid-cols-3">
         {entries.map(({ field, label, value }) => (
           <button
             key={field}

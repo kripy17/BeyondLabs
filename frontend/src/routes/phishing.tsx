@@ -247,7 +247,7 @@ function LoadingSkeleton() {
         <Skeleton className="mb-1 h-8 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="rounded-md border border-border bg-card/40 p-4">
             <Skeleton className="mb-2 h-3 w-1/3" />
@@ -255,7 +255,7 @@ function LoadingSkeleton() {
           </div>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-2">
         {[1, 2].map((i) => (
           <div key={i} className="rounded-md border border-border bg-card/40 p-4">
             <Skeleton className="mb-2 h-3 w-1/3" />
@@ -279,7 +279,7 @@ function EmptyPreview() {
   ];
   return (
     <Panel title="Awaiting Analysis" icon={FlaskConical} meta="expected output structure">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 grid-cols-2 grid-cols-3">
         {cards.map(([title, text]) => (
           <div key={title} className="rounded-md border border-dashed border-border/60 bg-card/30 p-3">
             <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-foreground/80">{title}</div>
@@ -527,7 +527,7 @@ function PhishingPage() {
               />
 
               <Panel title="Authentication detail" icon={ShieldCheck} meta="SPF \u00B7 DKIM \u00B7 DMARC" actions={<PreviewBadge />}>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 grid-cols-3">
                   <AuthTile name="SPF" state={data.spf} />
                   <AuthTile name="DKIM" state={data.dkim} />
                   <AuthTile name="DMARC" state={data.dmarc} />
@@ -640,7 +640,7 @@ function PhishingPage() {
               {/* MITRE */}
               {data.mitre.length > 0 && (
                 <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${data.mitre.length} technique${data.mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.phish.mitre" defaultCollapsed>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 grid-cols-2 grid-cols-3">
                     {data.mitre.map((m: any, i: number) => (
                       <div key={i} className="flex items-center gap-2.5 rounded border border-border/50 bg-card/40 px-3 py-2">
                         <span className="grid h-7 w-7 place-items-center rounded border border-destructive/40 bg-destructive/10">
@@ -699,7 +699,7 @@ function PhishingPage() {
 
               {/* Evidence cards */}
               <SectionBar id="EV" label="Evidence cards" meta="reason · limitation · action" />
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 {data.findings.length === 0 ? <Empty title="No suspicious patterns triggered" /> : data.findings.map((f: { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }, i: number) => (
                   <EvidenceCard key={i} severity={f.sev} title={f.t} reason={f.r} action={f.a} limitation="Heuristic — confirm against gateway logs and user report." />
                 ))}
@@ -708,7 +708,7 @@ function PhishingPage() {
 
 
               {/* Raw panels */}
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 <Panel icon={ShieldCheck} title="Authentication-Results · raw" meta="parsed verbatim" collapsible storageKey="ba.panel.phish.authraw" defaultCollapsed>
                   <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] text-foreground/85 whitespace-pre-wrap">
                     {(input.match(/Authentication-Results:[^\n]*(?:\n\s+[^\n]+)*/gi) ?? ["— none found —"]).join("\n\n")}
@@ -732,7 +732,7 @@ function PhishingPage() {
               </Panel>
 
               {/* Export + Handoff */}
-              <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
+              <div className="grid gap-3 grid-cols-[200px_1fr]">
                 <Panel title="Export" icon={Download}>
                   <button
                     onClick={() => {

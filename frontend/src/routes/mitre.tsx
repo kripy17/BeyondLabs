@@ -167,7 +167,7 @@ function MitrePage() {
         ]}
       />
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 grid-cols-2">
         {gapFindings.map((f, i) => (
           <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Click technique cells to update status. Coverage data is stored in browser localStorage." />
         ))}
@@ -231,7 +231,7 @@ function MitrePage() {
             }
           />
           <div className="-mx-1 overflow-x-auto px-1 pb-1">
-            <div className="grid min-w-[920px] grid-cols-5 gap-2 xl:min-w-0">
+            <div className="grid min-w-[920px] grid-cols-5 gap-2 min-w-0">
               {TACTICS.map((t) => {
                 const ts = t.techniques.filter((x) => {
                   const c = getTechCov(t.id, x.id);
@@ -274,7 +274,7 @@ function MitrePage() {
             {!selected ? (
               <p className="text-mono text-[11px] text-muted-foreground">Click any technique cell to cycle through coverage states (none → partial → full) or right-click to inspect.</p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="grid gap-3 grid-cols-[1fr_auto]">
                 <div>
                   <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{selected.tactic.name} · {selected.tactic.id}</div>
                   <div className="mt-0.5 text-lg text-foreground">{selected.tech.id} <span className="text-foreground/70">— {selected.tech.name}</span></div>
@@ -324,7 +324,7 @@ function MitrePage() {
           {filteredGaps.length === 0 ? (
             <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono text-[11px] text-muted-foreground">No uncovered techniques match the filter.</div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid gap-2 grid-cols-2 grid-cols-3 grid-cols-4">
               {filteredGaps.map((g) => (
                 <div key={g.id} className="rounded border border-border/50 bg-card/30 px-3 py-2">
                   <div className="flex items-center justify-between">
@@ -345,7 +345,7 @@ function MitrePage() {
           {Object.keys(notes).length === 0 ? (
             <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono text-[11px] text-muted-foreground">No notes yet. Click a technique in the matrix and add a note.</div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid gap-2 grid-cols-2 grid-cols-3">
               {Object.entries(notes).map(([techId, noteText]) => {
                 const t = allTechniques.find(x => x.id === techId);
                 return (

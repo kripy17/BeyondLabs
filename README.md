@@ -11,11 +11,14 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](https://typescriptlang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-eee?logo=linux&logoColor=000)]()
 
 ---
 
 Artifact triage. Phishing review. SIEM log analysis. Detection engineering.
 All **local-first**, **privacy-preserving**, and **analyst-led**.
+
+Runs on **Linux**, **macOS**, and **Windows**.
 
 </div>
 
@@ -31,46 +34,33 @@ All **local-first**, **privacy-preserving**, and **analyst-led**.
 | **Attachment Triage** | Static metadata extraction for common document formats |
 | **SIEM Workspace** | Paste syslog/JSONL/CSV event streams with filter, pivot, and export |
 | **Logs & Alerts** | Parse auth logs, web access logs, IDS alerts, firewall logs |
-| **Detection Engineering** | Build Suricata/Snort rules from templates with lint + explain |
+| **Detection Engineering** | Build Suricata/Snort/Sigma/YARA/KQL rules from templates with lint + explain |
 | **MITRE ATT&CK** | Interactive coverage matrix with localStorage persistence |
 | **SOC Guide** | Command reference, event ID lookup, detection patterns |
 | **Recon & OSINT** | Bounded DNS/whois/nmap workflows for authorized targets |
 | **CyberChef / Chef** | Encoding, decoding, hashing, compression, string manipulation |
 | **Case & Report** | Timeline + analyst notes + markdown report export with handoff chain |
+| **Hacking Toolkit** | Curated tool catalog (nmap, metasploit, hashcat, sqlmap, etc.) with preset args and run history |
+| **Nmap Runner** | Interactive nmap scan interface with preset profiles and output parsing |
+| **IDS Alerts** | Parse, categorize, and investigate IDS/IPS alert feeds |
+| **Settings** | Full workspace customization — see below |
 
----
+### Settings & Customization
 
-## Quick Start
+| Feature | Details |
+|---------|---------|
+| **Theme Gallery** | 7 themes: Aurora Tactical, Terminal Noir, SOC Console, Editorial Dark, Solar Flare, Brutalist Light, Custom |
+| **Custom Theme Builder** | Tweak every color token — background, foreground, card, border, accent, surface — with live preview |
+| **Accent Presets** | 16+ accent colors across amber, cyan, emerald, fuchsia, indigo, lime, pink, rose, sky, violet, etc. |
+| **Typography** | 12+ mono/UI font pairs — JetBrains Mono, Space Grotesk, Inter, Outfit, Geist, IBM Plex Mono, Fira Code, DM Sans, Manrope, Plus Jakarta Sans, Sora, Source Code Pro, Space Mono |
+| **Density Control** | Comfortable, Compact, or Ultra-compact spacing |
+| **Sidebar** | Pin/unpin workspaces, reorder groups, hide workspaces |
+| **Motion & QoL** | Status bar toggle, scroll indicators, copy button visibility |
+| **Storage & Backup** | Session-only / Persist / None modes; JSON export/import |
 
-```bash
-./install.sh
-./run.sh
+### Investigation Flow
+
 ```
-
-| URL | Service |
-|-----|---------|
-| http://127.0.0.1:5173 | Frontend (React + Vite) |
-| http://127.0.0.1:8000 | Backend API (FastAPI) |
-| http://127.0.0.1:8000/docs | Interactive API docs |
-
-Recommended SOC profile:
-
-```bash
-./install.sh --profile recommended
-```
-
-### Windows
-
-```powershell
-.\install.ps1
-.\run.ps1
-```
-
----
-
-## Investigation Flow
-
-```text
                     ┌──────────────────────┐
                     │   Artifact Intake     │
                     │ (hash, URL, email,    │
@@ -102,6 +92,45 @@ Recommended SOC profile:
 ```
 
 Every workspace connects through **`beyondarch.pendingArtifact`** — a localStorage handoff channel. Send findings between pages without losing context.
+
+---
+
+## Quick Start
+
+Requires **Python 3.10+**, **Node.js 18+**, and **npm**.
+
+```bash
+./install.sh
+./run.sh
+```
+
+| URL | Service |
+|-----|---------|
+| http://127.0.0.1:5173 | Frontend (React + Vite) |
+| http://127.0.0.1:8000 | Backend API (FastAPI) |
+| http://127.0.0.1:8000/docs | Interactive API docs |
+
+Recommended SOC profile:
+
+```bash
+./install.sh --profile recommended
+```
+
+### Linux / macOS
+
+The setup detects your package manager automatically — `pacman` (Arch), `apt` (Debian/Ubuntu), `dnf` (Fedora), or `brew` (macOS).
+
+```bash
+./install.sh
+./run.sh
+```
+
+### Windows
+
+```powershell
+.\install.ps1
+.\run.ps1
+```
 
 ---
 
@@ -145,7 +174,6 @@ run.sh                    Default launcher (backend + frontend)
 doctor.sh                 Health checker
 reset-workspace.sh        Safe local cache cleanup
 demo-workflow.sh          Guided demo path
-install.ps1               Windows PowerShell installer
 ```
 
 ---
@@ -211,11 +239,11 @@ python -m compileall app
 |----------|-------|
 | Core | `curl`, `openssl`, `file`, `strings`/`binutils`, `jq`, Python `pip`/`venv` |
 | DNS/domain | `dig`/`nslookup`, `whois`, `traceroute`, `mtr` |
-| Recommended SOC | `nmap`, `whatweb`, `subfinder`, `amass`, `httpx`/`httpx-toolkit` |
+| Recommended SOC | `nmap`, `whatweb`, `subfinder`, `amass`, `httpx` |
 | Optional OSINT | `theHarvester`, `assetfinder`, `waybackurls`, `gau`, `katana` |
 | Advanced (opt-in) | `nuclei`, `ffuf`, `gobuster` |
 
-Plain `./install.sh` walks through a guided profile. Optional tools are never installed without confirmation. On non-pacman systems, BeyondArch prints manual guidance instead of failing.
+Plain `./install.sh` walks through a guided profile. Optional tools are never installed without confirmation. On Linux, `pacman`/`apt`/`dnf` is detected automatically; on macOS, `brew` is used. Systems without a supported package manager print manual guidance instead of failing. On Windows, use the PowerShell scripts.
 
 ---
 

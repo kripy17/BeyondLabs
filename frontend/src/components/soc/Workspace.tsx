@@ -536,7 +536,7 @@ export function ResultBanner({
     <Panel sticky={sticky} className="relative overflow-hidden bg-gradient-to-br from-card/85 via-card/55 to-card/30">
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-primary/80 via-primary/40 to-transparent" />
       <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:radial-gradient(hsl(var(--primary))_1px,transparent_1px)] [background-size:14px_14px]" />
-      <div className="relative grid gap-4 md:grid-cols-[1.4fr_1fr]">
+      <div className="relative grid gap-4 grid-cols-[1.4fr_1fr]">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone="primary">{badge}</Chip>
@@ -546,7 +546,7 @@ export function ResultBanner({
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-xl font-semibold text-foreground md:text-2xl">{title}</h2>
+          <h2 className="mt-2 text-xl font-semibold text-foreground text-2xl">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           {reasons && reasons.length > 0 && (
             <ul className="mt-3 space-y-1">
@@ -560,7 +560,7 @@ export function ResultBanner({
           )}
         </div>
         {metrics && metrics.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 grid-cols-4">
             {metrics.map((m, i) => (
               <div
                 key={i}
@@ -603,7 +603,7 @@ export function ResultBanner({
 /* ── Key Fields grid (used for parsed entities) ── */
 export function KeyFields({ items }: { items: { label: string; value: ReactNode; tone?: "default" | "primary" | "success" | "warning" | "destructive" | "muted" }[] }) {
   return (
-    <div className="grid gap-x-6 gap-y-0 sm:grid-cols-2">
+    <div className="grid gap-x-6 gap-y-0 grid-cols-2">
       {items.map((f, i) => (
         <Field key={i} label={f.label} value={f.value} tone={f.tone} />
       ))}
@@ -620,7 +620,7 @@ export function IocInventory({
   onSendTo?: (kind: string, value: string) => void;
 }) {
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid gap-3 grid-cols-2">
       {groups.map((g) => {
         const dot =
           g.tone === "primary" ? "bg-primary" :

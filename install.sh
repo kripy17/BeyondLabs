@@ -243,17 +243,17 @@ group_selected() {
   return 1
 }
 
-declare -a PACMAN_PACKAGES=()
+declare -a PKG_PACKAGES=()
 declare -a MANUAL_TOOLS=()
 declare -a SKIPPED_TOOLS=()
 declare -a PRESENT_TOOLS=()
 declare -a SELECTED_MISSING=()
 
 plan_tools() {
-  local row group bins pkg category note display
-  PACMAN_PACKAGES=(); MANUAL_TOOLS=(); SKIPPED_TOOLS=(); PRESENT_TOOLS=(); SELECTED_MISSING=()
+  local row group bins pkg brew_pkg category note display
+  PKG_PACKAGES=(); MANUAL_TOOLS=(); SKIPPED_TOOLS=(); PRESENT_TOOLS=(); SELECTED_MISSING=()
   for row in "${TOOL_ROWS[@]}"; do
-    IFS='|' read -r group bins pkg category note <<<"$row"
+    IFS='|' read -r group bins pkg brew_pkg category note <<<"$row"
     display="$(display_tool "$bins")"
     if ! group_selected "$group"; then
       SKIPPED_TOOLS+=("$display")
@@ -264,8 +264,8 @@ plan_tools() {
       continue
     fi
     SELECTED_MISSING+=("$display")
-    if command -v pacman >/dev/null 2>&1 && pacman -Si "$pkg" >/dev/null 2>&1; then
-      PACMAN_PACKAGES+=("$pkg")
+    if pkg_available "$pkg" "$brew_pkg"; then
+      PKG_PACKAGES+=("$pkg")
     else
       MANUAL_TOOLS+=("$display ($note)")
     fi
@@ -289,49 +289,59 @@ print_list_or_none() {
 
 # ── System update check ──────────────────────────────────────────
 check_system_updates() {
-  command -v pacman >/dev/null 2>&1 || return 0
+  [[ "$PKG_MGR" == "unknown" ]] && return 0
   next_section "System update check"
   local updates="" count
-  if command -v checkupdates >/dev/null 2>&1; then
-    updates="$(checkupdates 2>/dev/null || true)"
-  else
-    ba_info "checkupdates not found — using pacman -Qu"
-    updates="$(pacman -Qu 2>/dev/null || true)"
-  fi
+  case "$PKG_MGR" in
+    pacman)
+      if command -v checkupdates >/dev/null 2>&1; then
+        updates="$(checkupdates 2>/dev/null || true)"
+      else
+        updates="$(pacman -Qu 2>/dev/null || true)"
+      fi
+      ;;
+    brew)
+      updates="$(brew outdated 2>/dev/null || true)"
+      ;;
+    apt)
+      updates="$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' || true)"
+      ;;
+    *) return 0 ;;
+  esac
   if [[ -z "$updates" ]]; then
     ba_ok "System is up to date — no pending package updates"
     return 0
   fi
   count="$(printf '%s\n' "$updates" | sed '/^$/d' | wc -l)"
   ba_warn "${count} pending package update(s) detected"
-  if is_interactive && confirm "Run sudo pacman -Syu now?"; then
-    sudo pacman -Syu
+  if is_interactive && confirm "Run ${C_BOLD}${PKG_MGR_UPDATE}${C_RESET} now?"; then
+    $PKG_MGR_UPDATE
     ba_ok "System update completed"
   else
-    ba_info "Skipped — run manually: ${C_BOLD}sudo pacman -Syu${C_RESET}"
+    ba_info "Skipped — run manually: ${C_BOLD}${PKG_MGR_UPDATE}${C_RESET}"
   fi
 }
 
-# ── Pacman package install ───────────────────────────────────────
-install_pacman_packages() {
-  if [[ "${#PACMAN_PACKAGES[@]}" -eq 0 ]]; then
-    ba_info "No selected missing helper packages available through pacman"
+# ── Package install ──────────────────────────────────────────────
+install_missing_packages() {
+  if [[ "${#PKG_PACKAGES[@]}" -eq 0 ]]; then
+    ba_info "No selected missing helper packages available through ${PKG_MGR_NAME}"
     return 0
   fi
   local packages
-  packages="$(unique_words "${PACMAN_PACKAGES[@]}")"
+  packages="$(unique_words "${PKG_PACKAGES[@]}")"
   ba_info "Packages to install: ${C_BOLD}${packages}${C_RESET}"
   if [[ "$ASSUME_YES" -eq 1 ]]; then
     # shellcheck disable=SC2086
-    sudo pacman -S --needed $packages
-    ba_ok "Optional pacman packages installed"
+    $PKG_MGR_INSTALL $packages
+    ba_ok "Optional ${PKG_MGR_NAME} packages installed"
     record_installed_packages "$packages"
     return 0
   fi
-  if confirm "Install with sudo pacman -S --needed?"; then
+  if confirm "Install with ${C_BOLD}${PKG_MGR_INSTALL}${C_RESET}?"; then
     # shellcheck disable=SC2086
-    sudo pacman -S --needed $packages
-    ba_ok "Optional pacman packages installed"
+    $PKG_MGR_INSTALL $packages
+    ba_ok "Optional ${PKG_MGR_NAME} packages installed"
     record_installed_packages "$packages"
   else
     ba_info "Optional helper installation skipped"
@@ -339,14 +349,14 @@ install_pacman_packages() {
 }
 
 record_installed_packages() {
-  local packages="$1" package group row bins pkg category note
+  local packages="$1" package group row bins pkg brew_pkg category note
   mkdir -p "$STATE_DIR"
   touch "$INSTALLED_TOOLS_STATE"
   for package in $packages; do
     group="optional"
     for row in "${TOOL_ROWS[@]}"; do
-      IFS='|' read -r group_candidate bins pkg category note <<<"$row"
-      if [[ "$pkg" == "$package" ]]; then
+      IFS='|' read -r group_candidate bins pkg brew_pkg category note <<<"$row"
+      if [[ "$pkg" == "$package" || "$brew_pkg" == "$package" ]]; then
         group="$group_candidate"
         break
       fi
@@ -377,16 +387,16 @@ echo ""
   || { ba_err "frontend/ not found — is this the project root?"; exit 1; }
 find_python \
   && ba_ok "$("$PYTHON_BIN" --version 2>&1)  ${C_DIM}$(command -v "$PYTHON_BIN")${C_RESET}" \
-  || { ba_err "Python 3 not found — install with: sudo pacman -S python"; exit 1; }
+  || { case "$PKG_MGR" in pacman) ba_err "Python 3 not found — install with: $PKG_MGR_INSTALL python";; brew) ba_err "Python 3 not found — install with: $PKG_MGR_INSTALL python";; *) ba_err "Python 3 not found — install from python.org or your package manager";; esac; exit 1; }
 command -v node >/dev/null 2>&1 \
   && ba_ok "Node.js $(node --version)  ${C_DIM}$(command -v node)${C_RESET}" \
-  || { ba_err "Node.js not found — install with: sudo pacman -S nodejs npm"; exit 1; }
+  || { ba_err "Node.js not found — install from nodejs.org or your package manager"; exit 1; }
 command -v npm >/dev/null 2>&1 \
   && ba_ok "npm $(npm --version)  ${C_DIM}$(command -v npm)${C_RESET}" \
-  || { ba_err "npm not found — install with: sudo pacman -S nodejs npm"; exit 1; }
-command -v pacman >/dev/null 2>&1 \
-  && ba_ok "Arch Linux detected — pacman available" \
-  || ba_info "pacman not found — optional helper guidance will be manual"
+  || { ba_err "npm not found — install from nodejs.org or your package manager"; exit 1; }
+[[ "$PKG_MGR" != "unknown" ]] \
+  && ba_ok "${PKG_MGR_NAME} detected" \
+  || ba_info "No supported package manager found — optional helper installation will be manual"
 echo ""
 
 if is_interactive; then
@@ -410,7 +420,7 @@ printf "  ${C_DIM}%-28s${C_RESET}  %s\n" "App deps"    "backend venv, requiremen
 printf "  ${C_DIM}%-28s${C_RESET}  %s\n" "Scripts"     "install, run, doctor, reset, demo, scripts/*.sh"
 echo ""
 print_list_or_none "Helpers already present"   "${PRESENT_TOOLS[@]}"
-print_list_or_none "Pacman packages available" "${PACMAN_PACKAGES[@]}"
+print_list_or_none "${PKG_MGR_NAME} packages available" "${PKG_PACKAGES[@]}"
 print_list_or_none "Manual install needed"     "${MANUAL_TOOLS[@]}"
 print_list_or_none "Skipped helper checks"     "${SKIPPED_TOOLS[@]}"
 echo ""
@@ -464,7 +474,7 @@ ba_ok "All project scripts marked executable"
 # ── Optional helper tools ────────────────────────────────────────
 next_section "Optional helper tools"
 if [[ -n "$SELECTED_GROUPS" ]]; then
-  install_pacman_packages
+  install_missing_packages
   if [[ "${#MANUAL_TOOLS[@]}" -gt 0 ]]; then
     echo ""
     ba_warn "Some selected helpers require manual installation:"
@@ -492,7 +502,7 @@ echo ""
 ba_ok "backend/.venv + requirements installed"
 ba_ok "frontend/node_modules installed"
 ba_ok "Project scripts are executable"
-[[ -n "$SELECTED_GROUPS" ]] && ba_ok "Optional helpers checked${PACMAN_PACKAGES:+/installed}"
+[[ -n "$SELECTED_GROUPS" ]] && ba_ok "Optional helpers checked${PKG_PACKAGES:+/installed}"
 echo ""
 _elapsed=$(( $(date +%s) - START_TS ))
 ba_ok "Completed in ${_elapsed}s"

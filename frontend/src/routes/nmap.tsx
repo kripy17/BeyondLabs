@@ -117,9 +117,9 @@ function NmapPage() {
         showCopy
       />
 
-      <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-3 grid-cols-[1.4fr_1fr]">
         <Panel icon={FileCode2} title="Scan profile" meta={`risk: ${MODES[mode].risk}`}>
-          <div className="grid gap-1.5 sm:grid-cols-2">
+          <div className="grid gap-1.5 grid-cols-2">
             {(Object.keys(MODES) as ModeKey[]).map((k) => {
               const m = MODES[k];
               const sel = mode === k;

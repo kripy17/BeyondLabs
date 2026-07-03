@@ -39,7 +39,7 @@ export function PageShell({
         <div className="mx-0.5 h-5 w-px bg-border/60" />
 
         {/* Brand chip (collapsed-friendly) */}
-        <Link to="/" className="hidden items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1 text-foreground hover:border-primary/40 hover:text-primary md:inline-flex">
+        <Link to="/" className="hidden items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1 text-foreground hover:border-primary/40 hover:text-primary inline-flex">
           <BrandIcon className="h-3.5 w-3.5 text-primary" />
           <span className="text-mono text-[11px] font-semibold tracking-tight">{prefs.brandName}</span>
         </Link>
@@ -47,7 +47,7 @@ export function PageShell({
         {prefs.showBreadcrumb && crumbs && crumbs.length > 0 && (
           <nav
             aria-label="Breadcrumb"
-            className="ml-1 hidden min-w-0 items-center rounded-md border border-border/60 bg-card/40 px-1.5 py-1 text-mono text-[11px] text-muted-foreground shadow-sm md:flex"
+            className="ml-1 hidden min-w-0 items-center rounded-md border border-border/60 bg-card/40 px-1.5 py-1 text-mono text-[11px] text-muted-foreground shadow-sm flex"
           >
             {crumbs.map((c, i) => {
               const last = i === crumbs.length - 1;
@@ -84,7 +84,7 @@ export function PageShell({
         </div>
 
         {/* Status cluster */}
-        <div className="hidden items-center gap-1.5 lg:flex">
+        <div className="hidden items-center gap-1.5 flex">
           <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-1 text-mono text-[10px] uppercase tracking-widest text-success" title="All local — nothing sent over the wire">
             <ShieldCheck className="h-3 w-3" /> local
           </span>
@@ -119,7 +119,7 @@ export function PageShell({
           )}
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="gradient-text text-3xl font-bold tracking-tight md:text-[2.25rem]">{title}</h1>
+              <h1 className="gradient-text text-3xl font-bold tracking-tight text-[2.25rem]">{title}</h1>
               {description && (
                 <p className="mt-2 max-w-3xl text-sm leading-[1.75] text-muted-foreground">{description}</p>
               )}

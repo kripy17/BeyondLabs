@@ -108,7 +108,7 @@ function Dashboard() {
       {/* 4 · Tracks */}
       <section>
         <SectionHeader icon={Compass} label="start a track" hint="3 guided paths" />
-        <div className="grid gap-3 ba-stagger md:grid-cols-3">
+        <div className="grid gap-3 ba-stagger grid-cols-3">
           {TRACKS.map((t) => <TrackCard key={t.id} t={t} />)}
         </div>
       </section>
@@ -119,13 +119,13 @@ function Dashboard() {
           icon={LayoutGrid} label="workspaces"
           hint={<><NumberTicker value={allModules.length} /> modules · <NumberTicker value={groupCount} /> groups</>}
         />
-        <div className="grid gap-2.5 ba-stagger sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid gap-2.5 ba-stagger grid-cols-2 grid-cols-3 grid-cols-4 grid-cols-5">
           {allModules.map((m) => <ModuleTile key={m.url} m={m} />)}
         </div>
       </section>
 
       {/* 6 · Footer utility row — recents + tips, balanced */}
-      <section className="grid gap-3 md:grid-cols-2">
+      <section className="grid gap-3 grid-cols-2">
         <Panel
           label="recent activity" icon={Clock}
           right={
@@ -210,7 +210,7 @@ function CommandStrip() {
         <StripCell label="clock" value={`${day} · ${time}`} />
         <StripCell label="env" value="local · browser" icon={Cpu} />
         <StripCell label="net" value="offline-safe" icon={WifiOff} tone="muted" />
-        <div className="ml-auto hidden items-center gap-2 md:flex">
+        <div className="ml-auto hidden items-center gap-2 flex">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             no upload · no detonation
           </span>
@@ -249,7 +249,7 @@ function StripCell({
 
 function ContinueRow({ item }: { item?: WorkspaceItem }) {
   return (
-    <section className="grid gap-2.5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <section className="grid gap-2.5 grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       {/* Continue */}
       {item ? (
         <Link

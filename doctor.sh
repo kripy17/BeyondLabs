@@ -109,17 +109,22 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   ok "$(python --version 2>&1)  ${C_DIM}$(command -v python)${C_RESET}"
 else
-  err "Python 3 missing — install with: sudo pacman -S python"
+  case "$PKG_MGR" in
+    pacman) err "Python 3 missing — install with: $PKG_MGR_INSTALL python" ;;
+    brew)   err "Python 3 missing — install with: $PKG_MGR_INSTALL python" ;;
+    apt)    err "Python 3 missing — install with: $PKG_MGR_INSTALL python3" ;;
+    *)      err "Python 3 missing — install from python.org or your package manager" ;;
+  esac
 fi
 command -v node >/dev/null 2>&1 \
   && ok  "Node.js $(node --version)  ${C_DIM}$(command -v node)${C_RESET}" \
-  || err "Node.js missing — install with: sudo pacman -S nodejs npm"
+  || err "Node.js missing — install from nodejs.org or your package manager"
 command -v npm >/dev/null 2>&1 \
   && ok  "npm $(npm --version)  ${C_DIM}$(command -v npm)${C_RESET}" \
-  || err "npm missing — install with: sudo pacman -S nodejs npm"
-command -v pacman >/dev/null 2>&1 \
-  && info "Arch Linux — pacman available" \
-  || info "pacman not detected"
+  || err "npm missing — install from nodejs.org or your package manager"
+[[ "$PKG_MGR" != "unknown" ]] \
+  && info "${PKG_MGR_NAME} detected" \
+  || info "No supported package manager detected"
 echo ""
 
 # ── 03: Backend environment ──────────────────────────────────────
@@ -172,12 +177,12 @@ echo ""
 next_section "Optional tools"
 echo ""
 for row in "${TOOL_ROWS[@]}"; do
-  IFS='|' read -r group bins pkg category note <<<"$row"
+  IFS='|' read -r group bins pkg brew_pkg category note <<<"$row"
   _label="$(display_tool "$bins")"
   if tool_available "$bins"; then
     ok "${C_DIM}[${category}]${C_RESET}  ${_label}"
-  elif command -v pacman >/dev/null 2>&1 && pacman -Si "$pkg" >/dev/null 2>&1; then
-    warn "${C_DIM}[${category}]${C_RESET}  ${_label}  ${C_DIM}→ sudo pacman -S ${pkg}${C_RESET}"
+  elif pkg_available "$pkg" "$brew_pkg"; then
+    warn "${C_DIM}[${category}]${C_RESET}  ${_label}  ${C_DIM}→ ${PKG_MGR_INSTALL} ${pkg}${C_RESET}"
   else
     warn "${C_DIM}[${category}]${C_RESET}  ${_label}  ${C_DIM}→ install manually${C_RESET}"
   fi

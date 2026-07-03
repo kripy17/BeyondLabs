@@ -324,7 +324,7 @@ function ParserPage() {
 
       <SectionBar id="OT" label="Output · detected" meta={result ? `${result.total} indicators · ${result.signals.length} signals` : "awaiting input"} />
       {!result ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-4 grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Panel title="What the parser recovers" icon={Sparkles} meta="11 samples · 11 IOC families">
             <ul className="grid grid-cols-2 gap-1.5">
               {Object.entries(KIND_META).map(([k, m]) => (
@@ -383,7 +383,7 @@ function ParserPage() {
 
           {/* IOC Spectrum */}
           <Panel title="IOC Spectrum" icon={Activity} meta={`${kinds.length} active · ${8 - kinds.length} idle`}>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 grid-cols-3 grid-cols-4">
               {kinds.map(([k, v]) => {
                 const meta = KIND_META[k];
                 return (
@@ -476,7 +476,7 @@ function ParserPage() {
           })()}
 
           {/* Confidence + Signals */}
-          <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid gap-4 grid-cols-[280px_minmax(0,1fr)]">
             <Panel title="Findings & Signals" icon={AlertTriangle} meta={`${result.signals.length} total`}>
               {result.signals.length === 0 ? (
                 <p className="text-mono text-[11px] text-muted-foreground">No signals generated for this artifact.</p>
@@ -492,7 +492,7 @@ function ParserPage() {
 
           {/* Secrets + CMD analysis */}
           {result.secrets.length > 0 || result.cmds.length > 0 ? (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 grid-cols-2">
               {result.secrets.length > 0 && (
                 <Panel title="Secrets Detected" icon={Key} meta={`${result.secrets.length} potential exposure`}>
                   <div className="space-y-1.5">
@@ -545,7 +545,7 @@ function ParserPage() {
           {/* MITRE Mapping */}
           {result.mitre.length > 0 && (
             <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${result.mitre.length} techniques`}>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 grid-cols-2 grid-cols-3">
                 {result.mitre.map((m: any, i: number) => (
                   <div key={i} className="flex items-center gap-2.5 rounded border border-border/50 bg-card/40 px-3 py-2">
                     <span className="grid h-7 w-7 place-items-center rounded border border-destructive/40 bg-destructive/10">
@@ -602,7 +602,7 @@ function ParserPage() {
                         )}
                       </div>
                     </div>
-                    <ul className="grid gap-1 sm:grid-cols-2">
+                    <ul className="grid gap-1 grid-cols-2">
                       {items.map((it) => (
                         <li key={it} className="group flex items-center justify-between gap-2 rounded border border-border/50 bg-card/40 px-2 py-1 hover:border-primary/40 hover:bg-card/70">
                           <code className="truncate text-mono text-[11px] text-foreground/90">{transform(it)}</code>
@@ -619,7 +619,7 @@ function ParserPage() {
           </Panel>
 
           {/* Export + Handoff */}
-          <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+          <div className="grid gap-4 grid-cols-[1fr_2fr]">
             <Panel title="Export Report" icon={Download}>
               <button
                 onClick={() => {

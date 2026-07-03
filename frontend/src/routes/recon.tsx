@@ -252,7 +252,7 @@ function ReconPage() {
               ratio="1:1"
               left={
                 <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`}>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 grid-cols-2">
                     {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
                       <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
                         <div className="mb-1 flex items-center gap-1.5">
@@ -286,7 +286,7 @@ function ReconPage() {
           {/* DNS-only panel if no TLS */}
           {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && !ssl && (
             <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`}>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 grid-cols-2 grid-cols-3">
                 {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
                   <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
                     <div className="mb-1 flex items-center gap-1.5">
@@ -351,7 +351,7 @@ function ReconPage() {
           {/* Signals */}
           {signals.length > 0 && (
             <CollapsibleSection id="SG" label="Risk Signals" meta={`${signals.length} signal(s)`} icon={AlertTriangle}>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 {signals.map((s, i) => (
                   <EvidenceCard key={i} severity={s.sev} title={s.t} reason={s.r} action={s.a} limitation="Passive snapshot — re-verify before any action." />
                 ))}

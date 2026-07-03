@@ -193,8 +193,8 @@ function CasePage() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-        <div className="space-y-3 lg:sticky lg:top-16 lg:self-start">
+      <div className="grid gap-4 grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+        <div className="space-y-3 sticky top-16 self-start">
           <Panel bodyClassName="p-0">
             <div className="border-b border-border p-2">
               <div className="relative">

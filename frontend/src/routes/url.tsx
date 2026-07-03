@@ -495,7 +495,7 @@ function UrlPage() {
 
               {/* Network / TLS / Geo intel */}
               {intel && (
-                <div className="grid gap-3 lg:grid-cols-3">
+                <div className="grid gap-3 grid-cols-3">
                   <Panel title="Network" icon={Network} meta={intel.asn}>
                     <KeyFields items={[
                       { label: "Resolved IP", value: intel.ip },
@@ -558,7 +558,7 @@ function UrlPage() {
               </Panel>
 
               {/* Domain Profile + Secrets grid */}
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`} collapsible storageKey="ba.panel.url.domain" defaultCollapsed>
                   <KeyFields items={[
                     { label: "TLD", value: `.${analysis.tld}`, tone: analysis.isSuspiciousTLD ? "warning" : "default" },
@@ -613,7 +613,7 @@ function UrlPage() {
                 const lenPct = Math.min(100, Math.round((href.length / 200) * 100));
                 const entPct = Math.min(100, Math.round((hrefEnt / 6) * 100));
                 return (
-                  <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="grid gap-3 grid-cols-2">
                     <Panel title="Query Parameters" meta={`${params.length}`}>
                       {params.length === 0 ? (
                         <p className="text-mono text-[11px] text-muted-foreground">No query string.</p>
@@ -683,14 +683,14 @@ function UrlPage() {
 
               {/* Risk Signals */}
               <SectionBar id="EV" label="Risk signals" meta={`${analysis.findings.length} \u00B7 reason \u00B7 action`} />
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 {analysis.findings.length === 0 ? <Empty title="No suspicious patterns" /> : analysis.findings.map((f, i) => (
                   <EvidenceCard key={i} severity={f.sev} title={f.t} reason={f.r} action={f.a} limitation="Heuristic \u2014 verify with passive DNS / TLS / WHOIS." />
                 ))}
               </div>
 
               {/* Export + Handoff */}
-              <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+              <div className="grid gap-4 grid-cols-[1fr_2fr]">
                 <Panel title="Export Report" icon={Download}>
                   <button
                     onClick={() => {

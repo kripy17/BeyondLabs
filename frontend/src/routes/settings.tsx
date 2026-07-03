@@ -119,7 +119,7 @@ function SettingsPage() {
           value={sectionFilter}
           onChange={(e) => setSectionFilter(e.target.value)}
           placeholder="Filter settings…"
-          className="text-mono h-7 min-w-0 max-w-full flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 md:max-w-[200px]"
+          className="text-mono h-7 min-w-0 max-w-full flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 max-w-[200px]"
         />
         <div className="flex flex-wrap gap-1">
           {SECTION_JUMP.filter((s) => !sectionFilter || s.label.toLowerCase().includes(sectionFilter.toLowerCase())).map((s) => (
@@ -138,7 +138,7 @@ function SettingsPage() {
       {/* BRAND */}
       <Panel id="BR" label="brand" icon={Tag}
         right={<span className="text-mono text-[10px] text-muted-foreground">name · tagline · icon</span>}>
-        <div className="grid gap-5 md:grid-cols-[1fr_auto]">
+        <div className="grid gap-5 grid-cols-[1fr_auto]">
           <div className="space-y-3">
             <div>
               <Label>app name</Label>
@@ -185,7 +185,7 @@ function SettingsPage() {
             </div>
           </div>
           {/* Live preview chip */}
-          <div className="flex flex-col items-stretch gap-2 rounded-md border border-border/70 bg-card/40 p-3 md:w-56">
+          <div className="flex flex-col items-stretch gap-2 rounded-md border border-border/70 bg-card/40 p-3 w-56">
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">preview</div>
             <div className="flex items-center gap-2.5 rounded-md border border-border bg-background/60 p-2.5">
               <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-md bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow">
@@ -286,7 +286,7 @@ function SettingsPage() {
           </Button>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-5 grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           {/* LEFT — mode + presets */}
           <div className="space-y-5">
             {/* mode */}
@@ -326,7 +326,7 @@ function SettingsPage() {
             {/* presets */}
             <div>
               <Label>start from a preset</Label>
-              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mt-2 grid grid-cols-1 gap-2 grid-cols-2">
                 {CUSTOM_THEME_PRESETS.map((p) => {
                   const matches = JSON.stringify(p.theme) === JSON.stringify(draftCustom);
                   return (
@@ -364,7 +364,7 @@ function SettingsPage() {
           {/* RIGHT — tokens */}
           <div>
             <Label>tokens</Label>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2 grid-cols-2">
               {([
                 ["background", "background"],
                 ["foreground", "foreground"],
@@ -451,7 +451,7 @@ function SettingsPage() {
 
       {/* DENSITY + RADIUS */}
       <Panel id="DR" label="density & radius" icon={Sliders}>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 grid-cols-2">
           <div>
             <Label>density</Label>
             <div className="mt-2 inline-flex rounded-md border border-border bg-card/40 p-0.5">
@@ -531,7 +531,7 @@ function SettingsPage() {
             <Switch checked={prefs.monoLigatures} onCheckedChange={(v) => setPrefs({ monoLigatures: v })} />
           </Row>
 
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 grid-cols-2">
             <FontPicker
               title="sans (UI)"
               options={SANS_OPTIONS}
@@ -609,7 +609,7 @@ function SettingsPage() {
 
       {/* MOTION + QOL */}
       <Panel id="QL" label="motion & qol" icon={Sparkles}>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 grid-cols-2">
           <Row label="Reduce motion" desc="Disable mount fades, hover micro-anim and pulses.">
             <Switch checked={prefs.reduceMotion} onCheckedChange={(v) => setPrefs({ reduceMotion: v })} />
           </Row>
@@ -628,7 +628,7 @@ function SettingsPage() {
           <Row label="High-contrast focus" desc="Thicker focus ring + glow for keyboard-only navigation.">
             <Switch checked={prefs.focusRingBoost} onCheckedChange={(v) => setPrefs({ focusRingBoost: v })} />
           </Row>
-          <div className="md:col-span-2 rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <div className="col-span-2 rounded-md border border-border/70 bg-card/40 px-3 py-3">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-mono text-[12px] font-medium text-foreground">Panel opacity &middot; {Math.round(prefs.panelOpacity * 100)}%</div>
@@ -752,7 +752,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
         </div>
 
         {/* Badges + input */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 grid-cols-2">
           <div>
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>badges</div>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -812,7 +812,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
             <span className="text-mono text-[10.5px] uppercase tracking-[0.22em]" style={{ color: fgSoft }}>form · controls</span>
             <span className="ml-auto text-mono text-[9.5px]" style={{ color: fgFaint }}>live</span>
           </div>
-          <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-2.5 grid gap-3 grid-cols-2">
             {/* select */}
             <label className="block">
               <span className="text-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>severity</span>
@@ -1001,7 +1001,7 @@ function ThemeGallery({
       : undefined;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       {/* LEFT — live stage */}
       <div className="relative overflow-hidden rounded-md border border-border bg-[var(--card)]" data-theme={previewTheme} style={stageStyle}>
 
