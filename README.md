@@ -1,30 +1,34 @@
 <div align="center">
+  <img src=".github/assets/banner.svg" alt="BeyondArch" width="100%">
+</div>
 
-# BeyondArch
+<div align="center">
 
-**Local-First SOC Analyst Workbench**
-
-Artifact triage · Phishing review · SIEM log analysis · Detection engineering
-— all local-first, privacy-preserving, and analyst-led.
+<p>
+Artifact triage · Phishing review · SIEM log analysis · Detection engineering<br>
+all local-first, privacy-preserving, and analyst-led.
+</p>
 
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=fff)](https://vite.dev)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=fff)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=fff)](https://python.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=fff)](https://typescriptlang.org)
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-8B0000?style=for-the-badge&labelColor=000000)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8B0000?style=for-the-badge&labelColor=000000)](CONTRIBUTING.md)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-000000?style=for-the-badge&logo=linux&logoColor=eeeeee)]()
 
-**[Quick Start](#quick-start)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Architecture](#investigation-flow)** &nbsp;·&nbsp; **[Safety Model](#safety-model)** &nbsp;·&nbsp; **[Contributing](CONTRIBUTING.md)**
+**[Quick Start](#quick-start)** · **[Features](#features)** · **[Architecture](#investigation-flow)** · **[Safety Model](#safety-model)** · **[Contributing](CONTRIBUTING.md)**
 
 </div>
 
-<br>
+---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Settings & Customization](#settings--customization)
 - [Investigation Flow](#investigation-flow)
@@ -37,19 +41,59 @@ Artifact triage · Phishing review · SIEM log analysis · Detection engineering
 - [Development](#development)
 - [Host Dependencies](#host-dependencies)
 - [Known Limitations](#known-limitations)
+- [FAQ](#faq)
 - [Release Checklist](#release-checklist)
 
 ---
 
 ## Overview
 
-BeyondArch is a **local-first** workbench for defensive analysts. It handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine, with nothing shipped off to a third party. It runs on **Linux**, **macOS**, and **Windows**.
+BeyondArch is a local-first workbench for defensive analysts. It handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine, with nothing shipped off to a third party. It runs on Linux, macOS, and Windows.
 
-Every signal it surfaces is meant to be **honest and local**, never fabricated — see [Safety Model](#safety-model) for the specifics.
+Most SOC practice tooling means either standing up a full lab or pasting artifacts into someone else's cloud dashboard. BeyondArch skips both: every workspace runs against your own machine, and nothing leaves it unless you explicitly turn on external enrichment.
+
+| | |
+|---|---|
+| **Frontend** | React + Vite |
+| **Backend** | FastAPI (Python) |
+| **Platforms** | Linux · macOS · Windows |
+| **Storage** | Local browser only — session / persist / none |
+| **License** | MIT |
+
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td align="center" width="50%">
+<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<sub><b>Artifact Intake</b> — IOC extraction with defang/refang</sub>
+</td>
+<td align="center" width="50%">
+<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<sub><b>SIEM Workspace</b> — filter, pivot & export</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<sub><b>Detection Engineering</b> — rule builder with lint & explain</sub>
+</td>
+<td align="center" width="50%">
+<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<sub><b>Case & Report</b> — timeline, notes & markdown export</sub>
+</td>
+</tr>
+</table>
+
+<sub>Placeholders — swap the files in `.github/assets/` once real captures are ready.</sub>
 
 ---
 
 ## Features
+
+16 workspaces across 5 categories. Drop into any one on its own, or run the full pipeline end to end.
 
 ### Triage & Analysis
 | Capability | What it does |
@@ -106,44 +150,59 @@ Every signal it surfaces is meant to be **honest and local**, never fabricated �
 
 ## Investigation Flow
 
-```
-                    ┌───────────────────────┐
-                    │   Artifact Intake     │
-                    │ (hash, URL, email,    │
-                    │  IP, log line, file)  │
-                    └──────────┬────────────┘
-                               │
-                    ┌──────────▼────────────┐
-                    │   Triage Workspace    │
-                    │ Phishing · URL · Att. │
-                    └──────────┬────────────┘
-                               │
-                    ┌──────────▼────────────┐
-                    │   SIEM + Log Review   │
-                    │ Filter · Pivot ·      │
-                    │ Detection Matching    │
-                    └──────────┬────────────┘
-                               │
-                    ┌──────────▼────────────┐
-                    │  Detection & MITRE    │
-                    │ Rule Building ·       │
-                    │ Coverage Mapping      │
-                    └──────────┬────────────┘
-                               │
-                    ┌──────────▼────────────┐
-                    │   Case & Report       │
-                    │ Timeline · Notes ·    │
-                    │ Markdown Export       │
-                    └───────────────────────┘
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#180000',
+  'primaryBorderColor':'#7a1f1f',
+  'primaryTextColor':'#f0f0f0',
+  'lineColor':'#7a1f1f',
+  'fontFamily':'JetBrains Mono, Fira Code, monospace',
+  'fontSize':'13px'
+}}}%%
+flowchart TD
+    A["Artifact Intake<br/>hash · URL · email · IP · log · file"] --> B["Triage Workspace<br/>Phishing · URL · Attachment"]
+    B --> C["SIEM + Log Review<br/>Filter · Pivot · Detection Matching"]
+    C --> D["Detection & MITRE<br/>Rule Building · Coverage Mapping"]
+    D --> E["Case & Report<br/>Timeline · Notes · Markdown Export"]
 ```
 
-Every workspace connects through **`beyondarch.pendingArtifact`** — a localStorage handoff channel. Send findings between pages without losing context.
+Every workspace connects through `beyondarch.pendingArtifact` — a localStorage handoff channel. Send findings between pages without losing context.
+
+### System Architecture
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {
+  'primaryColor':'#180000',
+  'primaryBorderColor':'#7a1f1f',
+  'primaryTextColor':'#f0f0f0',
+  'lineColor':'#7a1f1f',
+  'fontFamily':'JetBrains Mono, Fira Code, monospace',
+  'fontSize':'13px'
+}}}%%
+flowchart LR
+    subgraph Browser["Frontend — React + Vite"]
+        UI["Workspace UI"]
+        LS[("localStorage<br/>session / persist / none")]
+    end
+    subgraph Server["Backend — FastAPI"]
+        API["REST API"]
+        ENGINE["SOC Analysis Engine"]
+    end
+    EXT[("External Enrichment<br/>opt-in only")]
+
+    UI <--> API
+    UI <--> LS
+    API <--> ENGINE
+    UI -.optional.-> EXT
+```
+
+Frontend and backend talk over a local REST API. Nothing leaves the machine unless external enrichment is explicitly turned on.
 
 ---
 
 ## Quick Start
 
-Requires **Python 3.10+**, **Node.js 18+**, and **npm**.
+Requires Python 3.10+, Node.js 18+, and npm.
 
 ```bash
 ./install.sh
@@ -156,7 +215,7 @@ Requires **Python 3.10+**, **Node.js 18+**, and **npm**.
 | http://127.0.0.1:8000 | Backend API (FastAPI) |
 | http://127.0.0.1:8000/docs | Interactive API docs |
 
-Recommended SOC profile:
+Recommended SOC profile — pulls in the full toolkit (`nmap`, `whatweb`, `subfinder`, `amass`, `httpx`) in one step:
 
 ```bash
 ./install.sh --profile recommended
@@ -182,13 +241,15 @@ The setup detects your package manager automatically — `pacman` (Arch), `apt` 
 
 ## Safety Model
 
-BeyondArch is designed for defensive analysts who need **honest, local signals** — not fabricated threat intelligence.
+> [!WARNING]
+> Recon and scanning tools require explicit confirmation and must only be run against owned, lab, or explicitly authorized targets.
+
+BeyondArch is designed for defensive analysts who need honest, local signals — not fabricated threat intelligence.
 
 - No malware execution or attachment detonation
 - No phishing sending, credential capture, or brute force automation
-- Safe URL workflows default to **static review**
-- External enrichment is **opt-in** — providers show limitations when unavailable
-- Recon and scan tools require explicit confirmation and are bounded to authorized targets
+- Safe URL workflows default to static review
+- External enrichment is opt-in — providers show limitations when unavailable
 - Browser storage is workspace state, not a secure evidence vault
 
 ---
@@ -201,7 +262,7 @@ BeyondArch is designed for defensive analysts who need **honest, local signals**
 | **Persist** | Restored across browser restarts |
 | **None** | No analysis data stored at all |
 
-Change persistence via **Settings → Storage & Backup**. Export/import JSON case backups there too.
+Change persistence via Settings → Storage & Backup. Export/import JSON case backups there too.
 
 ---
 
@@ -252,6 +313,9 @@ Use any sample button across pages to kickstart a walkthrough.
 
 ## Development
 
+<details>
+<summary>Backend & frontend setup commands</summary>
+
 ```bash
 # Backend
 cd backend
@@ -277,9 +341,14 @@ Backend checks:
 python -m compileall app
 ```
 
+</details>
+
 ---
 
 ## Host Dependencies
+
+<details>
+<summary>Full tool list by category</summary>
 
 | Category | Tools |
 |----------|-------|
@@ -291,11 +360,13 @@ python -m compileall app
 
 Plain `./install.sh` walks through a guided profile. Optional tools are never installed without confirmation. On Linux, `pacman`/`apt`/`dnf` is detected automatically; on macOS, `brew` is used. Systems without a supported package manager print manual guidance instead of failing. On Windows, use the PowerShell scripts.
 
+</details>
+
 ---
 
 ## Known Limitations
 
-- BeyondArch provides **local/static triage signals**, not absolute threat intelligence verdicts
+- BeyondArch provides local/static triage signals, not absolute threat intelligence verdicts
 - External reputation providers are not faked; unavailable sources show limitations inline
 - Browser storage is convenient workspace state, not a forensics-grade evidence vault
 - Active scanning must only be used against owned, lab, or explicitly authorised targets
@@ -303,7 +374,29 @@ Plain `./install.sh` walks through a guided profile. Optional tools are never in
 
 ---
 
+## FAQ
+
+**Does BeyondArch send my data anywhere?**
+No. Analysis runs in your browser and your local FastAPI backend. The only exception is external enrichment, which is opt-in and off by default.
+
+**What platforms are supported?**
+Linux, macOS, and Windows — `install.sh`/`run.sh` on Linux/macOS, `install.ps1`/`run.ps1` on Windows.
+
+**Is browser storage safe to use as an evidence store?**
+No. It's convenient workspace state, not a forensics-grade evidence vault. Use Settings → Storage & Backup to export case data as JSON if you need to keep it.
+
+**Can I point the recon and scanning tools at any target?**
+No. They require explicit confirmation before running and are bounded to owned, lab, or explicitly authorized targets.
+
+**What if I don't want anything persisted at all?**
+Set Storage mode to None in Settings — no analysis data is stored.
+
+---
+
 ## Release Checklist
+
+<details>
+<summary>Pre-release commands & checklist</summary>
 
 ```bash
 ./doctor.sh
@@ -318,11 +411,13 @@ Confirm:
 - Storage/privacy behaviour matches the documented model
 - Demo flow works end-to-end: Intake → Analysis → Send to Case → Export
 
+</details>
+
 ---
 
 <div align="center">
 
-Built for analysts who need **local control** over their investigation workflow.
+Built for analysts who need local control over their investigation workflow.
 
 [Report Bug](../../issues) · [Request Feature](../../issues) · [Contributing](CONTRIBUTING.md)
 
