@@ -1,5 +1,5 @@
 <div align="center">
-  <img src=".github/assets/banner.svg" alt="BeyondArch" width="100%">
+  <img src="assets/banner.svg" alt="BeyondArch" width="100%">
 </div>
 
 <div align="center">
@@ -20,6 +20,7 @@ all local-first, privacy-preserving, and analyst-led.
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-000000?style=for-the-badge&logo=linux&logoColor=eeeeee)]()
 
 **[Quick Start](#quick-start)** · **[Features](#features)** · **[Architecture](#investigation-flow)** · **[Safety Model](#safety-model)** · **[Contributing](CONTRIBUTING.md)**
+
 
 </div>
 
@@ -67,27 +68,27 @@ Most SOC practice tooling means either standing up a full lab or pasting artifac
 <table>
 <tr>
 <td align="center" width="50%">
-<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
 <sub><b>Artifact Intake</b> — IOC extraction with defang/refang</sub>
 </td>
 <td align="center" width="50%">
-<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
 <sub><b>SIEM Workspace</b> — filter, pivot & export</sub>
 </td>
 </tr>
 <tr>
 <td align="center" width="50%">
-<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
 <sub><b>Detection Engineering</b> — rule builder with lint & explain</sub>
 </td>
 <td align="center" width="50%">
-<img src=".github/assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
 <sub><b>Case & Report</b> — timeline, notes & markdown export</sub>
 </td>
 </tr>
 </table>
 
-<sub>Placeholders — swap the files in `.github/assets/` once real captures are ready.</sub>
+<sub>Placeholders — swap the files in `assets/` once real captures are ready.</sub>
 
 ---
 
