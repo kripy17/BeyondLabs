@@ -60,7 +60,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         <CommandGroup heading="Actions">
           <CommandItem onSelect={() => go("/parser")} value="new session start triage parser">
             <Plus className="h-4 w-4" />
-            <span className="text-mono text-[12.5px]">Parser &amp; Extractor</span>
+            <span className="text-mono text-[12.5px]">New session</span>
           </CommandItem>
           <CommandItem onSelect={() => go("/settings")} value="open settings preferences">
             <SettingsIcon className="h-4 w-4" />

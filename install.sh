@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BeyondArch — setup wizard
+# BeyondLabs — setup wizard
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,12 +23,12 @@ _R='\033[0;31m' _D='\033[2m' _X='\033[0m'
 
 if [[ ! -f "$UI_HELPER" ]]; then
   printf "${_R}  ✖${_X}  Missing scripts/terminal-ui.sh\n" >&2
-  printf "     ${_D}Run this script from the BeyondArch project root.${_X}\n" >&2
+  printf "     ${_D}Run this script from the BeyondLabs project root.${_X}\n" >&2
   exit 1
 fi
 if [[ ! -f "$TOOL_INVENTORY" ]]; then
   printf "${_R}  ✖${_X}  Missing scripts/tool-inventory.sh\n" >&2
-  printf "     ${_D}Run this script from the BeyondArch project root.${_X}\n" >&2
+  printf "     ${_D}Run this script from the BeyondLabs project root.${_X}\n" >&2
   exit 1
 fi
 
@@ -401,7 +401,7 @@ echo ""
 
 if is_interactive; then
   ba_info "This wizard installs local app dependencies and selected SOC helper tools."
-  confirm "Start BeyondArch setup?" || { ba_info "Setup cancelled"; exit 0; }
+  confirm "Start BeyondLabs setup?" || { ba_info "Setup cancelled"; exit 0; }
 fi
 
 # ── Profile ──────────────────────────────────────────────────────

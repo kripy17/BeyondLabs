@@ -104,7 +104,7 @@ def normalize_website(value: str) -> str:
 
 def fetch_homepage(url: str) -> dict:
     headers = {
-        "User-Agent": "BeyondArch/1.0 Defensive OSINT Toolkit"
+        "User-Agent": "BeyondLabs/1.0 Defensive OSINT Toolkit"
     }
 
     try:
@@ -430,7 +430,7 @@ def run_local_osint_tool(tool_id: str, domain: str, source: str = "duckduckgo", 
             "domain": clean_domain,
             "error": f"{OSINT_TOOL_LABELS.get(clean_tool, clean_tool)} is not installed or not available in the backend PATH.",
             "command_preview": " ".join(quote(part) for part in command),
-            "install_hint": "Install the tool locally and restart the backend so BeyondArch can find it.",
+            "install_hint": "Install the tool locally and restart the backend so BeyondLabs can find it.",
         }
 
     try:
@@ -439,7 +439,7 @@ def run_local_osint_tool(tool_id: str, domain: str, source: str = "duckduckgo", 
             result.update({
                 "tool": clean_tool,
                 "tool_label": OSINT_TOOL_LABELS.get(clean_tool, clean_tool),
-                "note": "Local dig wrapper only. No API keys are used by BeyondArch.",
+                "note": "Local dig wrapper only. No API keys are used by BeyondLabs.",
             })
             return result
 
@@ -457,7 +457,7 @@ def run_local_osint_tool(tool_id: str, domain: str, source: str = "duckduckgo", 
             "return_code": return_code,
             "stdout": stdout,
             "stderr": stderr,
-            "note": "Local backend wrapper only. No API keys are used by BeyondArch.",
+            "note": "Local backend wrapper only. No API keys are used by BeyondLabs.",
         }
     except subprocess.TimeoutExpired:
         return {"success": False, "tool": clean_tool, "domain": clean_domain, "error": "Local OSINT tool timed out.", "command": " ".join(quote(part) for part in command)}

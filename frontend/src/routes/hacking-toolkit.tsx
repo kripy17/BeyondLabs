@@ -298,7 +298,7 @@ function HackingToolkitPage() {
     <PageShell
       eyebrow="Offensive"
       title="Hacking Toolkit"
-      description="Browse 50+ offensive-security tools by category, build commands with presets, and run against locally installed binaries via the BeyondArch backend."
+      description="Browse 50+ offensive-security tools by category, build commands with presets, and run against locally installed binaries via the BeyondLabs backend."
       crumbs={[{ label: "Workbench", href: "/" }, { label: "Offensive" }, { label: "Hacking Toolkit" }]}
       meta={metaItems}
       actions={<PreviewBadge label={offline ? "offline catalog" : (installed ? "live backend" : "catalog")} />}
@@ -663,7 +663,7 @@ function HackingToolkitPage() {
                           badge={output.status}
                           caseId={activeTool.binary}
                           title={`${activeTool.name} — ${output.status === "completed" ? "execution result" : output.status === "error" ? "execution failed" : "output"}`}
-                          subtitle={output.status === "completed" ? "Binary ran on the local host via BeyondArch backend." : output.status === "error" ? "The tool returned an error or is not installed." : "The tool produced output with non-zero exit code."}
+                          subtitle={output.status === "completed" ? "Binary ran on the local host via BeyondLabs backend." : output.status === "error" ? "The tool returned an error or is not installed." : "The tool produced output with non-zero exit code."}
                           metrics={[
                             { label: "lines", value: String(output.body.split("\n").length), tone: "primary" },
                             { label: "bytes", value: output.body.length.toLocaleString(), tone: "default" },

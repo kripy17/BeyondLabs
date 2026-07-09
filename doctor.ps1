@@ -89,5 +89,5 @@ $summary = "  ● $Pass passed  ▲ $Warn warnings  ■ $Fail errors"
 Write-Host $summary -ForegroundColor $C_Cyan
 Write-Host ""
 if ($Fail -gt 0) { Write-Host "  │  Recommended: .\install.ps1" -ForegroundColor $C_Cyan; exit 1 }
-Write-Host "  ● BeyondArch health check passed" -ForegroundColor $C_Green
+Write-Host "  ● BeyondLabs health check passed" -ForegroundColor $C_Green
 Write-Host ""

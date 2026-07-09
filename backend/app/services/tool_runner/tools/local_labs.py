@@ -27,7 +27,7 @@ def _checked_at() -> str:
 
 
 def _fetch_page(url: str, timeout: int) -> tuple[str, str | None]:
-    req = Request(url, headers={"User-Agent": "BeyondArch-LabCrawler/0.1"})
+    req = Request(url, headers={"User-Agent": "BeyondLabs-LabCrawler/0.1"})
     with urlopen(req, timeout=timeout) as response:
         content_type = response.headers.get("content-type", "")
         body = response.read(500_000)
@@ -105,7 +105,7 @@ def run_secretfinder(target: str, inputs: dict, timeout: int) -> dict:
     if target and not source:
         url = target if target.startswith(("http://", "https://")) else f"https://{target}"
         try:
-            req = Request(url, headers={"User-Agent": "BeyondArch-JSDiscovery/0.1"})
+            req = Request(url, headers={"User-Agent": "BeyondLabs-JSDiscovery/0.1"})
             with urlopen(req, timeout=min(timeout, 12)) as response:
                 source = response.read(500_000).decode("utf-8", errors="replace")
             fetched = True

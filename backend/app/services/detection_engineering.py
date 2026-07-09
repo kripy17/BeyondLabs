@@ -119,7 +119,7 @@ def map_to_mitre(text: str) -> dict:
                 "tactic": item["tactic"],
                 "confidence": item["confidence"],
                 "matched_keywords": matched_keywords,
-                "source": "BeyondArch local keyword mapping",
+                "source": "BeyondLabs local keyword mapping",
             })
 
     unique = {}
@@ -151,7 +151,7 @@ def map_to_mitre(text: str) -> dict:
             "evidence": evidence,
             "reason": "Mapped by local keyword and context matching.",
             "limitations": "This mapping is not confirmed automatically. Validate against logs, alerts, host telemetry, and case evidence.",
-            "source_tool": "BeyondArch local MITRE mapper",
+            "source_tool": "BeyondLabs local MITRE mapper",
             "linked_evidence_ids": [],
             "created_at": utc_now(),
         })
@@ -215,7 +215,7 @@ def build_sigma_rule(title: str, description: str, severity: str, logsource_type
         "status": "experimental",
         "description": description,
         "references": [],
-        "author": "BeyondArch",
+        "author": "BeyondLabs",
         "date": utc_now()[:10],
         "logsource": logsource,
         "detection": {

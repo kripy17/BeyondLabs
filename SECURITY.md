@@ -1,10 +1,10 @@
 # Security Policy
 
-BeyondArch is a local cybersecurity and SOC investigation toolkit for defensive analysis, lab practice, evidence handling, and report writing.
+BeyondLabs is a local cybersecurity and SOC investigation toolkit for defensive analysis, lab practice, evidence handling, and report writing.
 
 ## Authorized Use
 
-Use BeyondArch only on systems, networks, files, indicators, and lab targets that you own or are explicitly authorized to assess. Active scanning, offensive lab workflows, enrichment, and file analysis should be performed only in approved environments.
+Use BeyondLabs only on systems, networks, files, indicators, and lab targets that you own or are explicitly authorized to assess. Active scanning, offensive lab workflows, enrichment, and file analysis should be performed only in approved environments.
 
 ## Sensitive Data
 

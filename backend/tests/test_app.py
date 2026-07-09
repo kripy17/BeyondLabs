@@ -14,7 +14,7 @@ def test_root_endpoint_identifies_api():
     response = client.get("/")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["name"] == "BeyondArch API"
+    assert payload["name"] == "BeyondLabs API"
     assert payload["status"] == "running"
 
 

@@ -38,7 +38,7 @@ export function WorkflowRibbon() {
               </div>
             </Link>
             {i < steps.length - 1 && (
-              <div className="hidden items-center text-muted-foreground/50 flex">
+              <div className="flex items-center text-muted-foreground/50">
                 <ChevronRight className="h-4 w-4" />
               </div>
             )}

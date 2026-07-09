@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BeyondArch — system health check
+# BeyondLabs — system health check
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,12 +19,12 @@ _R='\033[0;31m' _D='\033[2m' _X='\033[0m'
 
 if [[ ! -f "$UI_HELPER" ]]; then
   printf "${_R}  ✖${_X}  Missing scripts/terminal-ui.sh\n" >&2
-  printf "     ${_D}Run this script from the BeyondArch project root.${_X}\n" >&2
+  printf "     ${_D}Run this script from the BeyondLabs project root.${_X}\n" >&2
   exit 1
 fi
 if [[ ! -f "$TOOL_INVENTORY" ]]; then
   printf "${_R}  ✖${_X}  Missing scripts/tool-inventory.sh\n" >&2
-  printf "     ${_D}Run this script from the BeyondArch project root.${_X}\n" >&2
+  printf "     ${_D}Run this script from the BeyondLabs project root.${_X}\n" >&2
   exit 1
 fi
 
@@ -298,5 +298,5 @@ if [[ "$FAIL" -gt 0 ]]; then
   exit 1
 fi
 [[ "$WARN" -gt 0 ]] && echo -e "  ${C_YELLOW}▲${C_RESET}  Warnings present — review above for optional fixes"
-echo -e "  ${C_GREEN}●${C_RESET}  ${C_BOLD}BeyondArch health check passed${C_RESET}"
+echo -e "  ${C_GREEN}●${C_RESET}  ${C_BOLD}BeyondLabs health check passed${C_RESET}"
 echo ""

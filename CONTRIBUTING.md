@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve BeyondArch. Keep contributions scoped, practical, and aligned with the project goal: a local cybersecurity/SOC workspace with honest, evidence-aware outputs.
+Thanks for helping improve BeyondLabs. Keep contributions scoped, practical, and aligned with the project goal: a local cybersecurity/SOC workspace with honest, evidence-aware outputs.
 
 ## Workflow
 

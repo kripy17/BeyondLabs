@@ -383,7 +383,7 @@ function ParserPage() {
 
           {/* IOC Spectrum */}
           <Panel title="IOC Spectrum" icon={Activity} meta={`${kinds.length} active · ${8 - kinds.length} idle`}>
-            <div className="grid grid-cols-2 gap-2 grid-cols-3 grid-cols-4">
+            <div className="grid grid-cols-4 gap-2">
               {kinds.map(([k, v]) => {
                 const meta = KIND_META[k];
                 return (
@@ -545,7 +545,7 @@ function ParserPage() {
           {/* MITRE Mapping */}
           {result.mitre.length > 0 && (
             <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${result.mitre.length} techniques`}>
-              <div className="grid gap-2 grid-cols-2 grid-cols-3">
+              <div className="grid gap-2 grid-cols-3">
                 {result.mitre.map((m: any, i: number) => (
                   <div key={i} className="flex items-center gap-2.5 rounded border border-border/50 bg-card/40 px-3 py-2">
                     <span className="grid h-7 w-7 place-items-center rounded border border-destructive/40 bg-destructive/10">

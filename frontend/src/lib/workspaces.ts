@@ -1,7 +1,7 @@
 import {
   MailWarning, Link2, Paperclip, Radar, Search, ScanLine, Wand2,
   Activity, Bell, Wrench, Target, ShieldCheck, BookOpen, FileText,
-  LayoutDashboard, Settings, Terminal, Swords,
+  LayoutDashboard, Settings, Swords, Terminal,
 } from "lucide-react";
 
 export type WorkspaceItem = {
@@ -44,16 +44,22 @@ export const GROUPS: WorkspaceGroup[] = [
   {
     label: "SIEM",
     items: [
-      { title: "SIEM Workspace", url: "/siem", icon: Activity, desc: "Search, correlate, pivot",   group: "SIEM" },
-      { title: "Logs & Alerts",  url: "/logs", icon: Bell,     desc: "Triage stream, route cases", group: "SIEM" },
+      { title: "SIEM Workspace", url: "/siem", icon: Activity, desc: "Search, correlate, pivot",      group: "SIEM" },
+      { title: "Logs & Alerts",  url: "/logs", icon: Bell,     desc: "Triage stream, route cases",    group: "SIEM" },
+    ],
+  },
+  {
+    label: "Offensive",
+    items: [
+      { title: "Hacking Toolkit", url: "/hacking-toolkit", icon: Swords,    desc: "Browse offensive tools & build commands", group: "Offensive" },
+      { title: "Terminal",        url: "/terminal",        icon: Terminal, desc: "Shell wired to backend tools",               group: "Offensive" },
     ],
   },
   {
     label: "Tools",
     items: [
-      { title: "Hacking Toolkit", url: "/hacking-toolkit", icon: Swords, desc: "Exploit dev, payloads, brute force", group: "Tools" },
-      { title: "CyberChef",      url: "/chef",            icon: Wrench,  desc: "Encode, decode, transform",        group: "Tools" },
-      { title: "IDS Builder",    url: "/ids",             icon: Terminal,desc: "Draft Snort/Suricata rules",       group: "Tools" },
+      { title: "CyberChef",      url: "/chef",            icon: Wrench,  desc: "Encode, decode, transform",  group: "Tools" },
+      { title: "IDS Builder",    url: "/ids",             icon: Terminal,desc: "Draft Snort/Suricata rules", group: "Tools" },
     ],
   },
   {

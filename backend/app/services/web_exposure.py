@@ -173,7 +173,7 @@ def run_web_exposure_review(target: str, confirm_permission: bool, timeout_secon
         "limitations": "No JavaScript execution, no browser rendering, no authentication, no brute force, no exploit checks, no external reputation or CVE lookup.",
     }
 
-    with httpx.Client(timeout=timeout, follow_redirects=True, headers={"User-Agent": "BeyondArch-WebExposure/1.0"}) as client:
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers={"User-Agent": "BeyondLabs-WebExposure/1.0"}) as client:
         try:
             response = client.head(base_url)
             if response.status_code in {405, 501}:

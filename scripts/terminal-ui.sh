@@ -1,4 +1,4 @@
-# BeyondArch terminal UI helpers — visual toolkit
+# BeyondLabs terminal UI helpers — visual toolkit
 # Source with: . scripts/terminal-ui.sh
 
 C_RESET='\033[0m'
@@ -50,7 +50,7 @@ ba_header() {
 ba_compact_header() {
   local label="$1"
   echo ""
-  echo -e "  ${C_BOLD}${C_CYAN}BeyondArch${C_RESET} ${C_DIM}— ${label}${C_RESET}"
+  echo -e "  ${C_BOLD}${C_CYAN}BeyondLabs${C_RESET} ${C_DIM}— ${label}${C_RESET}"
   ba_hr
 }
 
@@ -58,7 +58,7 @@ ba_compact_header() {
 ba_usage_header() {
   local label="$1"
   echo ""
-  echo -e "  ${C_BOLD}${C_CYAN}BeyondArch${C_RESET} ${C_DIM}— ${label}${C_RESET}"
+  echo -e "  ${C_BOLD}${C_CYAN}BeyondLabs${C_RESET} ${C_DIM}— ${label}${C_RESET}"
   echo -e "  ${C_DIM}──────────────────────────────────────────────${C_RESET}"
 }
 

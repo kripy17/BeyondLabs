@@ -44,7 +44,7 @@ def _base_result(tool, request: ToolRunRequest, started_at: str, command: list[s
         },
         "mitre_mapping": tool.mitre_mapping,
         "report_actions": tool.report_actions,
-        "source": "BeyondArch Offensive Lab",
+        "source": "BeyondLabs Offensive Lab",
         "method": "allowlisted runner" if tool.kind == "cli" else f"{tool.kind} lab helper",
         "confidence": "analyst-review-required",
         "checked_at": _checked_at(),

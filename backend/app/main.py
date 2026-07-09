@@ -22,7 +22,7 @@ from app.routers import (
 )
 
 app = FastAPI(
-    title="BeyondArch API",
+    title="BeyondLabs API",
     description="Security Operations Toolkit backend for recon, SOC tools, phishing analysis, OSINT, and utilities.",
     version="0.1.0",
 )
@@ -42,7 +42,7 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {
-        "name": "BeyondArch API",
+        "name": "BeyondLabs API",
         "status": "running",
         "message": "Security Operations Toolkit backend"
     }

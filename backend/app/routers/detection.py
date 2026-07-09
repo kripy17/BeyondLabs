@@ -29,7 +29,7 @@ class IdsRuleBuildRequest(BaseModel):
     direction: str = "->"
     dst_ip: str = "any"
     dst_port: str = "80"
-    msg: str = "BeyondArch generated IDS rule"
+    msg: str = "BeyondLabs generated IDS rule"
     content: str = ""
     pcre: str = ""
     flow: str = ""

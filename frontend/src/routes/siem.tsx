@@ -721,7 +721,7 @@ function SiemPage() {
       {/* MITRE ATT&CK — grouped by tactic */}
       {tacticCoverage.length > 0 && (
         <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.siem.mitre-tactics" defaultCollapsed>
-          <div className="grid gap-3 grid-cols-2 grid-cols-3">
+          <div className="grid gap-3 grid-cols-3">
             {tacticCoverage.map((t) => (
               <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">

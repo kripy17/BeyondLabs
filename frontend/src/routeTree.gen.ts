@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UrlRouteImport } from './routes/url'
+import { Route as TerminalRouteImport } from './routes/terminal'
 import { Route as SiemRouteImport } from './routes/siem'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReconRouteImport } from './routes/recon'
@@ -31,6 +32,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const UrlRoute = UrlRouteImport.update({
   id: '/url',
   path: '/url',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TerminalRoute = TerminalRouteImport.update({
+  id: '/terminal',
+  path: '/terminal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SiemRoute = SiemRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/recon': typeof ReconRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/terminal': typeof TerminalRoute
   '/url': typeof UrlRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/recon': typeof ReconRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/terminal': typeof TerminalRoute
   '/url': typeof UrlRoute
 }
 export interface FileRoutesById {
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/recon': typeof ReconRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/terminal': typeof TerminalRoute
   '/url': typeof UrlRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/recon'
     | '/settings'
     | '/siem'
+    | '/terminal'
     | '/url'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/recon'
     | '/settings'
     | '/siem'
+    | '/terminal'
     | '/url'
   id:
     | '__root__'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/recon'
     | '/settings'
     | '/siem'
+    | '/terminal'
     | '/url'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   ReconRoute: typeof ReconRoute
   SettingsRoute: typeof SettingsRoute
   SiemRoute: typeof SiemRoute
+  TerminalRoute: typeof TerminalRoute
   UrlRoute: typeof UrlRoute
 }
 
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/url'
       fullPath: '/url'
       preLoaderRoute: typeof UrlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terminal': {
+      id: '/terminal'
+      path: '/terminal'
+      fullPath: '/terminal'
+      preLoaderRoute: typeof TerminalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/siem': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReconRoute: ReconRoute,
   SettingsRoute: SettingsRoute,
   SiemRoute: SiemRoute,
+  TerminalRoute: TerminalRoute,
   UrlRoute: UrlRoute,
 }
 export const routeTree = rootRouteImport

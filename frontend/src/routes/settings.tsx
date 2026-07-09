@@ -18,7 +18,7 @@ import { clearRecents } from "@/lib/recents";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — BeyondArch" }] }),
+  head: () => ({ meta: [{ title: "Settings — BeyondLabs" }] }),
   component: SettingsPage,
 });
 
@@ -38,13 +38,26 @@ function SettingsPage() {
     { id: "QL", label: "Motion & QoL" },
   ] as const;
 
-  // Theme preview is scoped to the gallery stage only — never mutates global theme until Apply.
   const [previewTheme, setPreviewTheme] = useState<ThemeId>(theme);
   useEffect(() => { setPreviewTheme(theme); }, [theme]);
   const themeDirty = previewTheme !== theme;
-  const handleThemePreview = (id: ThemeId) => setPreviewTheme(id);
+  const handleThemePreview = (id: ThemeId) => {
+    setPreviewTheme(id);
+    const t = THEMES.find((t) => t.id === id);
+    if (t) {
+      document.documentElement.setAttribute("data-theme", id);
+      document.documentElement.classList.toggle("dark", !t.isLight);
+    }
+  };
   const handleThemeApply = () => setTheme(previewTheme);
-  const handleThemeCancel = () => setPreviewTheme(theme);
+  const handleThemeCancel = () => {
+    setPreviewTheme(theme);
+    const t = THEMES.find((t) => t.id === theme);
+    if (t) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.classList.toggle("dark", !t.isLight);
+    }
+  };
 
   // Custom theme builder uses a local draft. Nothing mutates global prefs/theme
   // until the user clicks Apply — the preview stage renders directly from draft.
@@ -146,8 +159,8 @@ function SettingsPage() {
                 className="mt-2 text-mono"
                 value={prefs.brandName}
                 maxLength={32}
-                onChange={(e) => setPrefs({ brandName: e.target.value || "BeyondArch" })}
-                placeholder="BeyondArch"
+                onChange={(e) => setPrefs({ brandName: e.target.value || "BeyondLabs" })}
+                placeholder="BeyondLabs"
               />
             </div>
             <div>
@@ -192,7 +205,7 @@ function SettingsPage() {
                 {(() => { const I = getBrandIcon(prefs.brandIcon); return <I className="h-4 w-4" />; })()}
               </div>
               <div className="min-w-0">
-                <div className="text-mono text-[13px] font-bold leading-tight truncate">{prefs.brandName || "BeyondArch"}</div>
+                <div className="text-mono text-[13px] font-bold leading-tight truncate">{prefs.brandName || "BeyondLabs"}</div>
                 <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground truncate">
                   {prefs.brandTagline || "—"}
                 </div>
@@ -200,7 +213,7 @@ function SettingsPage() {
             </div>
             <Button
               variant="ghost" size="sm" className="text-mono text-[11px]"
-              onClick={() => setPrefs({ brandName: "BeyondArch", brandTagline: "soc · workbench", brandIcon: "shield-half" })}
+              onClick={() => setPrefs({ brandName: "BeyondLabs", brandTagline: "soc · workbench", brandIcon: "shield-half" })}
             >
               reset brand
             </Button>

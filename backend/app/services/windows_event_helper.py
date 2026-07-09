@@ -1,7 +1,7 @@
 """Local SOC reference data for common Windows Security and Sysmon events.
 
 This is intentionally curated for defensive triage. It is not an external lookup and it
-should grow over time as BeyondArch adds more analyst reference content.
+should grow over time as BeyondLabs adds more analyst reference content.
 """
 
 WINDOWS_EVENTS = {
@@ -855,7 +855,7 @@ def lookup_event(event_id: str) -> dict:
         return {
             "found": False,
             "event_id": str(event_id).strip(),
-            "message": "Event ID is not in the local BeyondArch reference yet.",
+            "message": "Event ID is not in the local BeyondLabs reference yet.",
             "suggestion": "Use the text analyzer to extract IDs from a full alert, or add this event to the local guide later."
         }
 
@@ -904,5 +904,5 @@ def analyze_event_text(text: str) -> dict:
     return {
         "events_found": found,
         "count": len(found),
-        "note": "Detected known Windows/Sysmon Event IDs from the local BeyondArch guide."
+        "note": "Detected known Windows/Sysmon Event IDs from the local BeyondLabs guide."
     }

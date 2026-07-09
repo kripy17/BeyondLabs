@@ -19,12 +19,14 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<ThemeId>(theme);
   const original = useRef<ThemeId>(theme);
+  const applied = useRef(false);
 
   // Sync when popover opens, snapshot the applied theme.
   useEffect(() => {
     if (open) {
       original.current = theme;
       setPreview(theme);
+      applied.current = false;
     }
   }, [open, theme]);
 
@@ -34,6 +36,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   };
 
   const handleApply = () => {
+    applied.current = true;
     setTheme(preview);
     setOpen(false);
   };
@@ -46,7 +49,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
 
   // If popover closes by outside-click, treat as cancel (revert preview).
   const handleOpenChange = (next: boolean) => {
-    if (!next && preview !== original.current) {
+    if (!next && preview !== original.current && !applied.current) {
       applyPreview(original.current);
       setPreview(original.current);
     }

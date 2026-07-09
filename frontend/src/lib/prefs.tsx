@@ -98,7 +98,7 @@ export type Prefs = {
 const STORAGE_KEY = "ba.prefs.v1";
 
 const DEFAULT: Prefs = {
-  brandName: "BeyondArch",
+  brandName: "BeyondLabs",
   brandTagline: "soc · workbench",
   brandIcon: "shield-half",
   accent: null,

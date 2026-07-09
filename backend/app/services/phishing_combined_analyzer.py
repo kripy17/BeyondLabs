@@ -71,7 +71,7 @@ def collect_iocs(body_result: dict | None) -> dict:
 def build_markdown_report(summary: dict, header_result: dict | None, body_result: dict | None, findings: list[dict], iocs: dict) -> str:
     lines = []
 
-    lines.append("# BeyondArch Phishing Analysis Report")
+    lines.append("# BeyondLabs Phishing Analysis Report")
     lines.append("")
     lines.append("## Summary")
     lines.append(f"- Score: {summary.get('score')}")

@@ -86,7 +86,7 @@ CHECKLISTS = {
         "steps": [
             {"id": "classify", "text": "Classify each IOC type and preserve original/defanged form."},
             {"id": "local", "text": "Run local deterministic checks before external enrichment."},
-            {"id": "backend_only", "text": "Confirm the workflow is using BeyondArch backend/local checks only."},
+            {"id": "backend_only", "text": "Confirm the workflow is using BeyondLabs backend/local checks only."},
             {"id": "context", "text": "Record source tool, source event, first seen time, and related asset/user context."},
             {"id": "confidence", "text": "Assign confidence based on source quality, recency, corroboration, and limitations."},
             {"id": "contradictions", "text": "Document clean, unknown, stale, missing-provider, or conflicting reputation results."},
@@ -191,7 +191,7 @@ def build_checklist_report(checklist_id: str, checked_step_ids: list[str], sever
     timestamp = datetime.now(timezone.utc).isoformat()
 
     lines = [
-        f"# BeyondArch Checklist Report: {checklist['title']}",
+        f"# BeyondLabs Checklist Report: {checklist['title']}",
         "",
         "## Summary",
         f"- Checklist ID: {checklist_id}",

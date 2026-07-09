@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BeyondArch — extract shared utils
+# BeyondLabs — extract shared utils
 # Creates frontend/src/lib/domUtils.js and patches all imports automatically.
 # Safe: backs up each file before patching. Run from repo root.
 # Usage: ./scripts/extract-utils.sh [--dry-run]
@@ -21,7 +21,7 @@ warn() { echo -e "${C_YELLOW}⚠${C_RESET} $*"; }
 die()  { echo -e "${C_RED}✗${C_RESET} $*" >&2; exit 1; }
 dim()  { echo -e "  ${C_DIM}$*${C_RESET}"; }
 
-echo -e "\n${C_BOLD}${C_CYAN}BeyondArch — extract-utils${C_RESET}"
+echo -e "\n${C_BOLD}${C_CYAN}BeyondLabs — extract-utils${C_RESET}"
 $DRY_RUN && warn "DRY RUN — no files will be written"
 echo ""
 

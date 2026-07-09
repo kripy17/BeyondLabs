@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/banner.svg" alt="BeyondArch" width="100%">
+  <img src="assets/banner.svg" alt="BeyondLabs" width="100%">
 </div>
 
 <div align="center">
@@ -49,9 +49,9 @@ all local-first, privacy-preserving, and analyst-led.
 
 ## Overview
 
-BeyondArch is a local-first workbench for defensive analysts. It handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine, with nothing shipped off to a third party. It runs on Linux, macOS, and Windows.
+BeyondLabs is a local-first workbench for defensive analysts. It handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine, with nothing shipped off to a third party. It runs on Linux, macOS, and Windows.
 
-Most SOC practice tooling means either standing up a full lab or pasting artifacts into someone else's cloud dashboard. BeyondArch skips both: every workspace runs against your own machine, and nothing leaves it unless you explicitly turn on external enrichment.
+Most SOC practice tooling means either standing up a full lab or pasting artifacts into someone else's cloud dashboard. BeyondLabs skips both: every workspace runs against your own machine, and nothing leaves it unless you explicitly turn on external enrichment.
 
 | | |
 |---|---|
@@ -245,7 +245,7 @@ The setup detects your package manager automatically — `pacman` (Arch), `apt` 
 > [!WARNING]
 > Recon and scanning tools require explicit confirmation and must only be run against owned, lab, or explicitly authorized targets.
 
-BeyondArch is designed for defensive analysts who need honest, local signals — not fabricated threat intelligence.
+BeyondLabs is designed for defensive analysts who need honest, local signals — not fabricated threat intelligence.
 
 - No malware execution or attachment detonation
 - No phishing sending, credential capture, or brute force automation
@@ -367,7 +367,7 @@ Plain `./install.sh` walks through a guided profile. Optional tools are never in
 
 ## Known Limitations
 
-- BeyondArch provides local/static triage signals, not absolute threat intelligence verdicts
+- BeyondLabs provides local/static triage signals, not absolute threat intelligence verdicts
 - External reputation providers are not faked; unavailable sources show limitations inline
 - Browser storage is convenient workspace state, not a forensics-grade evidence vault
 - Active scanning must only be used against owned, lab, or explicitly authorised targets
@@ -377,7 +377,7 @@ Plain `./install.sh` walks through a guided profile. Optional tools are never in
 
 ## FAQ
 
-**Does BeyondArch send my data anywhere?**
+**Does BeyondLabs send my data anywhere?**
 No. Analysis runs in your browser and your local FastAPI backend. The only exception is external enrichment, which is opt-in and off by default.
 
 **What platforms are supported?**

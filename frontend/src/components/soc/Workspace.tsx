@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 /* ============================================================
- * Shared workspace primitives. Mirror the reference BeyondArch
+ * Shared workspace primitives. Mirror the reference BeyondLabs
  * structure (intake card → status → result banner → key fields
  * → ioc inventory → send-to) using our quieter mono aesthetic.
  * ============================================================ */

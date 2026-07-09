@@ -53,7 +53,7 @@ level: high`,
   yara: {
     rule: `rule Suspicious_PS_EncodedCommand {
   meta:
-    author = "BeyondArch"
+    author = "BeyondLabs"
     reference = "T1059.001"
   strings:
     $a = "EncodedCommand" ascii wide nocase
@@ -680,7 +680,7 @@ function DetectionPage() {
       {/* Structural analysis panel */}
       {showAnalysis && analysis.length > 0 && (
         <Panel title={`Rule structure · ${fmt}`} icon={ListFilter} meta={`${analysis.length} fields`} className="mt-3">
-          <div className="grid gap-1.5 grid-cols-2 grid-cols-3">
+          <div className="grid gap-1.5 grid-cols-3">
             {analysis.map((f) => (
               <div key={f.key} className="rounded border border-border/40 bg-background/30 px-2.5 py-1.5">
                 <div className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{f.key}</div>

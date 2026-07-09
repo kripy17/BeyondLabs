@@ -107,6 +107,26 @@ def get_categories():
         {"id": "steganography", "name": "Steganography", "icon": "image", "tools": [
             {"id": "stegocracker", "name": "StegoCracker", "binary": "stegocracker"},
         ]},
+        {"id": "network_utilities", "name": "Network Utilities", "icon": "terminal", "tools": [
+            {"id": "dig", "name": "dig", "binary": "dig"},
+            {"id": "host", "name": "host", "binary": "host"},
+            {"id": "ping", "name": "ping", "binary": "ping"},
+            {"id": "traceroute", "name": "traceroute", "binary": "traceroute"},
+            {"id": "whois", "name": "whois", "binary": "whois"},
+            {"id": "curl", "name": "curl", "binary": "curl"},
+            {"id": "nslookup", "name": "nslookup", "binary": "nslookup"},
+            {"id": "mtr", "name": "MTR", "binary": "mtr"},
+            {"id": "nc", "name": "Netcat", "binary": "nc"},
+            {"id": "telnet", "name": "Telnet", "binary": "telnet"},
+            {"id": "ssh", "name": "SSH client", "binary": "ssh"},
+            {"id": "netstat", "name": "Netstat", "binary": "netstat"},
+            {"id": "ss", "name": "Socket statistics", "binary": "ss"},
+            {"id": "ip", "name": "ip", "binary": "ip"},
+            {"id": "ifconfig", "name": "ifconfig", "binary": "ifconfig"},
+            {"id": "arp", "name": "arp", "binary": "arp"},
+            {"id": "iwconfig", "name": "iwconfig", "binary": "iwconfig"},
+            {"id": "route", "name": "route", "binary": "route"},
+        ]},
     ]
 
     for cat in categories:
@@ -144,9 +164,15 @@ def run_tool(category_id: str, tool_id: str, target: str = "", args: str = "") -
 
     tool = tool_map.get(tool_id)
     if not tool:
-        return {"error": f"Tool '{tool_id}' not found"}
-
-    binary = tool.get("binary", tool_id)
+        binary = tool_id
+        if not _check_tool(binary):
+            return {
+                "error": f"Unknown tool '{tool_id}' and '{binary}' is not installed",
+                "tool_id": tool_id,
+                "suggestion": "Check the spelling or install the binary",
+            }
+    else:
+        binary = tool.get("binary", tool_id)
     if not _check_tool(binary):
         return {
             "error": f"'{binary}' is not installed",

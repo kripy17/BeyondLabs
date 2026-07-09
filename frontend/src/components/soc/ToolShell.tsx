@@ -57,7 +57,7 @@ export function ToolShell({
 
   return (
     <div className="ba-fade-in space-y-4">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 pb-3 flex flex-wrap">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 pb-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_8%,transparent)]">
             <Icon className="h-4 w-4" />
@@ -90,7 +90,7 @@ export function ToolShell({
         </div>
       </header>
 
-      <section className="rounded-lg border border-border/70 bg-card/35 p-3 shadow-[0_18px_70px_-55px_var(--primary)] p-4">
+      <section className="rounded-lg border border-border/70 bg-card/35 p-4 shadow-[0_18px_70px_-55px_var(--primary)]">
         <div className="space-y-3">{intake}</div>
       </section>
 
@@ -145,7 +145,7 @@ function RunBar({
       >
         <Zap className="h-3 w-3" />
         {runLabel}
-        <span className="ml-1 hidden items-center gap-0.5 rounded border border-primary/30 px-1 text-[9px] opacity-80 inline-flex">
+        <span className="ml-1 inline-flex items-center gap-0.5 rounded border border-primary/30 px-1 text-[9px] opacity-80">
           ⌘<CornerDownLeft className="h-2.5 w-2.5" />
         </span>
       </button>
@@ -155,7 +155,7 @@ function RunBar({
         className="inline-flex items-center gap-1.5 rounded border border-border px-2 py-1 text-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:border-destructive/50 hover:text-destructive"
       >
         <Eraser className="h-3 w-3" /> clear
-        <span className="ml-1 hidden items-center rounded border border-border px-1 text-[9px] opacity-70 inline-flex">⌘.</span>
+        <span className="ml-1 inline-flex items-center rounded border border-border px-1 text-[9px] opacity-70">⌘.</span>
       </button>
       <span className="ml-auto text-mono text-[10px] text-muted-foreground">
         auto-runs on paste

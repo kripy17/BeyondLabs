@@ -71,7 +71,7 @@ def build_ids_rule(data: dict) -> dict:
     dst_ip = data.get("dst_ip", "any").strip() or "any"
     dst_port = data.get("dst_port", "any").strip() or "any"
 
-    msg = data.get("msg", "BeyondArch generated IDS rule").strip()
+    msg = data.get("msg", "BeyondLabs generated IDS rule").strip()
     content = data.get("content", "").strip()
     pcre = data.get("pcre", "").strip()
     flow = data.get("flow", "").strip()

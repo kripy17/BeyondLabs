@@ -73,7 +73,7 @@ Mark-Ok "npm $(npm --version)"
 
 if (-not $Yes) {
   Write-Host ""
-  $answer = Read-Host "  ? Start BeyondArch Windows setup? [y/N]"
+  $answer = Read-Host "  ? Start BeyondLabs Windows setup? [y/N]"
   if ($answer -notmatch "^(y|yes)$") { Mark-Info "Setup cancelled"; exit 0 }
 }
 

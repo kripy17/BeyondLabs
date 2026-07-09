@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
- * BeyondArch — Multi-theme design system
+ * BeyondLabs — Multi-theme design system
  * Themes:
  *   aurora-tactical (DEFAULT) — deep ink + cyan/violet aurora
  *   terminal-noir              — pitch black + neon green
@@ -742,7 +742,7 @@ body::before {
 }
 
 /* Ensure app content sits above the backdrop */
-#root, main, header, aside, [data-sidebar] { position: relative; z-index: 1; }
+#root, main, header, aside { position: relative; z-index: 1; }
 
 /* ============================================================
  * BRUTALIST family (brutalist-light + newsprint-dark)

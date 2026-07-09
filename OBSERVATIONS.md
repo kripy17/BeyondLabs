@@ -1,4 +1,4 @@
-# BeyondArch - Page-by-Page Observations & Improvement Plan
+# BeyondLabs - Page-by-Page Observations & Improvement Plan
 
 **Date:** 2026-07-03
 **Screenshots:** `/tmp/screenshots/` (18 pages captured)
@@ -350,7 +350,7 @@ Removed fake/hardcoded scoring systems throughout the webapp:
 **What's Working:**
 - Import/Export/Reset buttons present
 - Filter settings with tabs (BRAND, THEME GALLERY, CUSTOM THEME, ACCENT, DENSITY, TYPOGRAPHY, SIDEBAR, MOTION & QOL)
-- Brand section with APP NAME (BeyondArch), TAGLINE (soc · workbench), ICON selector
+- Brand section with APP NAME (BeyondLabs), TAGLINE (soc · workbench), ICON selector
 - Theme gallery with 8 themes (Terminal Noir active, SOC Console, Editorial Dark, etc.)
 - Preview card showing current theme
 

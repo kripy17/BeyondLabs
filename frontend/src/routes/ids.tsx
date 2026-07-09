@@ -181,7 +181,7 @@ function IdsPage() {
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> loading templates…
         </div>
       ) : (
-        <div className="grid gap-2 grid-cols-2 grid-cols-4">
+        <div className="grid gap-2 grid-cols-4">
           {templateList.map((t) => {
             const sel = selectedKey === t.key;
             return (
@@ -199,7 +199,7 @@ function IdsPage() {
 
       <SectionBar id="PR" label="Parameters" />
       <Panel title="Rule parameters" icon={Shield}>
-        <div className="grid gap-2 grid-cols-2 grid-cols-4">
+        <div className="grid gap-2 grid-cols-4">
           <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">engine
             <select value={engine} onChange={(e) => setEngine(e.target.value)} className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground">
               <option value="snort">snort</option><option value="suricata">suricata</option><option value="generic">generic</option>

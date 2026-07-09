@@ -242,7 +242,7 @@ function OsintPage() {
             details={[
               `${applicable.length} services match this target type`,
               `categories: ${Array.from(new Set(applicable.map((t) => t.cat))).join(", ")}`,
-              "Click any service to inspect — no API call is made from BeyondArch",
+              "Click any service to inspect — no API call is made from BeyondLabs",
             ].filter(Boolean)}
           />
           <MetricGrid
@@ -482,7 +482,7 @@ function OsintPage() {
 
       {ready && (
         <Panel icon={Sparkles} title="Send target to" meta="continue the investigation">
-          <div className="grid gap-1.5 grid-cols-2 grid-cols-3">
+          <div className="grid gap-1.5 grid-cols-3">
             {[
               { label: "Safe URL Analyzer", to: "/url",       icon: Globe2,   kind: "url",    when: kind === "domain" || kind === "raw" },
               { label: "Phishing Analyzer", to: "/phishing",  icon: Send,     kind: "email",  when: kind === "email" },

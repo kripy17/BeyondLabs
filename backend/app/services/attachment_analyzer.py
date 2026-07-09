@@ -184,5 +184,5 @@ def analyze_attachments(filenames: list[str], hashes: list[str] | None = None) -
         "files": analyzed_files,
         "hashes": analyzed_hashes,
         "findings": all_findings,
-        "safety_note": "BeyondArch only analyzes attachment indicators. It does not execute files or open macros.",
+        "safety_note": "BeyondLabs only analyzes attachment indicators. It does not execute files or open macros.",
     }

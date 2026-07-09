@@ -50,7 +50,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
             "Throttle, document scope, and avoid real users, third-party systems, and production auth services.",
         ],
         "not_implemented": [
-            "Hydra is not executed by BeyondArch.",
+            "Hydra is not executed by BeyondLabs.",
             "No live credential guessing, password spraying, or login attack commands are generated.",
         ],
         "workflow": [
@@ -89,13 +89,13 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
             "Record module name, CVE, target version, and lab authorization if testing elsewhere.",
         ],
         "not_implemented": [
-            "BeyondArch does not run Metasploit modules, exploit payloads, handlers, sessions, or post-exploitation actions.",
+            "BeyondLabs does not run Metasploit modules, exploit payloads, handlers, sessions, or post-exploitation actions.",
             "No payload generation or listener setup is provided.",
         ],
         "workflow": [
             "Start with passive version and exposure evidence.",
             "Validate vulnerability applicability from vendor advisories and lab documentation.",
-            "If a sanctioned lab is used externally, import observed artifacts into BeyondArch as evidence.",
+            "If a sanctioned lab is used externally, import observed artifacts into BeyondLabs as evidence.",
             "Build detection notes from exploit path, user-agent, process tree, and network callback evidence.",
         ],
         "defender_view": [
@@ -126,7 +126,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "not_implemented": [
             "The generic runner does not execute tshark on arbitrary local paths.",
-            "Use the existing PCAP analyzer upload workflow for BeyondArch-managed parsing.",
+            "Use the existing PCAP analyzer upload workflow for BeyondLabs-managed parsing.",
         ],
         "workflow": [
             "Identify capture source, timeframe, and collection consent.",
@@ -229,7 +229,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Study only in isolated local labs or training rooms that explicitly allow it.",
-            "Do not run payloads or callbacks through BeyondArch.",
+            "Do not run payloads or callbacks through BeyondLabs.",
         ],
         "not_implemented": [
             "No reverse-shell payloads, one-liners, listeners, or callback commands are generated.",
@@ -264,7 +264,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use known-benign toy examples or published lab artifacts only.",
-            "Do not generate, compile, encode, or package payloads in BeyondArch.",
+            "Do not generate, compile, encode, or package payloads in BeyondLabs.",
         ],
         "not_implemented": [
             "No payload code, encoders, loaders, droppers, macros, or bypass guidance are generated.",
@@ -299,7 +299,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use tabletop, CTF, or owned local lab evidence.",
-            "Do not run post-exploitation frameworks or commands through BeyondArch.",
+            "Do not run post-exploitation frameworks or commands through BeyondLabs.",
         ],
         "not_implemented": [
             "No post-exploitation commands, privilege abuse steps, or lateral movement playbooks are generated.",
@@ -335,7 +335,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use synthetic logs, tabletop exercises, or provider dashboards only.",
-            "Do not generate traffic floods or stress tests from BeyondArch.",
+            "Do not generate traffic floods or stress tests from BeyondLabs.",
         ],
         "not_implemented": [
             "No traffic generation, amplification, stress testing, or bypass instructions are provided.",
@@ -439,7 +439,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use controlled lab logs or benign administrative examples.",
-            "Do not create persistence on real systems through BeyondArch.",
+            "Do not create persistence on real systems through BeyondLabs.",
         ],
         "not_implemented": [
             "No registry, service, scheduled task, startup, web shell, or account persistence steps are generated.",
@@ -474,7 +474,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use intentionally vulnerable local labs or defensive configuration reviews.",
-            "Do not run exploit code or abuse real misconfigurations through BeyondArch.",
+            "Do not run exploit code or abuse real misconfigurations through BeyondLabs.",
         ],
         "not_implemented": [
             "No exploit commands, kernel exploit guidance, credential abuse steps, or bypass instructions are generated.",
@@ -543,7 +543,7 @@ OFFENSIVE_KNOWLEDGE_DETAILS: dict[str, dict] = {
         ],
         "safe_lab_scope": [
             "Use PCAPs, proxy logs, synthetic logs, or sanctioned lab telemetry.",
-            "Do not deploy agents, implants, listeners, or C2 infrastructure through BeyondArch.",
+            "Do not deploy agents, implants, listeners, or C2 infrastructure through BeyondLabs.",
         ],
         "not_implemented": [
             "No C2 framework setup, listener operation, payload generation, or evasion guidance is provided.",

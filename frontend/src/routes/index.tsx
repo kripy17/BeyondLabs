@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Command Deck — BeyondArch" },
+      { title: "Command Deck — BeyondLabs" },
       { name: "description", content: "Local-first SOC analyst workbench. Pick a track or jump into a workspace." },
     ],
   }),
@@ -119,7 +119,7 @@ function Dashboard() {
           icon={LayoutGrid} label="workspaces"
           hint={<><NumberTicker value={allModules.length} /> modules · <NumberTicker value={groupCount} /> groups</>}
         />
-        <div className="grid gap-2.5 ba-stagger grid-cols-2 grid-cols-3 grid-cols-4 grid-cols-5">
+        <div className="grid gap-2.5 ba-stagger grid-cols-5">
           {allModules.map((m) => <ModuleTile key={m.url} m={m} />)}
         </div>
       </section>
@@ -210,7 +210,7 @@ function CommandStrip() {
         <StripCell label="clock" value={`${day} · ${time}`} />
         <StripCell label="env" value="local · browser" icon={Cpu} />
         <StripCell label="net" value="offline-safe" icon={WifiOff} tone="muted" />
-        <div className="ml-auto hidden items-center gap-2 flex">
+        <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             no upload · no detonation
           </span>

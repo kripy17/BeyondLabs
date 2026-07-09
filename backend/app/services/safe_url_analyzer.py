@@ -866,7 +866,7 @@ def _limited_get_title(client: httpx.Client, url: str, timeout_seconds: int) -> 
             url,
             timeout=timeout_seconds,
             follow_redirects=False,
-            headers={"User-Agent": "BeyondArch-SafeFetch/1.0", "Accept": "text/html,application/xhtml+xml", "Range": f"bytes=0-{MAX_TITLE_BYTES - 1}"},
+            headers={"User-Agent": "BeyondLabs-SafeFetch/1.0", "Accept": "text/html,application/xhtml+xml", "Range": f"bytes=0-{MAX_TITLE_BYTES - 1}"},
         ) as response:
             observed_headers = _safe_headers(response.headers)
             content_type = response.headers.get("content-type", "")
@@ -1041,7 +1041,7 @@ def _run_safe_fetch(start_url: str, max_redirects: int, timeout_seconds: int, al
                     current_url,
                     follow_redirects=False,
                     timeout=timeout_seconds,
-                    headers={"User-Agent": "BeyondArch-SafeFetch/1.0", "Accept": "*/*"},
+                    headers={"User-Agent": "BeyondLabs-SafeFetch/1.0", "Accept": "*/*"},
                 )
             except httpx.HTTPStatusError as error:
                 blocked_reason = f"HTTP error: {error}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BeyondArch audit — finds duplications, large files, style inconsistencies
+# BeyondLabs audit — finds duplications, large files, style inconsistencies
 # Usage: ./scripts/audit.sh [--from REPO_ROOT]
 set -euo pipefail
 
@@ -17,7 +17,7 @@ ok()      { echo -e "  ${C_GREEN}✓${C_RESET} $*"; }
 bad()     { echo -e "  ${C_RED}✗${C_RESET} $*"; }
 dim()     { echo -e "  ${C_DIM}$*${C_RESET}"; }
 
-echo -e "\n${C_BOLD}${C_MAGENTA}BeyondArch Codebase Audit${C_RESET}"
+echo -e "\n${C_BOLD}${C_MAGENTA}BeyondLabs Codebase Audit${C_RESET}"
 echo -e "${C_DIM}$SRC${C_RESET}"
 
 # ── 1. File sizes ────────────────────────────────────────────────────────────

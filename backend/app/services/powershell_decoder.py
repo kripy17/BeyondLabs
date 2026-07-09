@@ -92,5 +92,5 @@ def analyze_powershell(command: str) -> dict:
         "decoded": decoded,
         "suspicious_tokens": hits,
         "findings": findings,
-        "safety_note": "BeyondArch only decodes/analyzes PowerShell text. It does not execute commands."
+        "safety_note": "BeyondLabs only decodes/analyzes PowerShell text. It does not execute commands."
     }

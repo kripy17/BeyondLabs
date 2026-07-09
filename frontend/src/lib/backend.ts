@@ -16,9 +16,7 @@ export function setBackendUrl(url: string) {
   try {
     if (url && url.trim()) localStorage.setItem(LS_KEY, url.trim().replace(/\/+$/, ""));
     else localStorage.removeItem(LS_KEY);
-  } catch {
-    /* noop */
-  }
+  } catch {}
 }
 
 export type BackendStatus = "unknown" | "checking" | "online" | "offline";

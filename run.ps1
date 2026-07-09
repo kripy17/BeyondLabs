@@ -83,7 +83,7 @@ try {
   Write-Host ""
   Hr
   Write-Host ""
-  Write-Host "  │  BeyondArch running" -ForegroundColor $C_Cyan
+  Write-Host "  │  BeyondLabs running" -ForegroundColor $C_Cyan
   if (-not $BackendOnly)  { Write-Host "  │  Frontend  http://${HostName}:${FrontendPort}" -ForegroundColor $C_Cyan }
   if (-not $FrontendOnly) { Write-Host "  │  Backend   http://${HostName}:${BackendPort}" -ForegroundColor $C_Cyan }
   Write-Host "  │"
