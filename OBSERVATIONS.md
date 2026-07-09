@@ -147,7 +147,7 @@ Removed fake/hardcoded scoring systems throughout the webapp:
 - Clean intake card with target input
 - Status bar: STATUS Idle, SOURCES DNS TLS HTTP, SCORE -, ACTIVE PROBING off
 - Empty state: "No target loaded" with helpful message
-- Footer: "BEYONDARCH · LOCAL SOC WORKBENCH" and "ANALYST-LED · NO DETONATION · BOUNDED SCANS"
+- Footer: "BEYONDLABS · LOCAL SOC WORKBENCH" and "ANALYST-LED · NO DETONATION · BOUNDED SCANS"
 - DNS/TLS/HTTP source indicators present
 
 **Issues:**

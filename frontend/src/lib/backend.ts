@@ -1,6 +1,6 @@
-const LS_KEY = "beyondarch.backendUrl";
+const LS_KEY = "beyondlabs.backendUrl";
 const DEFAULT_URL =
-  (import.meta.env.VITE_BEYONDARCH_API as string | undefined) ||
+  (import.meta.env.VITE_BEYONDLABS_API as string | undefined) ||
   "http://localhost:8000";
 
 export function getBackendUrl(): string {

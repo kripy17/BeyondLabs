@@ -72,9 +72,9 @@ const RANGE_MIN: Record<Range, number> = { "15m": 15, "1h": 60, "24h": 24 * 60, 
 
 const IPV4 = /\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b/g;
 
-const LOCALSTORE_CHIPS = "beyondarch.siem.chips";
-const LOCALSTORE_KEYWORD = "beyondarch.siem.keyword";
-const LOCALSTORE_RANGE = "beyondarch.siem.range";
+const LOCALSTORE_CHIPS = "beyondlabs.siem.chips";
+const LOCALSTORE_KEYWORD = "beyondlabs.siem.keyword";
+const LOCALSTORE_RANGE = "beyondlabs.siem.range";
 
 function loadPersist<T>(key: string, fallback: T): T {
   try {
@@ -89,18 +89,18 @@ function savePersist(key: string, value: unknown) {
 
 function readInitialPrefill(): string {
   try {
-    const direct = localStorage.getItem("beyondarch.siem.prefill") || "";
+    const direct = localStorage.getItem("beyondlabs.siem.prefill") || "";
     if (direct) {
-      localStorage.removeItem("beyondarch.siem.prefill");
+      localStorage.removeItem("beyondlabs.siem.prefill");
       return direct;
     }
-    const raw = localStorage.getItem("beyondarch.pendingArtifact");
+    const raw = localStorage.getItem("beyondlabs.pendingArtifact");
     if (!raw) return "";
     const pending = JSON.parse(raw);
     const target = String(pending?.target || pending?.page || pending?.destination || "").toLowerCase();
     const shouldLoad = target.includes("siem") || target.includes("logs") || pending?.type === "siem" || pending?.type === "log" || pending?.type === "event";
     if (!shouldLoad) return "";
-    localStorage.removeItem("beyondarch.pendingArtifact");
+    localStorage.removeItem("beyondlabs.pendingArtifact");
     const value = pending?.content || pending?.text || pending?.raw_input || pending?.value || pending?.query || pending?.rule || pending?.event;
     if (typeof value === "string") return value;
     return value ? JSON.stringify(value, null, 2) : "";
@@ -248,7 +248,7 @@ function buildMetricsNarrative(metrics: any, events: Event[], findings: Finding[
 
 function sendArtifactClick(page: string, content: string) {
   try {
-    localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({
+    localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({
       type: "siem_events",
       content,
       target: page,

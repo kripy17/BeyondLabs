@@ -167,7 +167,7 @@ flowchart TD
     D --> E["Case & Report<br/>Timeline · Notes · Markdown Export"]
 ```
 
-Every workspace connects through `beyondarch.pendingArtifact` — a localStorage handoff channel. Send findings between pages without losing context.
+Every workspace connects through `beyondlabs.pendingArtifact` — a localStorage handoff channel. Send findings between pages without losing context.
 
 ### System Architecture
 

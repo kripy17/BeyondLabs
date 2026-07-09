@@ -32,7 +32,7 @@
   <circle cx="28" cy="20" r="6" fill="#ff5f56"/>
   <circle cx="50" cy="20" r="6" fill="#ffbd2e"/>
   <circle cx="72" cy="20" r="6" fill="#27c93f"/>
-  <text x="600" y="25" text-anchor="middle" font-family="JetBrains Mono, Fira Code, Consolas, monospace" font-size="13" fill="#8a7a7a">sockr17@arch:~/beyondarch</text>
+  <text x="600" y="25" text-anchor="middle" font-family="JetBrains Mono, Fira Code, Consolas, monospace" font-size="13" fill="#8a7a7a">sockr17@arch:~/beyondlabs</text>
 
   <!-- static scanline texture -->
   <rect x="1" y="40" width="1198" height="259" fill="url(#scan)"/>
@@ -44,7 +44,7 @@
   </rect>
 
   <!-- wordmark -->
-  <text x="600" y="168" text-anchor="middle" font-family="JetBrains Mono, Fira Code, Consolas, monospace" font-size="64" font-weight="700" letter-spacing="6" fill="url(#textGrad)" filter="url(#glow)">BEYONDARCH</text>
+  <text x="600" y="168" text-anchor="middle" font-family="JetBrains Mono, Fira Code, Consolas, monospace" font-size="64" font-weight="700" letter-spacing="6" fill="url(#textGrad)" filter="url(#glow)">BEYONDLABS</text>
 
   <!-- tagline -->
   <text x="600" y="206" text-anchor="middle" font-family="JetBrains Mono, Fira Code, Consolas, monospace" font-size="16" letter-spacing="3" fill="#9a9a9a">LOCAL-FIRST · SOC ANALYST WORKBENCH</text>

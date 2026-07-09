@@ -90,7 +90,7 @@ ba_status_line() {
 ba_spin() {
   local label="$1"; shift
   local log_file
-  log_file="$(mktemp -t beyondarch.XXXXXX.log)"
+  log_file="$(mktemp -t beyondlabs.XXXXXX.log)"
   if [[ -t 1 ]]; then
     ("$@") >"$log_file" 2>&1 &
     local pid=$!

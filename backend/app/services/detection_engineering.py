@@ -211,7 +211,7 @@ def build_sigma_rule(title: str, description: str, severity: str, logsource_type
 
     rule = {
         "title": title,
-        "id": "generated-by-beyondarch",
+        "id": "generated-by-beyondlabs",
         "status": "experimental",
         "description": description,
         "references": [],

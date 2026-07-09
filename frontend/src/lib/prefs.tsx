@@ -272,6 +272,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
         const merged: Prefs = {
           ...DEFAULT,
           ...parsed,
+          brandName: !parsed.brandName || parsed.brandName === "BeyondArch" ? DEFAULT.brandName : parsed.brandName,
           sidebar: { ...DEFAULT.sidebar, ...(parsed.sidebar ?? {}) },
         };
         const known = new Set(merged.sidebar.order);

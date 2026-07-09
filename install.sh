@@ -7,7 +7,7 @@ BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 UI_HELPER="$ROOT_DIR/scripts/terminal-ui.sh"
 TOOL_INVENTORY="$ROOT_DIR/scripts/tool-inventory.sh"
-STATE_DIR="$ROOT_DIR/.beyondarch"
+STATE_DIR="$ROOT_DIR/.beyondlabs"
 INSTALLED_TOOLS_STATE="$STATE_DIR/installed-tools.txt"
 START_TS=$(date +%s)
 PYTHON_BIN="${PYTHON_BIN:-}"
@@ -38,7 +38,7 @@ fi
 . "$TOOL_INVENTORY"
 unset _R _D _X
 
-# ── Override ba_logo with correct BEYONDARCH banner ──────────────
+# ── Override ba_logo with correct BEYONDLABS banner ──────────────
 ba_logo() {
   echo ""
   echo -e "${C_CYAN}${C_BOLD}"
@@ -138,7 +138,7 @@ find_python() {
 spin_run() {
   local label="$1"; shift
   local log_file elapsed
-  log_file="$(mktemp -t beyondarch-install.XXXXXX.log)"
+  log_file="$(mktemp -t beyondlabs-install.XXXXXX.log)"
   local step_ts; step_ts=$(date +%s)
   ba_phase "$label"
   if [[ -t 1 ]]; then
@@ -365,7 +365,7 @@ record_installed_packages() {
       printf '%s|%s\n' "$group" "$package" >>"$INSTALLED_TOOLS_STATE"
     fi
   done
-  ba_ok "Install state recorded → ${C_DIM}.beyondarch/installed-tools.txt${C_RESET}"
+  ba_ok "Install state recorded → ${C_DIM}.beyondlabs/installed-tools.txt${C_RESET}"
 }
 
 # ════════════════════════════════════════════════════════════════

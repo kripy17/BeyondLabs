@@ -335,9 +335,9 @@ const PRESETS: Preset[] = [
 
 /* =================== Component =================== */
 
-const FAVS_KEY = "beyondarch.chefFavs";
-const RECIPE_KEY = "beyondarch.chefRecipe";
-const LIBRARY_KEY = "beyondarch.chefLibrary";
+const FAVS_KEY = "beyondlabs.chefFavs";
+const RECIPE_KEY = "beyondlabs.chefRecipe";
+const LIBRARY_KEY = "beyondlabs.chefLibrary";
 
 type SavedBake = { id: string; name: string; recipe: { operationId: string; options: Record<string, any> }[]; ts: number };
 
@@ -540,7 +540,7 @@ function ChefPage() {
     const route = HANDOFF_TARGETS[target];
     if (!route || !output) return;
     try {
-      localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ target: route.page.replace("/", ""), value: output, source: "CyberChef", type: "transform" }));
+      localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({ target: route.page.replace("/", ""), value: output, source: "CyberChef", type: "transform" }));
       navigate({ to: route.page });
     } catch {}
   };
@@ -815,8 +815,8 @@ function ChefPage() {
                   >
                     auto {autoBake ? "on" : "off"}
                   </button>
-                  <button onClick={() => { try { localStorage.setItem("beyondarch.chefRecipeSaved", JSON.stringify(serializeRecipe(recipe))); setNotice("Recipe saved to browser"); } catch {} }} disabled={!recipe.length} className="inline-flex items-center gap-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary disabled:opacity-30" title="Save recipe to browser">save</button>
-                  <button onClick={() => { try { const r = localStorage.getItem("beyondarch.chefRecipeSaved"); if (r) setRecipe(normalizeRecipeItems(JSON.parse(r))); } catch {} }} className="inline-flex items-center gap-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary" title="Load saved recipe from browser">load</button>
+                  <button onClick={() => { try { localStorage.setItem("beyondlabs.chefRecipeSaved", JSON.stringify(serializeRecipe(recipe))); setNotice("Recipe saved to browser"); } catch {} }} disabled={!recipe.length} className="inline-flex items-center gap-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary disabled:opacity-30" title="Save recipe to browser">save</button>
+                  <button onClick={() => { try { const r = localStorage.getItem("beyondlabs.chefRecipeSaved"); if (r) setRecipe(normalizeRecipeItems(JSON.parse(r))); } catch {} }} className="inline-flex items-center gap-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary" title="Load saved recipe from browser">load</button>
                   {recipe.length > 0 && (
                     <button onClick={() => setRecipe([])} className="inline-flex items-center gap-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-destructive">
                       <Trash2 className="h-3 w-3" /> clr

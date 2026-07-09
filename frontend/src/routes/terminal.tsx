@@ -108,7 +108,7 @@ type Line = { kind: "prompt" | "stdout" | "stderr" | "info" | "warn" | "ok" | "e
 
 const LS_HIST = "ba.terminal.history.v1";
 const LS_LINES = "ba.terminal.buffer.v1";
-const PROMPT = "analyst@beyondarch:~$";
+const PROMPT = "analyst@beyondlabs:~$";
 const MAX_LINES = 2000;
 
 function loadJSON<T>(k: string, fb: T): T { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fb; } catch { return fb; } }
@@ -359,7 +359,7 @@ function TerminalPage() {
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `beyondarch-terminal-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
+    a.download = `beyondlabs-terminal-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
     a.click(); URL.revokeObjectURL(a.href);
   }
 
@@ -402,7 +402,7 @@ function TerminalPage() {
             <span className="h-2.5 w-2.5 rounded-full bg-warning/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
           </div>
-          <span className="text-mono text-[10.5px] text-muted-foreground truncate">/dev/beyondarch — analyst@shell</span>
+          <span className="text-mono text-[10.5px] text-muted-foreground truncate">/dev/beyondlabs — analyst@shell</span>
           <span className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-mono text-[9.5px] uppercase tracking-widest ${statusTone}`}>
             {status === "online" ? <PlugZap className="h-3 w-3" /> : <Plug className="h-3 w-3" />}
             {status}

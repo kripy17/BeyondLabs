@@ -56,7 +56,7 @@ const SAMPLES: Record<string, string> = {
   mailto: "mailto:reset-password@example.com?subject=Security+Alert&body=Click+https://evil[.]host/login",
 };
 
-const HISTORY_KEY = "beyondarch.urlHistory";
+const HISTORY_KEY = "beyondlabs.urlHistory";
 
 const FILE_EXT_RX = /\.(exe|msi|scr|ps1|vbs|docm|xlsm|pptm|zip|rar|7z|iso|dmg|bat|cmd|jar|wsf|js|vbe|pif|gadget|application|appref-ms)$/i;
 

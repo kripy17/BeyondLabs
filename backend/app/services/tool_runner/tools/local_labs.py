@@ -256,7 +256,7 @@ def run_controlled_workflow(tool_id: str, inputs: dict) -> dict:
         ],
     }
     terminal_lines = [
-        f"$ beyondarch-controlled-workflow --tool {tool_id}",
+        f"$ beyondlabs-controlled-workflow --tool {tool_id}",
         f"[+] Workflow: {workflow['title']}",
         f"[+] Matched indicators: {len(workflow['matched'])}",
         "",

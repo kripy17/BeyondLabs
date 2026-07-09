@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$StateDir = Join-Path $RootDir ".beyondarch"
+$StateDir = Join-Path $RootDir ".beyondlabs"
 
 # ── Visual toolkit ──────────────────────────────────────────────
 $C_Cyan = "Cyan"; $C_Green = "Green"; $C_Yellow = "Yellow"
@@ -37,7 +37,7 @@ if ($Help) {
   Write-Host "  -DryRun         Show what would be removed"
   Write-Host "  -Yes            Skip confirmation"
   Write-Host "  -AppDepsOnly    Remove .venv + node_modules only"
-  Write-Host "  -Purge          Also remove .beyondarch/ state"
+  Write-Host "  -Purge          Also remove .beyondlabs/ state"
   exit 0
 }
 
@@ -65,7 +65,7 @@ if (-not $AppDepsOnly) {
     "frontend\dist", "frontend\.vite", "frontend\test-results",
     "frontend\playwright-report", "test-results", "playwright-report",
     ".pytest_cache", "backend\.pytest_cache", "backend\.ruff_cache",
-    ".beyondarch\logs", ".beyondarch\runtime"
+    ".beyondlabs\logs", ".beyondlabs\runtime"
   )) { Add-Target $Targets (Join-Path $RootDir $relative) }
   Get-ChildItem -Path $RootDir -Directory -Recurse -Filter "__pycache__" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notlike "*\.git\*" -and $_.FullName -notlike "*\backend\app\*" -and $_.FullName -notlike "*\frontend\src\*" } |

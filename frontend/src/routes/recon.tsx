@@ -343,7 +343,7 @@ function ReconPage() {
                   ...(dns.MX.length ? [{ kind: "Mail", items: dns.MX, tone: "default" as const }] : []),
                   ...(dns.NS.length ? [{ kind: "Nameserver", items: dns.NS, tone: "default" as const }] : []),
                 ]}
-                onSendTo={(v) => { try { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "ioc", value: v, source: "/recon" })); toast(`Sent ${v} to pending`); } catch {} }}
+                onSendTo={(v) => { try { localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({ type: "ioc", value: v, source: "/recon" })); toast(`Sent ${v} to pending`); } catch {} }}
               />
             </CollapsibleSection>
           )}

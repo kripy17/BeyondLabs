@@ -165,7 +165,7 @@ export function PageShell({
 
       <footer className="border-t border-border px-6 py-4">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span>beyondarch · local soc workbench</span>
+          <span>beyondlabs · local soc workbench</span>
           <span>analyst-led · no detonation · bounded scans</span>
         </div>
       </footer>

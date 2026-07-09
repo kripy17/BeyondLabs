@@ -27,8 +27,8 @@ const TACTICS: Tactic[] = [
   { id: "TA0040", name: "Impact",            techniques: [{ id: "T1490",     name: "Inhibit System Recovery" },  { id: "T1498", name: "Network Denial of Service" }] },
 ];
 
-const COV_KEY = "beyondarch.mitre.coverage.v3";
-const NOTE_KEY = "beyondarch.mitre.notes.v3";
+const COV_KEY = "beyondlabs.mitre.coverage.v3";
+const NOTE_KEY = "beyondlabs.mitre.notes.v3";
 
 const tone: Record<Cov, "default" | "warning" | "success"> = { none: "default", partial: "warning", full: "success" };
 const cell: Record<Cov, string> = {

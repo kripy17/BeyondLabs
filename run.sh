@@ -145,6 +145,11 @@ if $RUN_FRONTEND; then
   PIDS+=($FRONTEND_PID)
   cd "$ROOT_DIR"
   ok "Frontend started  ${C_DIM}PID ${FRONTEND_PID}${C_RESET}"
+
+  info "Opening browser…"
+  sleep 2
+  xdg-open "http://localhost:5173" 2>/dev/null || open "http://localhost:5173" 2>/dev/null || true
+  ok "Browser opened"
 fi
 
 # ── Access Info ──────────────────────────────────────────────────

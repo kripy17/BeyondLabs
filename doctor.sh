@@ -32,7 +32,7 @@ fi
 . "$TOOL_INVENTORY"
 unset _R _D _X
 
-# ── Override ba_logo with correct BEYONDARCH banner ──────────────
+# ── Override ba_logo with correct BEYONDLABS banner ──────────────
 ba_logo() {
   echo ""
   echo -e "${C_CYAN}${C_BOLD}"
@@ -224,8 +224,8 @@ echo ""
 next_section "Build checks"
 echo ""
 if [[ -d "$FRONTEND_DIR/node_modules" ]]; then
-  _LINT_LOG="$(mktemp -t beyondarch-lint.XXXXXX.log)"
-  _BUILD_LOG="$(mktemp -t beyondarch-build.XXXXXX.log)"
+  _LINT_LOG="$(mktemp -t beyondlabs-lint.XXXXXX.log)"
+  _BUILD_LOG="$(mktemp -t beyondlabs-build.XXXXXX.log)"
 
   _ts=$(date +%s)
   if (cd "$FRONTEND_DIR" && npm run lint >"$_LINT_LOG" 2>&1); then

@@ -22,7 +22,7 @@ export const THEMES: { id: ThemeId; name: string; description: string; swatch: s
 ];
 
 
-const STORAGE_KEY = "beyondarch-theme";
+const STORAGE_KEY = "beyondlabs-theme";
 const DEFAULT: ThemeId = "terminal-noir";
 
 type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void };

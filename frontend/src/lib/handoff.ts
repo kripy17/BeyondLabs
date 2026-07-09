@@ -9,7 +9,7 @@ export type Handoff = {
   ts: number;
 };
 
-const KEY = "beyondarch.pendingArtifact";
+const KEY = "beyondlabs.pendingArtifact";
 
 export function sendArtifact(h: Omit<Handoff, "ts">) {
   if (typeof window === "undefined") return;

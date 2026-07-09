@@ -99,8 +99,8 @@ const TS_RE = /\b\d{2}:\d{2}:\d{2}\b/;
 type Range = "5m" | "15m" | "1h" | "all";
 const RANGE_SEC: Record<Range, number> = { "5m": 300, "15m": 900, "1h": 3600, all: Number.POSITIVE_INFINITY };
 
-const LOCALSTORE_CHIPS = "beyondarch.logs.chips";
-const LOCALSTORE_RANGE = "beyondarch.logs.range";
+const LOCALSTORE_CHIPS = "beyondlabs.logs.chips";
+const LOCALSTORE_RANGE = "beyondlabs.logs.range";
 
 function loadPersist<T>(key: string, fallback: T): T {
   try {
@@ -115,18 +115,18 @@ function savePersist(key: string, value: unknown) {
 
 function readInitialPrefill(): string {
   try {
-    const direct = localStorage.getItem("beyondarch.logs.prefill") || "";
+    const direct = localStorage.getItem("beyondlabs.logs.prefill") || "";
     if (direct) {
-      localStorage.removeItem("beyondarch.logs.prefill");
+      localStorage.removeItem("beyondlabs.logs.prefill");
       return direct;
     }
-    const raw = localStorage.getItem("beyondarch.pendingArtifact");
+    const raw = localStorage.getItem("beyondlabs.pendingArtifact");
     if (!raw) return "";
     const pending = JSON.parse(raw);
     const target = String(pending?.target || pending?.page || pending?.destination || "").toLowerCase();
     const shouldLoad = target.includes("logs") || target.includes("alert") || pending?.type === "log" || pending?.type === "alert" || pending?.type === "event";
     if (!shouldLoad) return "";
-    localStorage.removeItem("beyondarch.pendingArtifact");
+    localStorage.removeItem("beyondlabs.pendingArtifact");
     const value = pending?.content || pending?.text || pending?.raw_input || pending?.value || pending?.query || pending?.rule || pending?.event;
     if (typeof value === "string") return value;
     return value ? JSON.stringify(value, null, 2) : "";
@@ -363,7 +363,7 @@ function LogsPage() {
 
   const handleSendTo = (page: string) => {
     try {
-      localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({
+      localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({
         type: "log_analysis",
         content: input,
         target: page,
@@ -649,7 +649,7 @@ function LogsPage() {
             onClear={findingSel.clear}
             actions={[
               { label: "copy titles", icon: Copy, onClick: (indices) => { const txt = indices.map(i => findings[i].title).join("\n"); navigator.clipboard.writeText(txt); }, tone: "default" },
-              { label: "send to case", icon: Send, onClick: (indices) => { localStorage.setItem("beyondarch.pendingArtifact", JSON.stringify({ type: "findings", content: indices.map(i => findings[i].title).join("\n"), source: "Logs & Alerts" })); }, tone: "primary" },
+              { label: "send to case", icon: Send, onClick: (indices) => { localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({ type: "findings", content: indices.map(i => findings[i].title).join("\n"), source: "Logs & Alerts" })); }, tone: "primary" },
               { label: "select all", icon: Check, onClick: () => findingSel.selectAll(findings.length), tone: "default" },
             ]}
           />
