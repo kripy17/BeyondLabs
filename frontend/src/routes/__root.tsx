@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter,
@@ -77,13 +78,25 @@ function RouteRecorder() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try { return Number(localStorage.getItem("ba.sidebarWidth")) || 256; }
+    catch { return 256; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ba.sidebarWidth", String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  const handleSidebarResize = useCallback((px: number) => {
+    setSidebarWidth(Math.max(180, Math.min(480, px)));
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <PrefsProvider>
-          <SidebarProvider>
-            <AppSidebar />
+          <SidebarProvider sidebarWidth={`${sidebarWidth}px`}>
+            <AppSidebar onResize={handleSidebarResize} />
             <SidebarInset className="w-full">
               <RouteRecorder />
               <Outlet />

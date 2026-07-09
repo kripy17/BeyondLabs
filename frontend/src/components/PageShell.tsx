@@ -159,7 +159,7 @@ export function PageShell({
         </div>
       </div>
 
-      <main className="min-w-0 flex-1 overflow-x-auto px-6 py-6">
+      <main className="min-w-0 flex-1 px-6 py-6">
         <div className="mx-auto min-w-0 max-w-[90rem] space-y-6">{children}</div>
       </main>
 
