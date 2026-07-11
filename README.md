@@ -4,11 +4,10 @@
 
 <div align="center">
 
-### A local-first workbench for defensive analysts.
-
-Artifact triage · Phishing review · SIEM log analysis · Detection engineering — all on your own machine, nothing shipped to a third party unless you say so.
-
-<br>
+<p>
+<strong>Artifact triage · Phishing review · SIEM log analysis · Detection engineering</strong><br>
+Local-first, privacy-preserving, and analyst-led — sixteen workspaces, one app, your machine.
+</p>
 
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=fff)](https://vite.dev)
@@ -17,74 +16,67 @@ Artifact triage · Phishing review · SIEM log analysis · Detection engineering
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=fff)](https://typescriptlang.org)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-8B0000?style=for-the-badge&labelColor=000000)](LICENSE)
+[![Status](https://img.shields.io/badge/status-active%20development-8B0000?style=for-the-badge&labelColor=000000)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8B0000?style=for-the-badge&labelColor=000000)](CONTRIBUTING.md)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-000000?style=for-the-badge&logo=linux&logoColor=eeeeee)]()
 
-<p>
-<a href="#quick-start"><b>Quick Start</b></a> ·
-<a href="#features"><b>Features</b></a> ·
-<a href="#architecture">Architecture</a> ·
-<a href="#safety-model">Safety Model</a> ·
-<a href="#screenshots">Screenshots</a> ·
-<a href="CONTRIBUTING.md">Contributing</a>
-</p>
+**[Quick Start](#quick-start)** · **[Features](#features)** · **[Architecture](#system-architecture)** · **[Safety Model](#safety-model)** · **[Contributing](CONTRIBUTING.md)**
 
 </div>
 
-<br>
+---
+
+## Why BeyondLabs
+
+Practicing SOC work usually means one of two bad options: stand up a full lab, or paste live artifacts into someone else's cloud dashboard and hope that's fine. BeyondLabs is a third option — a single local app that covers intake, triage, SIEM review, and detection engineering, and never sends anything off your machine unless you explicitly turn that on.
+
+| | Cloud SOC sandbox | Full VM lab | BeyondLabs |
+|---|---|---|---|
+| Setup time | Minutes | Hours | Two commands |
+| Your artifacts leave your machine | Usually, yes | No | No, by default |
+| Cost | Often subscription | Free, but resource-heavy | Free |
+| Intake → triage → SIEM → detection → report, one place | Rarely | Depends what you build | Yes |
+
+It's pre-1.0 and under active development. Interfaces and workspace names may still shift between updates — see [Known Limitations](#known-limitations) for what's genuinely rough today.
 
 ---
 
 ## Table of Contents
 
-- [What This Is](#what-this-is)
-- [Why It Exists](#why-it-exists)
+- [Why BeyondLabs](#why-beyondlabs)
+- [Overview](#overview)
 - [Screenshots](#screenshots)
 - [Features](#features)
 - [Settings & Customization](#settings--customization)
-- [Architecture](#architecture)
+- [Investigation Flow](#investigation-flow)
 - [Quick Start](#quick-start)
 - [Safety Model](#safety-model)
 - [Storage](#storage)
 - [Repo Layout](#repo-layout)
-- [Health Checks](#health-checks)
-- [Demo Workflow](#demo-workflow)
+- [Health Checks & Demo Workflow](#health-checks--demo-workflow)
 - [Development](#development)
 - [Host Dependencies](#host-dependencies)
 - [Known Limitations](#known-limitations)
 - [FAQ](#faq)
+- [Contributing](#contributing)
 - [Release Checklist](#release-checklist)
+- [License](#license)
 
 ---
 
-## What This Is
+## Overview
 
-BeyondLabs handles artifact intake, phishing triage, SIEM log review, and detection engineering, end to end, on a machine you control. No lab to stand up, no cloud dashboard to paste artifacts into. Every workspace runs locally, and nothing leaves the machine unless external enrichment is explicitly switched on.
+BeyondLabs handles artifact intake, phishing triage, SIEM log review, and detection engineering — end to end, on your own machine. It runs on Linux, macOS, and Windows.
 
-<div align="center">
-
-| | | | |
-|:---:|:---:|:---:|:---:|
-| **16** | **5** | **3** | **Local** |
-| workspaces | categories | supported platforms | first, by default |
-
-</div>
-
-|  |  |
+| | |
 |---|---|
-| **Frontend** | React + Vite |
+| **Frontend** | React + Vite + TypeScript |
 | **Backend** | FastAPI (Python) |
 | **Platforms** | Linux · macOS · Windows |
-| **Storage** | Browser-local only — session / persist / none |
+| **Storage** | Local browser only — session / persist / none |
 | **License** | MIT |
 
----
-
-## Why It Exists
-
-Practicing SOC work usually means one of two things: standing up a full lab, or feeding artifacts into someone else's cloud dashboard. Both are overhead for what should be a fast, repeatable loop — take an artifact, triage it, check it against logs, map it to a detection, write it up.
-
-BeyondLabs collapses that loop into one local workbench. It's built for the analysis itself, not for hosting infrastructure: honest static signals over fabricated verdicts, and a clear, visible line between what happens locally and what (optionally) talks to the outside world.
+**What this is not:** a SIEM replacement, an EDR, or a source of verified threat intelligence. It's a practice and triage workbench — see [Safety Model](#safety-model) and [Known Limitations](#known-limitations) for the honest boundaries.
 
 ---
 
@@ -93,95 +85,88 @@ BeyondLabs collapses that loop into one local workbench. It's built for the anal
 <table>
 <tr>
 <td align="center" width="50%">
-<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-intake.svg" width="100%"/><br/>
 <sub><b>Artifact Intake</b> — IOC extraction with defang/refang</sub>
 </td>
 <td align="center" width="50%">
-<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-siem.svg" width="100%"/><br/>
 <sub><b>SIEM Workspace</b> — filter, pivot & export</sub>
 </td>
 </tr>
 <tr>
 <td align="center" width="50%">
-<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-detection.svg" width="100%"/><br/>
 <sub><b>Detection Engineering</b> — rule builder with lint & explain</sub>
 </td>
 <td align="center" width="50%">
-<img src="assets/screenshot-placeholder.svg" width="100%"/><br/>
+<img src="assets/screenshot-case.svg" width="100%"/><br/>
 <sub><b>Case & Report</b> — timeline, notes & markdown export</sub>
 </td>
 </tr>
 </table>
 
-<sub>Placeholders — swap the files in <code>assets/</code> once real captures are ready.</sub>
+<sub>Illustrative placeholders sketching each workspace's layout — swap in real captures once the UI is ready to show.</sub>
 
 ---
 
 ## Features
 
-16 workspaces across 5 categories. Drop into any one on its own, or run the full pipeline end to end.
+**16 workspaces across 5 categories.** Drop into any one on its own, or run the full pipeline end to end.
 
 ### Triage & Analysis
-
-| Workspace | What it does |
-|---|---|
-| **Artifact Intake** | Paste hashes, IPs, URLs, emails — auto-extracts IOCs with defang/refang |
-| **Phishing Triage** | Analyzes email headers, auth results (SPF/DKIM/DMARC), URLs, and body signals |
+| Capability | What it does |
+|-----------|-------------|
+| **Artifact Intake** | Paste hashes, IPs, URLs, emails — auto-extract IOCs with defang/refang |
+| **Phishing Triage** | Analyze email headers, auth (SPF/DKIM/DMARC), URLs, and body signals |
 | **Safe URL Analysis** | Static URL dissection — scheme, host, path, params, TLD scoring |
-| **Attachment Triage** | Static metadata extraction across common document formats |
+| **Attachment Triage** | Static metadata extraction for common document formats |
 
 ### SIEM, Detection & Alerts
-
-| Workspace | What it does |
-|---|---|
-| **SIEM Workspace** | Paste syslog / JSONL / CSV event streams; filter, pivot, export |
-| **Logs & Alerts** | Parses auth logs, web access logs, IDS alerts, firewall logs |
-| **Detection Engineering** | Builds Suricata / Snort / Sigma / YARA / KQL rules from templates, with lint + explain |
-| **MITRE ATT&CK** | Interactive coverage matrix, persisted via localStorage |
-| **IDS Alerts** | Parses, categorizes, and investigates IDS/IPS alert feeds |
+| Capability | What it does |
+|-----------|-------------|
+| **SIEM Workspace** | Paste syslog/JSONL/CSV event streams with filter, pivot, and export |
+| **Logs & Alerts** | Parse auth logs, web access logs, IDS alerts, firewall logs |
+| **Detection Engineering** | Build Suricata/Snort/Sigma/YARA/KQL rules from templates with lint + explain |
+| **MITRE ATT&CK** | Interactive coverage matrix with localStorage persistence |
+| **IDS Alerts** | Parse, categorize, and investigate IDS/IPS alert feeds |
 
 ### Recon & Toolkit
-
-| Workspace | What it does |
-|---|---|
-| **Recon & OSINT** | Bounded DNS / whois / nmap workflows for authorized targets only |
-| **Nmap Runner** | Interactive scan interface with preset profiles and output parsing |
-| **Hacking Toolkit** | Curated catalog (nmap, metasploit, hashcat, sqlmap, and more) with preset args and run history |
+| Capability | What it does |
+|-----------|-------------|
+| **Recon & OSINT** | Bounded DNS/whois/nmap workflows for authorized targets |
+| **Nmap Runner** | Interactive nmap scan interface with preset profiles and output parsing |
+| **Hacking Toolkit** | Curated tool catalog (nmap, metasploit, hashcat, sqlmap, etc.) with preset args and run history |
 | **CyberChef / Chef** | Encoding, decoding, hashing, compression, string manipulation |
 
 ### Reference & Reporting
-
-| Workspace | What it does |
-|---|---|
+| Capability | What it does |
+|-----------|-------------|
 | **SOC Guide** | Command reference, event ID lookup, detection patterns |
-| **Case & Report** | Timeline + analyst notes + markdown report export, with handoff chain |
+| **Case & Report** | Timeline + analyst notes + markdown report export with handoff chain |
 
 ### Workspace
-
-| Workspace | What it does |
-|---|---|
-| **Settings** | Full workspace customization — see [Settings & Customization](#settings--customization) |
+| Capability | What it does |
+|-----------|-------------|
+| **Settings** | Full workspace customization — see [below](#settings--customization) |
 
 ---
 
 ## Settings & Customization
 
 | Feature | Details |
-|---|---|
+|---------|---------|
 | **Theme Gallery** | 7 themes: Aurora Tactical, Terminal Noir, SOC Console, Editorial Dark, Solar Flare, Brutalist Light, Custom |
-| **Custom Theme Builder** | Every color token is editable — background, foreground, card, border, accent, surface — with live preview |
-| **Accent Presets** | 16+ colors across amber, cyan, emerald, fuchsia, indigo, lime, pink, rose, sky, violet, and more |
+| **Custom Theme Builder** | Tweak every color token — background, foreground, card, border, accent, surface — with live preview |
+| **Accent Presets** | 16+ accent colors across amber, cyan, emerald, fuchsia, indigo, lime, pink, rose, sky, violet, etc. |
 | **Typography** | 12+ mono/UI font pairs — JetBrains Mono, Space Grotesk, Inter, Outfit, Geist, IBM Plex Mono, Fira Code, DM Sans, Manrope, Plus Jakarta Sans, Sora, Source Code Pro, Space Mono |
 | **Density Control** | Comfortable, Compact, or Ultra-compact spacing |
 | **Sidebar** | Pin/unpin workspaces, reorder groups, hide workspaces |
 | **Motion & QoL** | Status bar toggle, scroll indicators, copy button visibility |
-| **Storage & Backup** | Session-only / Persist / None modes; JSON export and import |
+| **Storage & Backup** | Session-only / Persist / None modes; JSON export/import |
 
 ---
 
-## Architecture
-
-### Investigation Flow
+## Investigation Flow
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {
@@ -199,7 +184,7 @@ flowchart TD
     D --> E["Case & Report<br/>Timeline · Notes · Markdown Export"]
 ```
 
-Every workspace connects through `beyondlabs.pendingArtifact` — a localStorage handoff channel that carries findings between pages without losing context.
+Every workspace connects through `beyondlabs.pendingArtifact` — a localStorage handoff channel. Send findings between pages without losing context.
 
 ### System Architecture
 
@@ -235,37 +220,36 @@ Frontend and backend talk over a local REST API. Nothing leaves the machine unle
 
 ## Quick Start
 
-Requires Python 3.10+, Node.js 18+, and npm.
-
-```bash
-./install.sh
-./run.sh
-```
+Requires Python 3.10+, Node.js 18+, and npm. Pick your platform below.
 
 | URL | Service |
-|---|---|
-| `http://127.0.0.1:5173` | Frontend (React + Vite) |
-| `http://127.0.0.1:8000` | Backend API (FastAPI) |
-| `http://127.0.0.1:8000/docs` | Interactive API docs |
+|-----|---------|
+| http://127.0.0.1:5173 | Frontend (React + Vite) |
+| http://127.0.0.1:8000 | Backend API (FastAPI) |
+| http://127.0.0.1:8000/docs | Interactive API docs |
 
-Recommended SOC profile — pulls in the full toolkit (`nmap`, `whatweb`, `subfinder`, `amass`, `httpx`) in one step:
+### Linux / macOS
 
-```bash
-./install.sh --profile recommended
-```
-
-**Linux / macOS** — setup detects your package manager automatically (`pacman`, `apt`, `dnf`, or `brew`):
+Setup detects your package manager automatically — `pacman` (Arch), `apt` (Debian/Ubuntu), `dnf` (Fedora), or `brew` (macOS).
 
 ```bash
 ./install.sh
 ./run.sh
 ```
 
-**Windows:**
+### Windows
 
 ```powershell
 .\install.ps1
 .\run.ps1
+```
+
+### Recommended profile
+
+Pulls in the full recon toolkit (`nmap`, `whatweb`, `subfinder`, `amass`, `httpx`) in one step:
+
+```bash
+./install.sh --profile recommended
 ```
 
 ---
@@ -275,12 +259,12 @@ Recommended SOC profile — pulls in the full toolkit (`nmap`, `whatweb`, `subfi
 > [!WARNING]
 > Recon and scanning tools require explicit confirmation and must only be run against owned, lab, or explicitly authorized targets.
 
-BeyondLabs is built for honest, local signals — not fabricated threat intelligence.
+BeyondLabs is designed for defensive analysts who need honest, local signals — not fabricated threat intelligence.
 
 - No malware execution or attachment detonation
-- No phishing sending, credential capture, or brute-force automation
+- No phishing sending, credential capture, or brute force automation
 - Safe URL workflows default to static review
-- External enrichment is opt-in; providers show their limitations when unavailable
+- External enrichment is opt-in — providers show limitations when unavailable, never a faked result
 - Browser storage is workspace state, not a secure evidence vault
 
 ---
@@ -288,12 +272,12 @@ BeyondLabs is built for honest, local signals — not fabricated threat intellig
 ## Storage
 
 | Mode | Behavior |
-|---|---|
-| **Session only** (default) | Cleared when the browser closes |
+|------|-----------|
+| **Session only** (default) | Cleared when browser closes |
 | **Persist** | Restored across browser restarts |
 | **None** | No analysis data stored at all |
 
-Change persistence via **Settings → Storage & Backup**. Export/import JSON case backups there too.
+Change persistence via Settings → Storage & Backup. Export/import JSON case backups there too.
 
 ---
 
@@ -316,36 +300,28 @@ demo-workflow.sh          Guided demo path
 
 ---
 
-## Health Checks
+## Health Checks & Demo Workflow
 
 ```bash
 ./doctor.sh
 ```
-
 Runs syntax checks, backend compile, frontend lint/build, and pytest where available.
-
----
-
-## Demo Workflow
 
 ```bash
 ./demo-workflow.sh
 ```
-
-Quick demo route:
+Walks the quick demo route — use any sample button across pages to kickstart it:
 
 ```
 Artifact Intake → Phishing Triage → Safe URL Analyzer → Logs & Alerts → Detection Workspace → Case & Report
 ```
-
-Use any sample button across pages to kick-start a walkthrough.
 
 ---
 
 ## Development
 
 <details>
-<summary><b>Backend & frontend setup commands</b></summary>
+<summary>Backend & frontend setup commands</summary>
 
 ```bash
 # Backend
@@ -379,17 +355,17 @@ python -m compileall app
 ## Host Dependencies
 
 <details>
-<summary><b>Full tool list by category</b></summary>
+<summary>Full tool list by category</summary>
 
 | Category | Tools |
-|---|---|
+|----------|-------|
 | Core | `curl`, `openssl`, `file`, `strings`/`binutils`, `jq`, Python `pip`/`venv` |
 | DNS/domain | `dig`/`nslookup`, `whois`, `traceroute`, `mtr` |
 | Recommended SOC | `nmap`, `whatweb`, `subfinder`, `amass`, `httpx` |
 | Optional OSINT | `theHarvester`, `assetfinder`, `waybackurls`, `gau`, `katana` |
 | Advanced (opt-in) | `nuclei`, `ffuf`, `gobuster` |
 
-Plain `./install.sh` walks through a guided profile. Optional tools are never installed without confirmation. `pacman`/`apt`/`dnf` is auto-detected on Linux, `brew` on macOS; systems without a supported package manager get manual guidance instead of a failure. Windows uses the PowerShell scripts.
+Plain `./install.sh` walks through a guided profile. Optional tools are never installed without confirmation. On Linux, `pacman`/`apt`/`dnf` is detected automatically; on macOS, `brew` is used. Systems without a supported package manager print manual guidance instead of failing. On Windows, use the PowerShell scripts.
 
 </details>
 
@@ -397,52 +373,60 @@ Plain `./install.sh` walks through a guided profile. Optional tools are never in
 
 ## Known Limitations
 
-- BeyondLabs provides local/static triage signals, not absolute threat intelligence verdicts
-- External reputation providers are never faked; unavailable sources show their limitations inline
-- Browser storage is convenient workspace state, not a forensics-grade evidence vault
-- Active scanning must only be used against owned, lab, or explicitly authorized targets
-- Some frontend pages are intentionally monolithic for stability, with splitting planned once patterns stabilize
+Current rough edges, and what's planned around them:
+
+| Limitation | Direction |
+|---|---|
+| Provides local/static triage signals, not absolute threat intelligence verdicts | By design — see [Safety Model](#safety-model) |
+| External reputation providers are not faked; unavailable sources show limitations inline | Staying this way — honesty over fake coverage |
+| Browser storage is convenient workspace state, not a forensics-grade evidence vault | Use JSON export for anything you need to keep |
+| Active scanning must only be used against owned, lab, or explicitly authorized targets | Enforced via explicit confirmation prompts |
+| Some frontend pages are intentionally monolithic for stability | Planned split once patterns stabilise |
 
 ---
 
 ## FAQ
 
-<details>
-<summary><b>Does BeyondLabs send my data anywhere?</b></summary><br>
-
+**Does BeyondLabs send my data anywhere?**
 No. Analysis runs in your browser and your local FastAPI backend. The only exception is external enrichment, which is opt-in and off by default.
-</details>
 
-<details>
-<summary><b>What platforms are supported?</b></summary><br>
-
+**What platforms are supported?**
 Linux, macOS, and Windows — `install.sh`/`run.sh` on Linux/macOS, `install.ps1`/`run.ps1` on Windows.
-</details>
 
-<details>
-<summary><b>Is browser storage safe to use as an evidence store?</b></summary><br>
+**Is browser storage safe to use as an evidence store?**
+No. It's convenient workspace state, not a forensics-grade evidence vault. Use Settings → Storage & Backup to export case data as JSON if you need to keep it.
 
-No. It's convenient workspace state, not a forensics-grade evidence vault. Use **Settings → Storage & Backup** to export case data as JSON if you need to keep it.
-</details>
-
-<details>
-<summary><b>Can I point the recon and scanning tools at any target?</b></summary><br>
-
+**Can I point the recon and scanning tools at any target?**
 No. They require explicit confirmation before running and are bounded to owned, lab, or explicitly authorized targets.
-</details>
 
-<details>
-<summary><b>What if I don't want anything persisted at all?</b></summary><br>
+**What if I don't want anything persisted at all?**
+Set Storage mode to None in Settings — no analysis data is stored.
 
-Set Storage mode to **None** in Settings — no analysis data is stored.
-</details>
+**Does this replace my SIEM or EDR?**
+No. BeyondLabs is a practice and triage workbench, not a production security product. It's built for learning, drills, and first-pass local analysis — not for running your actual detection stack.
+
+**Can I add my own workspace?**
+That's the intent behind the modular `src/pages`/`src/lib` split. See [CONTRIBUTING.md](CONTRIBUTING.md) for the current process.
+
+---
+
+## Contributing
+
+Contributions are welcome — this is early enough that useful ones are easy to make an impact with.
+
+- **Found a bug?** Open an issue with repro steps.
+- **Have a workspace idea?** The `src/pages` / `src/lib` split is built to make new workspaces addable without touching the rest of the app.
+- **Docs unclear or wrong?** Docs PRs are as welcome as code ones.
+- **Just want to try it and report friction?** That's genuinely useful too — open an issue.
+
+Full process, style, and setup details live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## Release Checklist
 
 <details>
-<summary><b>Pre-release commands & checklist</b></summary>
+<summary>Pre-release commands & checklist (maintainer reference)</summary>
 
 ```bash
 ./doctor.sh
@@ -451,19 +435,27 @@ git status --short
 
 Confirm:
 - No generated dependency/build/cache folders are tracked
-- Screenshots are committed, or the README intentionally omits them
-- README commands match the actual scripts
+- Screenshots are committed or the README intentionally omits them
+- README commands match actual scripts
 - Optional helper warnings are documented and non-fatal
-- Storage/privacy behavior matches the documented model
+- Storage/privacy behaviour matches the documented model
 - Demo flow works end-to-end: Intake → Analysis → Send to Case → Export
 
 </details>
 
 ---
 
+## License
+
+MIT — see [LICENSE](LICENSE) for the full text. Use it, fork it, ship it.
+
+---
+
 <div align="center">
 
 Built for analysts who need local control over their investigation workflow.
+
+If this is useful to you, a ⭐ helps other analysts find it.
 
 [Report Bug](../../issues) · [Request Feature](../../issues) · [Contributing](CONTRIBUTING.md)
 
