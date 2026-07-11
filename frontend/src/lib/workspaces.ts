@@ -1,6 +1,6 @@
 import {
-  MailWarning, Link2, Paperclip, Radar, Search, ScanLine, Wand2,
-  Activity, Bell, Wrench, Target, ShieldCheck, BookOpen, FileText,
+  MailWarning, Link2, Paperclip, Radar, ScanLine, Wand2,
+  Activity, Wrench, Target, ShieldCheck, BookOpen, FileText,
   LayoutDashboard, Settings, Swords, Terminal,
 } from "lucide-react";
 
@@ -37,15 +37,13 @@ export const GROUPS: WorkspaceGroup[] = [
     label: "Recon",
     items: [
       { title: "Recon & Exposure", url: "/recon", icon: Radar,    desc: "Subdomains, certs, cloud surface", group: "Recon" },
-      { title: "OSINT Tools",      url: "/osint", icon: Search,   desc: "WHOIS, DNS, passive intel",        group: "Recon" },
       { title: "Nmap Runner",      url: "/nmap",  icon: ScanLine, desc: "Bounded port scans",               group: "Recon" },
     ],
   },
   {
     label: "SIEM",
     items: [
-      { title: "SIEM Workspace", url: "/siem", icon: Activity, desc: "Search, correlate, pivot",      group: "SIEM" },
-      { title: "Logs & Alerts",  url: "/logs", icon: Bell,     desc: "Triage stream, route cases",    group: "SIEM" },
+      { title: "SIEM Workspace", url: "/siem", icon: Activity, desc: "Search, correlate, pivot", group: "SIEM" },
     ],
   },
   {
@@ -58,8 +56,7 @@ export const GROUPS: WorkspaceGroup[] = [
   {
     label: "Tools",
     items: [
-      { title: "CyberChef",      url: "/chef",            icon: Wrench,  desc: "Encode, decode, transform",  group: "Tools" },
-      { title: "IDS Builder",    url: "/ids",             icon: Terminal,desc: "Draft Snort/Suricata rules", group: "Tools" },
+      { title: "CyberChef",      url: "/chef", icon: Wrench, desc: "Encode, decode, transform", group: "Tools" },
     ],
   },
   {

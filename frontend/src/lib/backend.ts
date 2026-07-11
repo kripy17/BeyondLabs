@@ -1,3 +1,5 @@
+import { useState, useEffect, useCallback } from "react";
+
 const LS_KEY = "beyondlabs.backendUrl";
 const DEFAULT_URL =
   (import.meta.env.VITE_BEYONDLABS_API as string | undefined) ||
@@ -47,6 +49,23 @@ export type RunToolResponse = {
   error?: string;
   suggestion?: string;
 };
+
+export function useBackendStatus() {
+  const [status, setStatus] = useState<BackendStatus>("unknown");
+
+  const check = useCallback(async () => {
+    setStatus("checking");
+    setStatus((await pingBackend()) ? "online" : "offline");
+  }, []);
+
+  useEffect(() => {
+    void check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  }, [check]);
+
+  return { status, check };
+}
 
 export async function runToolRemote(input: {
   category_id: string;

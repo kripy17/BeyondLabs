@@ -13,8 +13,12 @@ import { Button } from "@/components/ui/button";
 import {
   Palette, Type, Layers, Sliders, Sparkles, Pin, Eye, EyeOff, ArrowUp, ArrowDown,
   RotateCcw, Trash2, Check, Tag, Paintbrush, Download, Upload, Sun, Moon,
+  LayoutGrid, Keyboard, Shield, Network, Wifi,
+  type LucideIcon,
 } from "lucide-react";
+import { getBackendUrl, setBackendUrl, pingBackend } from "@/lib/backend";
 import { clearRecents } from "@/lib/recents";
+import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/settings")({
@@ -35,7 +39,11 @@ function SettingsPage() {
     { id: "DR", label: "Density" },
     { id: "TY", label: "Typography" },
     { id: "SB", label: "Sidebar" },
+    { id: "ACY", label: "Accessibility" },
     { id: "QL", label: "Motion & QoL" },
+    { id: "DB", label: "Dashboard" },
+    { id: "KS", label: "Shortcuts" },
+    { id: "DP", label: "Data & Privacy" },
   ] as const;
 
   const [previewTheme, setPreviewTheme] = useState<ThemeId>(theme);
@@ -97,12 +105,18 @@ function SettingsPage() {
     } catch { /* ignore bad file */ }
   };
 
+  const clearAllData = () => {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith("ba."));
+    for (const k of keys) localStorage.removeItem(k);
+    window.location.reload();
+  };
+
 
   return (
     <PageShell
       eyebrow="// settings"
       title="Workspace"
-      description="Theme, layout, typography, motion. Everything persists locally — no account, no sync."
+      description="Brand, theme, layout, accessibility, shortcuts. Everything persists locally — no account, no sync."
       crumbs={[{ label: "Settings" }]}
       actions={
         <div className="flex items-center gap-1.5">
@@ -111,15 +125,15 @@ function SettingsPage() {
             type="file"
             accept="application/json"
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importPrefs(f); e.target.value = ""; }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) { importPrefs(f); toast("Preferences imported"); } e.target.value = ""; }}
           />
           <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => fileRef.current?.click()}>
             <Upload className="h-3.5 w-3.5" /> import
           </Button>
-          <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={exportPrefs}>
+          <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => { exportPrefs(); toast("Preferences exported"); }}>
             <Download className="h-3.5 w-3.5" /> export
           </Button>
-          <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => reset()}>
+          <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => { reset(); toast("Preferences reset to defaults"); }}>
             <RotateCcw className="h-3.5 w-3.5" /> reset
           </Button>
         </div>
@@ -132,7 +146,7 @@ function SettingsPage() {
           value={sectionFilter}
           onChange={(e) => setSectionFilter(e.target.value)}
           placeholder="Filter settings…"
-          className="text-mono h-7 min-w-0 max-w-full flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 max-w-[200px]"
+          className="text-mono h-7 min-w-0 flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 max-w-[200px]"
         />
         <div className="flex flex-wrap gap-1">
           {SECTION_JUMP.filter((s) => !sectionFilter || s.label.toLowerCase().includes(sectionFilter.toLowerCase())).map((s) => (
@@ -299,7 +313,7 @@ function SettingsPage() {
           </Button>
         </div>
 
-        <div className="grid gap-5 grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           {/* LEFT — mode + presets */}
           <div className="space-y-5">
             {/* mode */}
@@ -339,7 +353,7 @@ function SettingsPage() {
             {/* presets */}
             <div>
               <Label>start from a preset</Label>
-              <div className="mt-2 grid grid-cols-1 gap-2 grid-cols-2">
+              <div className="mt-2 grid gap-2 grid-cols-2">
                 {CUSTOM_THEME_PRESETS.map((p) => {
                   const matches = JSON.stringify(p.theme) === JSON.stringify(draftCustom);
                   return (
@@ -501,50 +515,13 @@ function SettingsPage() {
 
       {/* TYPOGRAPHY */}
       <Panel id="TY" label="typography" icon={Type}
-        right={<span className="text-mono text-[10px] text-muted-foreground">{Math.round(prefs.fontScale * 100)}% scale</span>}>
+        right={<span className="text-mono text-[10px] text-muted-foreground">sans · mono</span>}>
         <div className="space-y-5">
-          <div>
-            <Label>font size · {Math.round(prefs.fontScale * 100)}%</Label>
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-mono text-[10px] text-muted-foreground">A</span>
-              <Slider
-                value={[prefs.fontScale]}
-                onValueChange={(v) => setPrefs({ fontScale: v[0] })}
-                min={0.85} max={1.15} step={0.025}
-                className="flex-1"
-              />
-              <span className="text-mono text-[15px] text-foreground">A</span>
-              <Button
-                variant="ghost" size="sm" className="text-mono text-[11px]"
-                onClick={() => setPrefs({ fontScale: 1 })}
-              >
-                reset
-              </Button>
-            </div>
-          </div>
-
-          <div>
-            <Label>letter spacing · {prefs.letterSpacing >= 0 ? "+" : ""}{prefs.letterSpacing.toFixed(3)}em</Label>
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-mono text-[10px] text-muted-foreground" style={{ letterSpacing: "-0.02em" }}>tight</span>
-              <Slider
-                value={[prefs.letterSpacing]}
-                onValueChange={(v) => setPrefs({ letterSpacing: v[0] })}
-                min={-0.02} max={0.06} step={0.005}
-                className="flex-1"
-              />
-              <span className="text-mono text-[11px] text-muted-foreground" style={{ letterSpacing: "0.06em" }}>loose</span>
-              <Button variant="ghost" size="sm" className="text-mono text-[11px]" onClick={() => setPrefs({ letterSpacing: 0 })}>
-                reset
-              </Button>
-            </div>
-          </div>
-
           <Row label="Monospace ligatures" desc="Turn on programming ligatures (&rarr;, !=, ===, ...) in code/data.">
             <Switch checked={prefs.monoLigatures} onCheckedChange={(v) => setPrefs({ monoLigatures: v })} />
           </Row>
 
-          <div className="grid gap-5 grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             <FontPicker
               title="sans (UI)"
               options={SANS_OPTIONS}
@@ -620,20 +597,18 @@ function SettingsPage() {
         </div>
       </Panel>
 
-      {/* MOTION + QOL */}
-      <Panel id="QL" label="motion & qol" icon={Sparkles}>
-        <div className="grid gap-3 grid-cols-2">
+      {/* ACCESSIBILITY */}
+      <Panel id="ACY" label="accessibility" icon={Eye}
+        right={<span className="text-mono text-[10px] text-muted-foreground">motion · contrast · scale</span>}>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Row label="Reduce motion" desc="Disable mount fades, hover micro-anim and pulses.">
             <Switch checked={prefs.reduceMotion} onCheckedChange={(v) => setPrefs({ reduceMotion: v })} />
           </Row>
-          <Row label="Open palette with /" desc="Press / anywhere to open the command palette.">
-            <Switch checked={prefs.slashOpensPalette} onCheckedChange={(v) => setPrefs({ slashOpensPalette: v })} />
+          <Row label="Reduced transparency" desc="Decrease backdrop blur &amp; panel translucency for readability.">
+            <Switch checked={prefs.reducedTransparency} onCheckedChange={(v) => setPrefs({ reducedTransparency: v })} />
           </Row>
-          <Row label="Show breadcrumb" desc="Hide for the cleanest topbar.">
-            <Switch checked={prefs.showBreadcrumb} onCheckedChange={(v) => setPrefs({ showBreadcrumb: v })} />
-          </Row>
-          <Row label="Show topbar" desc="Toggle the topbar on screens that don't need it.">
-            <Switch checked={prefs.showTopbar} onCheckedChange={(v) => setPrefs({ showTopbar: v })} />
+          <Row label="High contrast" desc="Sharpen borders, deepen shadows, boost text contrast.">
+            <Switch checked={prefs.highContrast} onCheckedChange={(v) => setPrefs({ highContrast: v })} />
           </Row>
           <Row label="Zebra rows" desc="Alternate shading on tables &amp; IOC inventories for scan-ability.">
             <Switch checked={prefs.zebraStripes} onCheckedChange={(v) => setPrefs({ zebraStripes: v })} />
@@ -641,7 +616,50 @@ function SettingsPage() {
           <Row label="High-contrast focus" desc="Thicker focus ring + glow for keyboard-only navigation.">
             <Switch checked={prefs.focusRingBoost} onCheckedChange={(v) => setPrefs({ focusRingBoost: v })} />
           </Row>
-          <div className="col-span-2 rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <Row label="Open palette with /" desc="Press / anywhere to open the command palette.">
+            <Switch checked={prefs.slashOpensPalette} onCheckedChange={(v) => setPrefs({ slashOpensPalette: v })} />
+          </Row>
+          <Row label="Show topbar" desc="Toggle the topbar on screens that don't need it.">
+            <Switch checked={prefs.showTopbar} onCheckedChange={(v) => setPrefs({ showTopbar: v })} />
+          </Row>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
+            <Label>font scale &middot; {prefs.fontScale.toFixed(2)}x</Label>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-mono text-[10px] text-muted-foreground">85%</span>
+              <Slider
+                value={[prefs.fontScale]}
+                onValueChange={(v) => setPrefs({ fontScale: v[0] })}
+                min={0.85} max={1.15} step={0.01}
+                className="flex-1"
+              />
+              <span className="text-mono text-[10px] text-muted-foreground">115%</span>
+            </div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
+            <Label>letter spacing &middot; {prefs.letterSpacing > 0 ? "+" : ""}{prefs.letterSpacing.toFixed(2)}em</Label>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-mono text-[10px] text-muted-foreground">-0.02</span>
+              <Slider
+                value={[prefs.letterSpacing]}
+                onValueChange={(v) => setPrefs({ letterSpacing: v[0] })}
+                min={-0.02} max={0.06} step={0.005}
+                className="flex-1"
+              />
+              <span className="text-mono text-[10px] text-muted-foreground">+0.06</span>
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* MOTION + QOL */}
+      <Panel id="QL" label="motion & qol" icon={Sparkles}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Row label="Show breadcrumb" desc="Hide for the cleanest topbar.">
+            <Switch checked={prefs.showBreadcrumb} onCheckedChange={(v) => setPrefs({ showBreadcrumb: v })} />
+          </Row>
+          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-mono text-[12px] font-medium text-foreground">Panel opacity &middot; {Math.round(prefs.panelOpacity * 100)}%</div>
@@ -662,11 +680,101 @@ function SettingsPage() {
               <span className="text-mono text-[10px] text-muted-foreground">100%</span>
             </div>
           </div>
-          <Row label="Clear recents" desc="Wipe the recent-workspace history.">
-            <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={clearRecents}>
+        </div>
+      </Panel>
+
+      {/* DASHBOARD LAYOUT */}
+      <Panel id="DB" label="dashboard layout" icon={LayoutGrid}
+        right={<span className="text-mono text-[10px] text-muted-foreground">toggle sections</span>}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Row label="Command strip" desc="Session ID, clock, live signal ticker.">
+            <Switch checked={prefs.dashboardSections.commandStrip} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, commandStrip: v } })} />
+          </Row>
+          <Row label="Workflow ribbon" desc="Investigation flow step indicator.">
+            <Switch checked={prefs.dashboardSections.workflowRibbon} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, workflowRibbon: v } })} />
+          </Row>
+          <Row label="Metrics bar" desc="Module, group, track &amp; recent counts.">
+            <Switch checked={prefs.dashboardSections.metrics} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, metrics: v } })} />
+          </Row>
+          <Row label="Continue row" desc="Resume last workspace + quick actions.">
+            <Switch checked={prefs.dashboardSections.continueRow} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, continueRow: v } })} />
+          </Row>
+          <Row label="Pinned rail" desc="Shortcut row for pinned workspaces.">
+            <Switch checked={prefs.dashboardSections.pinned} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, pinned: v } })} />
+          </Row>
+          <Row label="Tracks" desc="Triage, Recon and Detection guided paths.">
+            <Switch checked={prefs.dashboardSections.tracks} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, tracks: v } })} />
+          </Row>
+          <Row label="Workspaces grid" desc="All module tiles in a grid.">
+            <Switch checked={prefs.dashboardSections.workspaces} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, workspaces: v } })} />
+          </Row>
+          <Row label="Footer" desc="Recent activity &amp; tips panels.">
+            <Switch checked={prefs.dashboardSections.footer} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, footer: v } })} />
+          </Row>
+        </div>
+      </Panel>
+
+      {/* KEYBOARD SHORTCUTS */}
+      <Panel id="KS" label="keyboard shortcuts" icon={Keyboard}>
+        <div className="divide-y divide-border/50">
+          <ShortcutGroup label="global">
+            <ShortcutRow keys={["⌘", "K"]} label="Open command palette" />
+            <ShortcutRow keys={["?"]} label="Show this shortcuts sheet" />
+            <ShortcutRow keys={["Esc"]} label="Close palette / clear selection" />
+            <ShortcutRow keys={["↑", "↓"]} label="Navigate palette results" />
+            <ShortcutRow keys={["↵"]} label="Open selected item" />
+          </ShortcutGroup>
+          <ShortcutGroup label="navigation">
+            <ShortcutRow keys={["G", "P"]} label="Go to Smart Parser" />
+            <ShortcutRow keys={["G", "S"]} label="Go to Settings" />
+            <ShortcutRow keys={["G", "H"]} label="Go to Command Deck" />
+            <ShortcutRow keys={["G", "F"]} label="Go to Phishing Triage" />
+            <ShortcutRow keys={["G", "D"]} label="Go to Detection" />
+            <ShortcutRow keys={["G", "I"]} label="Go to SIEM" />
+          </ShortcutGroup>
+          <ShortcutGroup label="search &amp; filter">
+            <ShortcutRow keys={["/"]} label="Focus search bar (when available)" />
+            <ShortcutRow keys={["⌘", "F"]} label="Find in current view" />
+            <ShortcutRow keys={["⌘", "G"]} label="Find next" />
+          </ShortcutGroup>
+          <ShortcutGroup label="workspace">
+            <ShortcutRow keys={["⌘", "W"]} label="Close active tab (future)" />
+            <ShortcutRow keys={["⌘", "⇧", "R"]} label="Reset / clear workspace" />
+          </ShortcutGroup>
+        </div>
+      </Panel>
+
+      {/* BACKEND CONNECTION */}
+      <BackendPanel />
+
+      {/* DATA & PRIVACY */}
+      <Panel id="DP" label="data & privacy" icon={Shield}
+        right={<span className="text-mono text-[10px] text-muted-foreground">local storage · no sync</span>}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Row label="Clear recents" desc="Wipe the recent-workspace history (ba.recents).">
+            <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => { clearRecents(); toast("Recents cleared"); }}>
               <Trash2 className="h-3.5 w-3.5" /> clear
             </Button>
           </Row>
+          <Row label="Clear all local data" desc="Remove all app preferences, themes, cached state and history.">
+            <Button variant="outline" size="sm" className="text-mono gap-1.5 text-destructive hover:text-destructive" onClick={clearAllData}>
+              <Trash2 className="h-3.5 w-3.5" /> wipe
+            </Button>
+          </Row>
+        </div>
+        <div className="mt-3 rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <Label>storage</Label>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-mono text-[11px] text-muted-foreground">ba.prefs.v1 &middot; ba.recents.v1 &middot; per-route caches</span>
+            <span className="text-mono text-[11px] text-muted-foreground">localStorage</span>
+          </div>
+        </div>
+        <div className="mt-3">
+          <Label>note</Label>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
+            BeyondArch keeps everything in your browser's localStorage. No data is sent to any server,
+            uploaded to the cloud, or shared with third parties. Clearing data is immediate and irreversible.
+          </p>
         </div>
       </Panel>
     </PageShell>
@@ -1014,7 +1122,7 @@ function ThemeGallery({
       : undefined;
 
   return (
-    <div className="grid gap-4 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       {/* LEFT — live stage */}
       <div className="relative overflow-hidden rounded-md border border-border bg-[var(--card)]" data-theme={previewTheme} style={stageStyle}>
 
@@ -1248,7 +1356,7 @@ function FontPicker<T extends string>({ title, options, value, onChange, sample,
 }
 
 function Panel({ id, label, icon: Icon, right, children }: {
-  id?: string; label: string; icon: typeof Palette; right?: React.ReactNode; children: React.ReactNode;
+  id?: string; label: string; icon: LucideIcon; right?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <section id={id ? `panel-${id}` : undefined} className="rounded-md border border-border bg-card/30 scroll-mt-24">
@@ -1280,6 +1388,28 @@ function Row({ label, desc, children }: { label: string; desc: string; children:
   );
 }
 
+function ShortcutGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-3 first:pt-2 last:pb-2">
+      <div className="text-mono mb-2 text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ShortcutRow({ keys, label }: { keys: string[]; label: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1 text-mono text-[11.5px]">
+      <span className="min-w-0 flex-1 text-foreground/90">{label}</span>
+      <span className="flex items-center gap-1">
+        {keys.map((k, i) => (
+          <kbd key={i} className="rounded border border-border/70 bg-background/60 px-1.5 py-px text-[10px] uppercase tracking-widest text-muted-foreground">{k}</kbd>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function IconBtn({ children, onClick, disabled, label }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; label: string }) {
   return (
     <button
@@ -1290,5 +1420,63 @@ function IconBtn({ children, onClick, disabled, label }: { children: React.React
     >
       {children}
     </button>
+  );
+}
+
+function BackendPanel() {
+  const [url, setUrl] = useState(getBackendUrl());
+  const [pingState, setPingState] = useState<"idle" | "testing" | "ok" | "fail">("idle");
+
+  const handleSave = () => {
+    setBackendUrl(url);
+    toast("Backend URL saved");
+  };
+
+  const handleReset = () => {
+    const def = (() => { try { return (import.meta as any).env?.VITE_BEYONDLABS_API as string || "http://localhost:8000"; } catch { return "http://localhost:8000"; } })();
+    setUrl(def);
+    setBackendUrl(def);
+    toast("Backend URL reset to default");
+  };
+
+  const handlePing = async () => {
+    setPingState("testing");
+    const ok = await pingBackend();
+    setPingState(ok ? "ok" : "fail");
+  };
+
+  return (
+    <Panel label="backend connection" icon={Network}
+      right={
+        <span className="inline-flex items-center gap-1.5 text-mono text-[10px]">
+          <span className={"inline-block h-1.5 w-1.5 rounded-full " + (pingState === "ok" ? "bg-success shadow-[0_0_6px_hsl(var(--success))]" : pingState === "fail" ? "bg-destructive" : pingState === "testing" ? "bg-warning animate-pulse" : "bg-muted-foreground/40")} />
+          {pingState === "ok" ? "connected" : pingState === "fail" ? "unreachable" : pingState === "testing" ? "testing…" : "not tested"}
+        </span>
+      }>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Row label="Backend URL" desc="API endpoint for tool execution & analysis.">
+          <div className="flex items-center gap-1.5">
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="h-8 w-48 rounded border border-border bg-background/60 px-2 text-mono text-[11px] text-foreground outline-none transition-colors focus:border-primary/60"
+            />
+            <button onClick={handleSave} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Save URL" aria-label="Save URL"><Check className="h-3.5 w-3.5" /></button>
+            <button onClick={handleReset} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Reset to default" aria-label="Reset to default"><RotateCcw className="h-3.5 w-3.5" /></button>
+          </div>
+        </Row>
+        <Row label="Connection test" desc="Ping the backend health endpoint.">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[10px] text-muted-foreground">
+              <Wifi className={"h-3 w-3 " + (pingState === "ok" ? "text-success" : pingState === "fail" ? "text-destructive" : "text-muted-foreground/60")} />
+              {pingState === "ok" ? "Live" : pingState === "fail" ? "No response" : pingState === "testing" ? "…" : "—"}
+            </span>
+            <button onClick={handlePing} disabled={pingState === "testing"} className="inline-flex h-7 items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors">
+              {pingState === "testing" ? "pinging…" : "ping"}
+            </button>
+          </div>
+        </Row>
+      </div>
+    </Panel>
   );
 }

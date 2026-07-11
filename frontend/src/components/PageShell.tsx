@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { ChevronRight, Settings as SettingsIcon, Wifi, ShieldCheck } from "lucide-react";
+import { ChevronRight, Settings as SettingsIcon, Wifi, ShieldCheck, WifiOff } from "lucide-react";
+import { useBackendStatus } from "@/lib/backend";
 import { Link } from "@tanstack/react-router";
 import { TopSearch } from "./TopSearch";
 import { CommandPalette, ShortcutsDialog, useCommandPalette } from "./CommandPalette";
 import { usePrefs, getBrandIcon } from "@/lib/prefs";
 
 export type Crumb = { label: string; href?: string };
+export type JumpLink = { label: string; to: string };
 
 export function PageShell({
   eyebrow,
@@ -15,6 +17,7 @@ export function PageShell({
   actions,
   crumbs,
   meta,
+  jumps,
   children,
 }: {
   eyebrow?: string;
@@ -22,12 +25,14 @@ export function PageShell({
   description?: string;
   actions?: ReactNode;
   crumbs?: Crumb[];
-  meta?: { label: string; value: string; tone?: "default" | "primary" | "warning" | "destructive" | "success" }[];
+  meta?: { label: string; value: string; tone?: "default" | "primary" | "warning" | "destructive" | "success" | "muted" }[];
+  jumps?: JumpLink[];
   children: ReactNode;
 }) {
   const { prefs } = usePrefs();
   const palette = useCommandPalette();
   const BrandIcon = getBrandIcon(prefs.brandIcon);
+  const { status } = useBackendStatus();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -88,8 +93,19 @@ export function PageShell({
           <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-1 text-mono text-[10px] uppercase tracking-widest text-success" title="All local — nothing sent over the wire">
             <ShieldCheck className="h-3 w-3" /> local
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-card/40 px-1.5 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground" title="Offline-first">
-            <Wifi className="h-3 w-3" /> offline
+          <span
+            className={
+              "inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-mono text-[10px] uppercase tracking-widest " +
+              (status === "online"
+                ? "border-success/30 bg-success/10 text-success"
+                : status === "checking"
+                  ? "border-warning/30 bg-warning/10 text-warning"
+                  : "border-border/60 bg-card/40 text-muted-foreground")
+            }
+            title={status === "online" ? "Backend reachable" : "Backend offline"}
+          >
+            {status === "online" ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {status}
           </span>
         </div>
 
@@ -111,7 +127,7 @@ export function PageShell({
       {/* Page hero */}
       <div className="relative overflow-hidden border-b border-border">
         <div className="ba-hero-fx" aria-hidden />
-        <div className="relative mx-auto w-full max-w-7xl px-6 py-8 ba-fade-in">
+        <div className="relative mx-auto w-full max-w-full px-6 py-8 ba-fade-in">
           {eyebrow && (
             <div className="text-mono mb-2 text-[10px] uppercase tracking-[0.24em] text-primary">
               {eyebrow}
@@ -122,6 +138,20 @@ export function PageShell({
               <h1 className="gradient-text text-3xl font-bold tracking-tight text-[2.25rem]">{title}</h1>
               {description && (
                 <p className="mt-2 max-w-3xl text-sm leading-[1.75] text-muted-foreground">{description}</p>
+              )}
+              {jumps && jumps.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50">jump→</span>
+                  {jumps.map((j) => (
+                    <Link
+                      key={j.to}
+                      to={j.to}
+                      className="rounded border border-border/50 bg-card/40 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      {j.label}
+                    </Link>
+                  ))}
+                </div>
               )}
               {meta && meta.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -160,11 +190,11 @@ export function PageShell({
       </div>
 
       <main className="min-w-0 flex-1 px-6 py-6">
-        <div className="mx-auto min-w-0 max-w-[90rem] space-y-6">{children}</div>
+        <div className="mx-auto min-w-0 max-w-full space-y-6">{children}</div>
       </main>
 
       <footer className="border-t border-border px-6 py-4">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        <div className="mx-auto flex max-w-full flex-wrap items-center justify-between gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span>beyondlabs · local soc workbench</span>
           <span>analyst-led · no detonation · bounded scans</span>
         </div>

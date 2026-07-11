@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
-import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck } from "lucide-react";
+import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
 
@@ -60,6 +60,103 @@ const PLAYBOOKS: Playbook[] = [
       { text: "Open an incident review with the on-call lead.", pivot: { to: "/case", label: "Case" } },
     ],
   },
+  { id: "ransomware-detected", title: "Ransomware detected on endpoint", severity: "P1", eta: "15 min", category: "Malware", icon: AlertTriangle, summary: "Endpoint alert: file encryption in progress, ransom note dropped, known ransomware family signature matched.", attack: ["T1486", "T1490", "T1070.004", "T1059.001"], steps: [
+    { text: "Isolate affected host from network (disable NIC / VLAN quarantine)", pivot: { label: "Case Notebook", to: "/case" } },
+    { text: "Capture memory image and relevant forensic artifacts before reboot" },
+    { text: "Identify ransomware strain via ransom note content or extension pattern", pivot: { label: "Chef — Hash & triage", to: "/chef" } },
+    { text: "Check lateral movement: scan SMB, RDP, WinRM connections from affected host", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Check for volume shadow copy deletion (vssadmin, wmic)", pivot: { label: "Terminal — query", to: "/terminal" } },
+    { text: "Collect sample: hash + submit to sandbox / threat intel", pivot: { label: "Attachment Analysis", to: "/attachment" } },
+    { text: "Determine encryption scope: network shares, mapped drives, cloud sync folders" },
+    { text: "Reset domain account passwords for affected user(s)" },
+    { text: "Escalate to incident response lead with initial findings summary" },
+  ] },
+  { id: "data-exfil-suspected", title: "Data exfiltration via DNS tunneling", severity: "P1", eta: "20 min", category: "Network", icon: ShieldAlert, summary: "DNS query volume anomaly: high TXT record counts, queries to suspicious domains, base64-encoded subdomains.", attack: ["T1572", "T1048.003", "T1071.004", "T1560.001"], steps: [
+    { text: "Review DNS logs: top queried domains, query volume spikes, unusual record types", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Inspect suspicious subdomain labels for encoded data patterns (base64, hex)", pivot: { label: "Chef — Base64 decode", to: "/chef" } },
+    { text: "Check source IP for associated C2 connections or beacon patterns" },
+    { text: "Correlate with outbound traffic logs to same destination during the window", pivot: { label: "Nmap", to: "/nmap" } },
+    { text: "Block DNS queries to identified malicious domains via firewall / DNS sinkhole", pivot: { label: "Terminal", to: "/terminal" } },
+    { text: "Extract IOCs: domains, IPs, timestamps → locker", pivot: { label: "IOC Locker", to: "/detection" } },
+    { text: "Create detection rule for identified DNS tunneling pattern", pivot: { label: "Detection", to: "/detection" } },
+    { text: "Escalate: note exfil method, estimated volume, destination" },
+  ] },
+  { id: "lateral-movement-smb", title: "Lateral movement via SMB/WMI", severity: "P1", eta: "20 min", category: "Network", icon: ShieldX, summary: "Event log 4624: network logon from a sensitive host, followed by service creation (4697) on target systems.", attack: ["T1021.002", "T1021.006", "T1047", "T1570", "T1078"], steps: [
+    { text: "Identify source host and target hosts from Event ID 4624 (Logon Type 3) correlation", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Check for service install events (4697) or scheduled task creation on targets" },
+    { text: "Review administrative share access (ADMIN$, IPC$, C$) on target systems" },
+    { text: "Search for tools dropped on targets: PsExec, PowerShell, batch scripts", pivot: { label: "Terminal — find", to: "/terminal" } },
+    { text: "Check source host for credential dumping tools or LSASS access events" },
+    { text: "Create detection rule for lateral movement patterns", pivot: { label: "Detection", to: "/detection" } },
+    { text: "Reset compromised account(s) and review privileged access" },
+    { text: "Document full lateral movement chain for incident timeline" },
+  ] },
+  { id: "web-shell-detected", title: "Web shell uploaded to web server", severity: "P1", eta: "15 min", category: "Web", icon: Globe2, summary: "Web server alert: suspicious file upload (.asp, .jsp, .php) followed by process execution from web directory.", attack: ["T1505.003", "T1190", "T1106", "T1059", "T1036"], steps: [
+    { text: "Isolate web server from network if active command execution is confirmed" },
+    { text: "Identify uploaded file: path, name, creation time, owner", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Analyze web shell code for persistence mechanisms, exfil functions, C2 endpoints", pivot: { label: "Chef — decode", to: "/chef" } },
+    { text: "Check web server access logs for initial compromise vector (LFI, RFI, SQLi)", pivot: { label: "Investigation", to: "/parser" } },
+    { text: "Review post-exploitation activity: lateral movement, data access, privilege escalation" },
+    { text: "Hash the web shell file → check reputation", pivot: { label: "Attachment Analysis", to: "/attachment" } },
+    { text: "Add web shell paths to WAF block rules / file integrity monitoring" },
+    { text: "Escalate: note entry vector, web shell capabilities, dwell time" },
+  ] },
+  { id: "unauth-access-saas", title: "Unauthorized access detected — SaaS account", severity: "P2", eta: "10 min", category: "Identity", icon: User, summary: "Sign-in from unusual location/device: impossible travel alert, legacy auth protocol used, MFA prompt denied.", attack: ["T1078.004", "T1525", "T1110", "T1556.006", "T1563"], steps: [
+    { text: "Verify alert with user: was this login expected? Contact via out-of-band channel" },
+    { text: "Force sign-out all sessions for the affected account" },
+    { text: "Revoke application-specific passwords and OAuth tokens" },
+    { text: "Enable conditional access policy: require MFA + trusted location" },
+    { text: "Check for mailbox rules created around the time of unauthorized access", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Review audit logs for data download, forwarding, or sharing events" },
+    { text: "Extract source IP → check reputation", pivot: { label: "Recon", to: "/recon" } },
+    { text: "Document: access method, data exposed, remediation actions taken" },
+  ] },
+  { id: "supply-chain-compromise", title: "Supply chain compromise — dependency warning", severity: "P2", eta: "30 min", category: "Development", icon: Package, summary: "Alert: a direct or transitive dependency used in the software supply chain has a reported CVE with active exploitation.", attack: ["T1195.001", "T1195.002", "T1195.003", "T1526"], steps: [
+    { text: "Identify the exact package, version, and CVE(s) from the advisory" },
+    { text: "Map dependency usage: which products, environments, and pipelines depend on it" },
+    { text: "Check if vulnerable function paths are actually called in your codebase" },
+    { text: "Determine if the dependency (or its hash) appears in any deployed artifact", pivot: { label: "Attachment hash check", to: "/attachment" } },
+    { text: "If active exploitation is confirmed: patch, rebuild, redeploy affected artifacts" },
+    { text: "Add CVE to tracking: note impact scope and remediation timeline in case", pivot: { label: "Case Notebook", to: "/case" } },
+    { text: "Re-evaluate dependency pinning, SBOM generation, and vulnerability scanning cadence" },
+  ] },
+  { id: "malicious-email-campaign", title: "Mass phishing campaign targeting org", severity: "P2", eta: "25 min", category: "Email", icon: Mail, summary: "Multiple users reporting similar phishing emails; threat intel feed confirms active campaign targeting the sector.", attack: ["T1566.001", "T1566.002", "T1598", "T1534"], steps: [
+    { text: "Collect representative samples from 2-3 recipients (full .eml with headers)", pivot: { label: "Phishing Analysis", to: "/phishing" } },
+    { text: "Extract campaign IOCs: sender domain, reply-to, links, attachments, hashes", pivot: { label: "Investigation", to: "/parser" } },
+    { text: "Check if links point to known malicious infrastructure", pivot: { label: "URL Analysis", to: "/url" } },
+    { text: "Hash attachments and check reputation", pivot: { label: "Attachment Analysis", to: "/attachment" } },
+    { text: "Search SIEM for other recipients who may have received similar emails", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Block sender domain, IPs, and URL patterns at email gateway" },
+    { text: "Draft user-facing warning: what to look for, what to do if clicked" },
+    { text: "Add campaign indicators to IOC Locker for ongoing monitoring", pivot: { label: "Detection", to: "/detection" } },
+  ] },
+  { id: "vpn-brute-force", title: "VPN credential brute force detected", severity: "P2", eta: "15 min", category: "Network", icon: Lock, summary: "Multiple failed authentication attempts against VPN gateway from diverse IPs, targeting valid and invalid usernames.", attack: ["T1110.001", "T1110.003", "T1110.004", "T1078"], steps: [
+    { text: "Identify source IPs: aggregate failed auth attempts, check for distributed pattern", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Check targeted usernames: are they valid employees or spray patterns?" },
+    { text: "Temporarily block offending IP ranges at perimeter firewall (geo-block if applicable)" },
+    { text: "Review successful logins from same IPs within the window" },
+    { text: "Enable CAPTCHA or account lockout on VPN gateway if not already configured" },
+    { text: "Check for successful authentication after brute force window (password spray success)", pivot: { label: "Case Notebook", to: "/case" } },
+    { text: "Alert users whose accounts may have been compromised → force password reset" },
+  ] },
+  { id: "insider-data-download", title: "Insider: mass data download alert", severity: "P2", eta: "20 min", category: "Insider", icon: User, summary: "DLP alert: user downloaded >5 GB from internal document repository outside business hours.", attack: ["T1078", "T1530", "T1213", "T1567"], steps: [
+    { text: "Verify with manager/supervisor: is this expected behavior for the user's role?" },
+    { text: "Review download pattern: specific projects vs broad repository scrape", pivot: { label: "SIEM", to: "/siem" } },
+    { text: "Check for associated activities: printing, USB mounting, external uploads" },
+    { text: "Identify destination: download to managed device vs personal cloud storage" },
+    { text: "If unauthorized: disable account, secure workstation, begin HR/legal escalation" },
+    { text: "Document data types accessed, volume, and timeframe for incident record", pivot: { label: "Case Notebook", to: "/case" } },
+  ] },
+  { id: "c2-beacon-variant", title: "C2 beacon variant — periodic outbound", severity: "P1", eta: "25 min", category: "Network", icon: Radio, summary: "Outbound connection with regular interval (30-60s), JA3 hash matches known C2 framework, low-and-slow data transfer.", attack: ["T1071.001", "T1573", "T1571", "T1095", "T1041"], steps: [
+    { text: "Capture PCAP: confirm beacon pattern (interval, jitter, packet size)", pivot: { label: "Terminal — tcpdump", to: "/terminal" } },
+    { text: "Extract destination IPs and domains → check reputation", pivot: { label: "Recon", to: "/recon" } },
+    { text: "Correlate with process creation events on the source host" },
+    { text: "Identify parent process: Office app, browser, service, or script host" },
+    { text: "Isolate: block destination at firewall, quarantine host" },
+    { text: "Create Snort/Suricata rule for the beacon signature", pivot: { label: "Detection", to: "/detection" } },
+    { text: "Extract IOCs for threat intel sharing", pivot: { label: "IOC Locker", to: "/detection" } },
+    { text: "Escalate: note framework if identified, dwell time, data volume exfiltrated" },
+  ] },
 ];
 
 const SEV_COLOR: Record<Severity, "destructive" | "warning" | "default"> = { P1: "destructive", P2: "warning", P3: "default" };

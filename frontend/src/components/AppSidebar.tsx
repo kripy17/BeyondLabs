@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Pin, Settings as SettingsIcon, Search, ChevronDown, X,
@@ -89,7 +89,7 @@ function GroupBlock({
   );
 }
 
-export function AppSidebar({ onResize }: { onResize?: (px: number) => void }) {
+export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname === url || pathname.startsWith(url + "/"));
   const { prefs, togglePin } = usePrefs();
@@ -97,35 +97,8 @@ export function AppSidebar({ onResize }: { onResize?: (px: number) => void }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  const resizing = useRef(false);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizing.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-
-    const onMove = (ev: MouseEvent) => {
-      if (!resizing.current) return;
-      onResize?.(ev.clientX);
-    };
-
-    const onUp = () => {
-      resizing.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [onResize]);
-
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-
   const order = prefs.sidebar.order.length ? prefs.sidebar.order : GROUPS.map((g) => g.label);
   const ordered = order
     .map((label) => GROUPS.find((g) => g.label === label))
@@ -221,7 +194,7 @@ export function AppSidebar({ onResize }: { onResize?: (px: number) => void }) {
 
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/70 gap-2 p-2">
+      <SidebarFooter className="border-t border-sidebar-border/70 gap-1 p-2">
         <div className="group-data-[collapsible=icon]:hidden">
           <ThemeSwitcher />
         </div>
@@ -248,16 +221,7 @@ export function AppSidebar({ onResize }: { onResize?: (px: number) => void }) {
         </div>
       </SidebarFooter>
 
-      {/* Resize handle — fixed to right edge of sidebar */}
-      {!collapsed && (
-        <div
-          onMouseDown={handleResizeStart}
-          className="fixed top-0 z-[60] hidden h-full w-3 cursor-col-resize md:block"
-          style={{ left: `calc(var(--sidebar-width) - 4px)` }}
-        >
-          <div className="ml-0.5 mt-1/2 h-8 w-0.5 rounded-full bg-sidebar-border/0 transition-all group-hover/resize:bg-sidebar-border/60 group-active/resize:bg-primary/50" />
-        </div>
-      )}
+
     </Sidebar>
   );
 }

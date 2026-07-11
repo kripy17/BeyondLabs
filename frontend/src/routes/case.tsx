@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { takePendingCaseEntry } from "@/lib/handoff";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow } from "@/components/soc/Workspace";
 import {
   Notebook, Plus, Copy, Download, Trash2, FileText, Tag, X,
-  ArrowRight, Database, ShieldAlert, Pencil, Check, Search, FolderOpen,
+  ArrowRight, Database, ShieldAlert, Pencil, Check, Search, FolderOpen, ClipboardList,
 } from "lucide-react";
 
 export const Route = createFileRoute("/case")({ component: CasePage });
@@ -32,10 +34,16 @@ function loadCases(): Case[] {
   catch { return []; }
 }
 function saveCases(list: Case[]) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch { /* noop */ }
+  try {
+    const serialized = JSON.stringify(list);
+    if (serialized.length > 5_000_000) { toast.error("Case data too large to save"); return; }
+    localStorage.setItem(LS_KEY, serialized);
+  } catch (e) {
+    toast.error("Failed to save cases — storage may be full");
+  }
 }
 function newId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 function newCaseTitle() {
   const d = new Date();
@@ -47,16 +55,42 @@ function newCaseTitle() {
   return `BA-${yy}${mm}${dd}-${hh}${mi}`;
 }
 
+function autoDetectKind(text: string): EntryKind {
+  if (!text.trim()) return "note";
+  if (/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(text) || /https?:\/\//.test(text) || /\b[a-f0-9]{32}\b/i.test(text) || /\b[a-f0-9]{40}\b/i.test(text) || /\b[a-f0-9]{64}\b/i.test(text)) return "ioc";
+  if (/^(decision|verdict|conclusion):/im.test(text)) return "decision";
+  if (/^(action|todo|investigate|escalate):/im.test(text)) return "action";
+  if (/\b(analysis|found|detected|evidence|observed):/im.test(text)) return "evidence";
+  return "note";
+}
+
 function CasePage() {
   const [cases, setCases] = useState<Case[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState<EntryKind>("note");
+  const kindRef = useRef(kind);
+  kindRef.current = kind;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState(false);
+  const [entryFilter, setEntryFilter] = useState("");
+  const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null);
+
+  const filteredEntries = useMemo(() => {
+    if (!active) return [];
+    const q = entryFilter.trim().toLowerCase();
+    if (!q) return active.entries;
+    return active.entries.filter(e =>
+      e.body.toLowerCase().includes(q) || e.kind.toLowerCase().includes(q),
+    );
+  }, [active, entryFilter]);
+
+  async function copyEntryBody(id: string, body: string) {
+    try { await navigator.clipboard.writeText(body); setCopiedEntryId(id); setTimeout(() => setCopiedEntryId(null), 1000); } catch { /* noop */ }
+  }
 
   useEffect(() => {
     const list = loadCases();
@@ -70,8 +104,22 @@ function CasePage() {
     setActiveId(remembered && list.some(c => c.id === remembered) ? remembered : list[0].id);
   }, []);
 
+  /* Auto-import from other tools */
+  useEffect(() => {
+    const pending = takePendingCaseEntry();
+    if (!pending) return;
+    const ts = new Date().toISOString();
+    const body = pending.source ? `[from ${pending.source}] ${pending.body}` : pending.body;
+    const entry: Entry = { id: newId("e"), ts, kind: pending.kind as EntryKind, body };
+    updateActive(c => ({ ...c, entries: [...c.entries, entry] }));
+  }, []);
+
   useEffect(() => { if (cases.length) saveCases(cases); }, [cases]);
   useEffect(() => { if (activeId) try { localStorage.setItem(LS_ACTIVE, activeId); } catch {/* noop */} }, [activeId]);
+
+  useEffect(() => {
+    if (kindRef.current === "note") setKind(autoDetectKind(draft));
+  }, [draft]);
 
   const active = cases.find(c => c.id === activeId);
 
@@ -123,6 +171,11 @@ function CasePage() {
     updateActive(c => ({ ...c, state: c.state === "active" ? "closed" : "active" }));
   }
 
+  const caseJson = useMemo(() => {
+    if (!active) return "";
+    return JSON.stringify({ version: "1.0", ts: new Date().toISOString(), case: active }, null, 2);
+  }, [active]);
+
   const markdown = useMemo(() => {
     if (!active) return "";
     const lines: string[] = [];
@@ -134,12 +187,46 @@ function CasePage() {
     lines.push(`- **tags:** ${active.tags.length ? active.tags.map(t => `\`${t}\``).join(", ") : "_none_"}`);
     lines.push(`- **entries:** ${active.entries.length}`);
     lines.push("");
-    lines.push("## Timeline");
+    if (active.entries.length === 0) {
+      lines.push("_no entries yet_");
+      return lines.join("\n");
+    }
+    lines.push("## Summary");
+    const byKind: Record<string, string[]> = { note: [], evidence: [], decision: [], action: [], ioc: [] };
+    active.entries.forEach(e => { (byKind[e.kind] ??= []).push(e.body); });
+    lines.push(`| Kind | Count |`);
+    lines.push(`|------|-------|`);
+    for (const [k, items] of Object.entries(byKind)) {
+      if (items.length) lines.push(`| **${k}** | ${items.length} |`);
+    }
     lines.push("");
-    if (active.entries.length === 0) lines.push("_no entries yet_");
-    active.entries.forEach(e => {
-      lines.push(`- \`${e.ts}\` **[${e.kind}]** ${e.body}`);
-    });
+    const iocEntries = active.entries.filter(e => e.kind === "ioc");
+    if (iocEntries.length) {
+      lines.push("## Extracted IOCs");
+      const iocs: string[] = [];
+      const ipRe = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g;
+      const urlRe = /https?:\/\/[^\s)"']+/g;
+      const hashRe = /\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b/ig;
+      iocEntries.forEach(e => {
+        (e.body.match(ipRe) || []).forEach(m => { if (!iocs.includes(m)) iocs.push(m); });
+        (e.body.match(urlRe) || []).forEach(m => { if (!iocs.includes(m)) iocs.push(m); });
+        (e.body.match(hashRe) || []).forEach(m => { if (!iocs.includes(m)) iocs.push(m); });
+      });
+      if (iocs.length) iocs.forEach(io => lines.push(`- \`${io}\``));
+      lines.push("");
+    }
+    lines.push("## Timeline");
+    for (const section of ["evidence", "decision", "action", "ioc", "note"] as EntryKind[]) {
+      const items = active.entries.filter(e => e.kind === section);
+      if (!items.length) continue;
+      lines.push(`### ${section.charAt(0).toUpperCase() + section.slice(1)}`);
+      items.forEach(e => {
+        const d = new Date(e.ts);
+        const short = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+        lines.push(`- \`${short}\` ${e.body}`);
+      });
+      lines.push("");
+    }
     return lines.join("\n");
   }, [active]);
 
@@ -261,7 +348,7 @@ function CasePage() {
                           onKeyDown={e => { if (e.key === "Enter") { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); } if (e.key === "Escape") setEditingTitle(false); }}
                           className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[13px] text-foreground outline-none focus:border-primary/50"
                         />
-                        <button onClick={() => { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); }} className="rounded border border-success/50 bg-success/10 px-2 py-1 text-mono text-[10px] uppercase text-success"><Check className="h-3 w-3" /></button>
+                        <button onClick={() => { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); }} aria-label="Confirm title" className="rounded border border-success/50 bg-success/10 px-2 py-1 text-mono text-[10px] uppercase text-success"><Check className="h-3 w-3" /></button>
                       </div>
                     ) : (
                       <button onClick={() => { setTitleDraft(active.title); setEditingTitle(true); }} className="group mt-1 flex items-center gap-2 text-left">
@@ -273,7 +360,7 @@ function CasePage() {
                       {active.tags.map(t => (
                         <span key={t} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-foreground/85">
                           <Tag className="h-2.5 w-2.5 text-primary/70" /> {t}
-                          <button onClick={() => removeTag(t)} className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
+                          <button onClick={() => removeTag(t)} aria-label="Remove tag" className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
                         </span>
                       ))}
                       <input
@@ -332,15 +419,31 @@ function CasePage() {
                 {active.entries.length === 0 ? (
                   <div className="p-4"><Empty title="No entries yet" hint="Append your first observation, decision, or IOC above." /></div>
                 ) : (
-                  <ul className="divide-y divide-border/50">
-                    {[...active.entries].reverse().map(e => {
+                  <>
+                    <div className="border-b border-border/50 px-3 py-2">
+                      <input
+                        value={entryFilter}
+                        onChange={e => setEntryFilter(e.target.value)}
+                        placeholder="filter entries…"
+                        className="w-full rounded border border-border/70 bg-background/60 px-2 py-1 text-mono text-[10.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                      />
+                    </div>
+                    <ul className="divide-y divide-border/50">
+                      {[...filteredEntries].reverse().map(e => {
                       const d = new Date(e.ts);
                       const short = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
                       return (
-                        <li key={e.id} className="group grid grid-cols-[70px_100px_1fr_auto] items-start gap-3 px-4 py-2.5">
+                        <li key={e.id} className="group grid grid-cols-[70px_100px_1fr_auto_auto] items-start gap-3 px-4 py-2.5">
                           <div className="text-mono text-[10px] text-muted-foreground" title={e.ts}>{short}</div>
                           <div><Chip tone={KIND_TONE[e.kind]}>{e.kind}</Chip></div>
                           <div className="whitespace-pre-wrap text-[12px] text-foreground/90">{e.body}</div>
+                          <button
+                            onClick={() => copyEntryBody(e.id, e.body)}
+                            className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary"
+                            title="Copy entry"
+                          >
+                            {copiedEntryId === e.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                          </button>
                           <button
                             onClick={() => removeEntry(e.id)}
                             className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
@@ -351,7 +454,8 @@ function CasePage() {
                         </li>
                       );
                     })}
-                  </ul>
+                    </ul>
+                  </>
                 )}
               </Panel>
 
@@ -374,6 +478,9 @@ function CasePage() {
                     </button>
                     <button onClick={download} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">
                       <Download className="h-3 w-3" /> .md
+                    </button>
+                    <button onClick={() => { const blob = new Blob([caseJson], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}.json`; a.click(); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+                      <Download className="h-3 w-3" /> .json
                     </button>
                   </>
                 }

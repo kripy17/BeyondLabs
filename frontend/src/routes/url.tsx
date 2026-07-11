@@ -4,9 +4,10 @@ import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { useLocker } from "@/lib/locker";
 import { safeAnalyzeUrl } from "@/api/backend";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS } from "@/lib/ioc-patterns";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network } from "lucide-react";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network, Search } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
 
@@ -25,7 +26,7 @@ function syntheticIntel(host: string) {
   const tlsAge = (h % 540);
   const tlsIssuer = issuers[(h >> 7) % issuers.length];
   const ip = `${(h % 223) + 1}.${(h >> 4) % 255}.${(h >> 8) % 255}.${(h >> 12) % 255}`;
-  return { country, city, asn, org, tlsAge, tlsIssuer, ip };
+  return { country: `${country} [SYNTHETIC]`, city: `${city} [SYNTHETIC]`, asn: `${asn} [SYNTHETIC]`, org: `${org} [SYNTHETIC]`, tlsAge: tlsAge + 1, tlsIssuer: `${tlsIssuer} [SYNTHETIC]`, ip: `${ip} [SYNTHETIC]` };
 }
 
 function syntheticRedirects(parsed: URL) {
@@ -33,13 +34,13 @@ function syntheticRedirects(parsed: URL) {
   const isShort = /^(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|ow\.ly)$/i.test(host);
   if (isShort) {
     return [
-      { code: 301, url: `https://${host}${parsed.pathname}`, note: "shortener entry" },
-      { code: 302, url: "https://cdn.tracker.example/click?id=" + (hash(host) % 9999), note: "click-tracker" },
-      { code: 200, url: "https://login.example-bank.com.evil-host.ru/reset", note: "final landing" },
+      { code: 301, url: `https://${host}${parsed.pathname}`, note: "shortener entry", latency: 45 },
+      { code: 302, url: "https://cdn.tracker.example/click?id=" + (hash(host) % 9999), note: "click-tracker", latency: 120 },
+      { code: 200, url: "https://login.example-bank.com.evil-host.ru/reset", note: "final landing", latency: 210 },
     ];
   }
   return [
-    { code: 200, url: parsed.href, note: "direct fetch (no redirect)" },
+    { code: 200, url: parsed.href, note: "direct fetch (no redirect)", latency: 85 },
   ];
 }
 
@@ -66,6 +67,14 @@ const SUSPICIOUS_PORT_WARN: Record<string, string> = { "8080": "common proxy/c2 
 
 const NUMERIC_IP_RX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
+const TRACKING_PARAMS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "fbclid", "gclid", "gclsrc", "dclid", "msclkid", "ref", "source", "mc_cid", "mc_eid", "_ga", "_gl", "pk_source", "pk_medium", "pk_campaign", "yclid", "igshid", "ttclid", "twclid", "sc_campaign", "wt_mc"]);
+
+function findTrackingParams(url: URL): string[] {
+  return Array.from(url.searchParams.keys()).filter((k) => TRACKING_PARAMS.has(k.toLowerCase()));
+}
+
+const BASE64_PATH_RX = /(?:[A-Za-z0-9+/]{4,}){2,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g;
+
 const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
   punycode: [{ id: "T1566", name: "Phishing" }],
   shortener: [{ id: "T1566", name: "Phishing" }],
@@ -81,34 +90,6 @@ const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
   port_warn: [{ id: "T1571", name: "Non-Standard Port" }],
   path_login: [{ id: "T1204", name: "User Execution" }],
 };
-
-function refang(s: string) { return s.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".").replace(/\{\.\}/g, ".").replace(/hxxp/gi, "http").replace(/\[:\]/g, ":"); }
-function defang(s: string) { return s.replace(/\./g, "[.]").replace(/^http/i, "hxxp"); }
-
-function entropy(s: string): number {
-  const freq: Record<string, number> = {};
-  for (const c of s) freq[c] = (freq[c] || 0) + 1;
-  return -Object.values(freq).reduce((sum, n) => { const p = n / s.length; return sum + p * Math.log2(p); }, 0);
-}
-
-function domainEntropy(host: string): number {
-  const labels = host.replace(/\./g, "");
-  return Math.round(entropy(labels) * 100) / 100;
-}
-
-function scanSecrets(t: string): { type: string; value: string }[] {
-  const found: { type: string; value: string }[] = [];
-  for (const { type, re } of SECRET_RX) {
-    const matches = t.match(re);
-    if (matches) {
-      for (const m of new Set(matches)) {
-        const masked = m.length > 12 ? m.slice(0, 6) + "*".repeat(m.length - 12) + m.slice(-6) : m;
-        found.push({ type, value: masked });
-      }
-    }
-  }
-  return found;
-}
 
 function genMarkdownExport(parsed: URL, findings: { sev: string; t: string; r: string; a: string }[], secrets: { type: string; value: string }[], mitre: { id: string; name: string }[], pathSignals: string[], fileExt: string | null, hasEmbeddedCreds: boolean, hasPathTraversal: boolean, isNumericDomain: boolean, hasNonStandardPort: boolean, portNum: string, suspChars: { char: string; pos: number }[]): string {
   const lines = [
@@ -147,6 +128,30 @@ function genMarkdownExport(parsed: URL, findings: { sev: string; t: string; r: s
     lines.push("## MITRE ATT&CK", ...mitre.map((m) => `- ${m.id}: ${m.name}`), "");
   }
   return lines.join("\n");
+}
+
+function genJsonExport(parsed: URL, findings: { sev: string; t: string; r: string; a: string }[], secrets: { type: string; value: string }[], mitre: { id: string; name: string }[], pathSignals: string[], fileExt: string | null, hasEmbeddedCreds: boolean, hasPathTraversal: boolean, isNumericDomain: boolean, hasNonStandardPort: boolean, portNum: string, suspChars: { char: string; pos: number }[]): string {
+  const data = {
+    version: "1.0",
+    generated: new Date().toISOString(),
+    url: parsed.href,
+    parsed: {
+      scheme: parsed.protocol.replace(":", ""),
+      host: parsed.hostname,
+      port: parsed.port || "default",
+      path: parsed.pathname || "/",
+      query: parsed.search || "",
+      fragment: parsed.hash || "",
+      registrable: parsed.hostname.split(".").slice(-2).join("."),
+      subdomains: parsed.hostname.split(".").length - 2,
+    },
+    findings: findings.map(f => ({ severity: f.sev, title: f.t, reason: f.r, action: f.a })),
+    secrets: secrets.map(s => ({ type: s.type, value: s.value })),
+    mitre: mitre.map(m => ({ id: m.id, name: m.name })),
+    signals: { pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort },
+    suspiciousCharacters: suspChars,
+  };
+  return JSON.stringify(data, null, 2);
 }
 
 function renderEnrichment(er: Record<string, unknown> | null) {
@@ -189,10 +194,12 @@ function UrlPage() {
   const [raw, setRaw] = useState("");
   const [runs, setRuns] = useState(0);
   const [history, setHistory] = useState<string[]>([]);
+  const [urlSearch, setUrlSearch] = useState("");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
   const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
   const er: Record<string, unknown> | null = enrichResult;
+  const locker = useLocker();
 
   useEffect(() => {
     try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]")); } catch {}
@@ -212,7 +219,7 @@ function UrlPage() {
     const url = refang(trimmed);
     let parsed: URL | null = null;
     try { parsed = new URL(url); } catch { parsed = null; }
-    if (!parsed) return { parsed: null as URL | null, findings: [], score: 0, isHttp: false, punycode: false, isShortener: false, defangedOriginal: false, pathSignals: [], fileExt: null, hasEmbeddedCreds: false, hasPathTraversal: false, isNumericDomain: false, hasNonStandardPort: false, portNum: null, suspiciousChars: [], domainEnt: 0, isSuspiciousTLD: false, tld: "", suspiciousPaths: [], secrets: [], mitre: [] };
+    if (!parsed) return { parsed: null as URL | null, findings: [], trackingParams: [], score: 0, isHttp: false, punycode: false, isShortener: false, defangedOriginal: false, pathSignals: [], fileExt: null, hasEmbeddedCreds: false, hasPathTraversal: false, isNumericDomain: false, hasNonStandardPort: false, portNum: null, suspiciousChars: [], domainEnt: 0, isSuspiciousTLD: false, tld: "", suspiciousPaths: [], secrets: [], mitre: [] };
 
     const host = parsed.hostname;
     const path = parsed.pathname;
@@ -252,6 +259,8 @@ function UrlPage() {
     if (fileExt) pathSignals.push(`File download: .${fileExt}`);
     if (hasPathTraversal) pathSignals.push("Path traversal pattern detected");
     if (suspiciousPaths.length) pathSignals.push(`Suspicious path segment${suspiciousPaths.length > 1 ? "s" : ""}: ${suspiciousPaths.join(", ")}`);
+    const pathBase64 = path.split("/").filter(Boolean).some(seg => (seg.match(BASE64_PATH_RX) || []).length > 0 && entropy(seg) > 4.0);
+    if (pathBase64) pathSignals.push("Base64-like content in path segment");
     if (suspiciousChars.length) pathSignals.push(`Suspicious character${suspiciousChars.length > 1 ? "s" : ""} in path`);
     if (hasEmbeddedCreds) pathSignals.push("Embedded credentials in URL");
     if (isNumericDomain) pathSignals.push("Direct IP address as hostname");
@@ -261,6 +270,7 @@ function UrlPage() {
     const portReason = hasNonStandardPort && portNum ? SUSPICIOUS_PORT_WARN[portNum] || "non-standard" : null;
 
     const secrets = scanSecrets(parsed.href);
+    const trackingParams = Array.from(parsed.searchParams.entries()).filter(([k]) => TRACKING_PARAMS.has(k.toLowerCase()));
 
     const findings = [
       isHttp && { sev: "warning" as const, t: "Plain HTTP destination", r: "No TLS — traffic and credentials would be in clear.", a: "Treat as untrusted." },
@@ -278,6 +288,7 @@ function UrlPage() {
       hasNonStandardPort && portReason === null && { sev: "info" as const, t: `Non-standard port ${portNum}`, r: "Unusual port for HTTP/S traffic.", a: "Verify intended service." },
       suspiciousPaths.length > 0 && { sev: "warning" as const, t: `Suspicious path segment${suspiciousPaths.length > 1 ? "s" : ""}`, r: `Path references: ${suspiciousPaths.join(", ")}.`, a: "Common phishing path keywords detected." },
       domainEnt > 4.0 && { sev: "info" as const, t: "High domain entropy", r: `Domain character entropy: ${domainEnt.toFixed(2)} bits — suggests random/auto-generated domain.`, a: "Check domain registration age." },
+      trackingParams.length > 0 && { sev: "info" as const, t: "Tracking parameters present", r: `Common tracking parameter${trackingParams.length > 1 ? "s" : ""}: ${trackingParams.map(([k]) => k).join(", ")}.`, a: "Identify tracking service and verify data handling practices." },
     ].filter(Boolean) as { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[];
 
     const mitreKeys = [];
@@ -300,7 +311,7 @@ function UrlPage() {
       }
     }
 
-    return { parsed, findings, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
+    return { parsed, findings, trackingParams, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
   }, [committed, trimmed, raw]);
 
   const intel = analysis?.parsed ? syntheticIntel(analysis.parsed.hostname) : null;
@@ -341,6 +352,7 @@ function UrlPage() {
       title="Safe URL Analyzer"
       description="Local parsing only — no headers fetched, no page rendered, no JavaScript executed."
       crumbs={[{ label: "Triage" }, { label: "Safe URL" }]}
+      jumps={[{ label: "Recon", to: "/recon" }, { label: "Phishing", to: "/phishing" }]}
     >
       <ToolShell
         icon={Link2}
@@ -394,8 +406,17 @@ function UrlPage() {
             </div>
             {history.length > 0 && (
               <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History} collapsible storageKey="ba.panel.url.history" defaultCollapsed>
+                <div className="relative px-3 pb-1 pt-1">
+                  <Search className="absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/50" />
+                  <input
+                    value={urlSearch}
+                    onChange={e => setUrlSearch(e.target.value)}
+                    placeholder="search history…"
+                    className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+                  />
+                </div>
                 <ul className="divide-y divide-border/40">
-                  {history.map((h, i) => (
+                  {history.filter(h => !urlSearch.trim() || h.toLowerCase().includes(urlSearch.toLowerCase())).map((h, i) => (
                     <li key={i} className="flex items-center justify-between gap-2 py-1.5">
                       <button
                         onClick={() => { setRaw(h); setRuns((r) => r + 1); }}
@@ -406,6 +427,9 @@ function UrlPage() {
                       <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">recall</span>
                     </li>
                   ))}
+                  {urlSearch.trim() && history.filter(h => h.toLowerCase().includes(urlSearch.toLowerCase())).length === 0 && (
+                    <li className="px-3 py-2 text-center text-mono text-[10px] text-muted-foreground">no matches</li>
+                  )}
                 </ul>
                 <button
                   onClick={() => { setHistory([]); try { localStorage.removeItem(HISTORY_KEY); } catch {} }}
@@ -436,7 +460,16 @@ function UrlPage() {
                   { label: "Params",     value: String(new URLSearchParams(analysis.parsed.search || "").size) },
                 ]}
               />
-
+ 
+              {analysis.trackingParams.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 px-1">
+                  <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">tracking</span>
+                  {analysis.trackingParams.map(([k]) => (
+                    <Chip key={k}>{k}</Chip>
+                  ))}
+                </div>
+              )}
+ 
               <Panel title="Hostname Segments" meta="registrable domain highlighted" icon={Globe2}>
                 <div className="flex flex-wrap items-center gap-1 text-mono text-[13px]">
                   <span className="rounded border border-border bg-background/60 px-1.5 py-0.5 text-foreground/70">{analysis.parsed.protocol.replace(":", "")}</span>
@@ -458,59 +491,93 @@ function UrlPage() {
               </Panel>
 
               <Panel title="URL Structure">
-                <KeyFields items={[
-                  { label: "Scheme", value: analysis.parsed.protocol.replace(":", ""), tone: analysis.isHttp ? "warning" : "default" },
-                  { label: "Host", value: analysis.parsed.hostname },
-                  { label: "Port", value: analysis.parsed.port || "default", tone: analysis.hasNonStandardPort ? "warning" : "default" },
-                  { label: "User", value: analysis.parsed.username || "\u2014", tone: analysis.hasEmbeddedCreds ? "destructive" : "default" },
-                  { label: "Path", value: analysis.parsed.pathname || "/" },
-                  { label: "Query", value: analysis.parsed.search || "\u2014" },
-                  { label: "Fragment", value: analysis.parsed.hash || "\u2014" },
-                  { label: "Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".") },
-                  { label: "Subdomains", value: analysis.parsed.hostname.split(".").length - 2 },
-                ]} />
+                <div className="divide-y divide-border/40">
+                  {[{label:"Scheme", value: analysis.parsed.protocol.replace(":", ""), tone: analysis.isHttp ? "warning" : "default"},
+                    {label:"Host", value: analysis.parsed.hostname},
+                    {label:"Port", value: analysis.parsed.port || "default", tone: analysis.hasNonStandardPort ? "warning" : "default"},
+                    {label:"User", value: analysis.parsed.username || "\u2014", tone: analysis.hasEmbeddedCreds ? "destructive" : "default"},
+                    {label:"Path", value: analysis.parsed.pathname || "/"},
+                    {label:"Query", value: analysis.parsed.search || "\u2014"},
+                    {label:"Fragment", value: analysis.parsed.hash || "\u2014"},
+                    {label:"Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".")},
+                    {label:"Subdomains", value: analysis.parsed.hostname.split(".").length - 2},
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center justify-between gap-2 py-1.5 text-mono text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                        <code className={`truncate ${item.tone === "warning" ? "text-warning" : item.tone === "destructive" ? "text-destructive" : "text-foreground/85"}`}>{item.value}</code>
+                      </div>
+                      <button onClick={() => navigator.clipboard.writeText(item.value)} className="shrink-0 rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                    </div>
+                  ))}
+                </div>
               </Panel>
 
-              {/* Redirect Chain */}
+              {/* Redirect Waterfall */}
               <Panel
-                title="Redirect Chain"
+                title="Redirect Waterfall"
                 meta={`${redirects.length} hop${redirects.length === 1 ? "" : "s"}`}
                 icon={CornerDownRight}
+                bodyClassName="!p-0"
               >
-                <ol className="space-y-1.5">
-                  {redirects.map((r: any, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-mono text-[11px]">
-                      <span className={"shrink-0 rounded border px-1.5 py-0.5 " + (r.code >= 300 && r.code < 400 ? "border-warning/50 bg-warning/10 text-warning" : "border-success/40 bg-success/10 text-success")}>
-                        {r.code}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <code className="block truncate text-foreground/85">{r.url}</code>
-                        <span className="text-[10px] text-muted-foreground">{r.note}</span>
+                <div className="divide-y divide-border/50">
+                  {redirects.map((r: any, i: number) => {
+                    const isRedirect = r.code >= 300 && r.code < 400;
+                    const ms = r.latency ?? Math.round(Math.random() * 120 + 30 + i * 15);
+                    const maxLatency = Math.max(...redirects.map((x: any) => x.latency ?? 150));
+                    const barPct = Math.round((ms / maxLatency) * 100);
+                    return (
+                      <div key={i} className="group relative flex items-start gap-3 px-4 py-2.5 hover:bg-card/30">
+                        {/* Timeline rail */}
+                        <div className="relative flex flex-col items-center pt-1">
+                          <div className={"z-10 grid h-5 w-5 place-items-center rounded-full border-2 text-mono text-[9px] font-bold " + (isRedirect ? "border-warning/60 bg-warning/10 text-warning" : "border-success/60 bg-success/10 text-success")}>
+                            {r.code}
+                          </div>
+                          {i < redirects.length - 1 && <div className="mt-0.5 h-full w-px bg-border/50" />}
+                        </div>
+                        {/* Content */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-mono text-[11px] text-foreground/85">{r.url}</span>
+                            <span className="shrink-0 text-mono text-[10px] text-muted-foreground">{ms}ms</span>
+                          </div>
+                          {r.note && <span className="mt-0.5 block text-[10px] text-muted-foreground">{r.note}</span>}
+                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-border/30">
+                            <div
+                              className={"h-full rounded-sm transition-all " + (isRedirect ? "bg-warning/60" : "bg-success/60")}
+                              style={{ width: `${barPct}%` }}
+                            />
+                          </div>
+                        </div>
+                        {/* Hop number */}
+                        <span className="shrink-0 pt-1 text-mono text-[9px] text-muted-foreground/40 group-hover:text-muted-foreground/70">#{i + 1}</span>
                       </div>
-                      {i < redirects.length - 1 && <ChevronRight className="mt-1 h-3 w-3 text-muted-foreground" />}
-                    </li>
-                  ))}
-                </ol>
+                    );
+                  })}
+                </div>
               </Panel>
 
               {/* Network / TLS / Geo intel */}
               {intel && (
                 <div className="grid gap-3 grid-cols-3">
-                  <Panel title="Network" icon={Network} meta={intel.asn}>
+                  <Panel title="Network (simulated)" icon={Network} meta={intel.asn}>
+                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Resolved IP", value: intel.ip },
                       { label: "ASN", value: intel.asn },
                       { label: "Org", value: intel.org },
                     ]} />
                   </Panel>
-                  <Panel title="TLS" icon={Lock} meta={`${intel.tlsAge}d old`}>
+                  <Panel title="TLS (simulated)" icon={Lock} meta={`${intel.tlsAge}d old`}>
+                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Issuer", value: intel.tlsIssuer },
                       { label: "Cert age", value: `${intel.tlsAge} days`, tone: intel.tlsAge < 30 ? "warning" : "default" },
                       { label: "Protocol", value: analysis.isHttp ? "none (HTTP)" : "TLS 1.3", tone: analysis.isHttp ? "destructive" : "default" },
                     ]} />
                   </Panel>
-                  <Panel title="Geo" icon={MapPin} meta={intel.country}>
+                  <Panel title="Geo (simulated)" icon={MapPin} meta={intel.country}>
+                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Country", value: intel.country },
                       { label: "City", value: intel.city },
@@ -519,6 +586,7 @@ function UrlPage() {
                   </Panel>
                 </div>
               )}
+              <p className="text-mono text-[9px] text-muted-foreground/50 italic">* Network/TLS/Geo data is simulated for demo purposes</p>
 
               {/* Path Analysis */}
               <Panel title="Path Analysis" icon={CornerDownRight} meta={`${analysis.pathSignals.length} signal${analysis.pathSignals.length === 1 ? "" : "s"}`}>
@@ -655,12 +723,20 @@ function UrlPage() {
 
               {/* IOC Summary */}
               <Panel title="Artifact Summary" icon={Hash} meta="url · domain · ip">
-                <KeyFields items={[
-                  { label: "URL", value: defang(analysis.parsed.href) },
-                  { label: "Domain", value: analysis.parsed.hostname },
-                  { label: "Resolved IP", value: "\u2014" },
-                  { label: "Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".") },
-                ]} />
+                <div className="space-y-2">
+                  {[{label:"URL", value: defang(analysis.parsed.href)}, {label:"Domain", value: analysis.parsed.hostname}, {label:"Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".")}].map(item => (
+                    <div key={item.label} className="flex items-center justify-between gap-2 rounded border border-border/40 bg-card/30 px-2 py-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                        <code className="truncate text-mono text-[11px] text-foreground/90">{item.value}</code>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => { navigator.clipboard.writeText(item.value); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                        <button onClick={() => { locker.add({ value: item.value, type: item.label === "URL" ? "url" : "domain", source: "/url" }); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">locker</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Panel>
 
               {renderEnrichment(er)}
@@ -689,6 +765,20 @@ function UrlPage() {
                 ))}
               </div>
 
+              {/* Parsed URL */}
+              <Panel title="Parsed URL" icon={Link2} meta="components">
+                <KeyFields items={[
+                  { label: "Scheme", value: analysis.parsed.protocol.replace(":", "") },
+                  ...(analysis.parsed.hostname ? [{ label: "Host", value: analysis.parsed.hostname }] : []),
+                  ...(analysis.parsed.port ? [{ label: "Port", value: analysis.parsed.port }] : []),
+                  ...(analysis.parsed.pathname ? [{ label: "Path", value: analysis.parsed.pathname }] : []),
+                  ...(analysis.parsed.search ? [{ label: "Query", value: analysis.parsed.search }] : []),
+                  ...(analysis.parsed.hash ? [{ label: "Fragment", value: analysis.parsed.hash }] : []),
+                  ...(analysis.parsed.username ? [{ label: "Username", value: analysis.parsed.username }] : []),
+                  ...(analysis.parsed.password ? [{ label: "Password", value: analysis.parsed.password }] : []),
+                ]} />
+              </Panel>
+
               {/* Export + Handoff */}
               <div className="grid gap-4 grid-cols-[1fr_2fr]">
                 <Panel title="Export Report" icon={Download}>
@@ -704,6 +794,19 @@ function UrlPage() {
                   >
                     <Download className="h-3.5 w-3.5" />
                     Download Markdown
+                  </button>
+                  <button
+                    onClick={() => {
+                      const json = genJsonExport(analysis.parsed!, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum ?? "", analysis.suspiciousChars);
+                      const blob = new Blob([json], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url; a.download = `url-report-${Date.now()}.json`; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="group inline-flex w-full items-center justify-center gap-2 rounded border border-border/50 bg-card/40 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-all hover:border-primary/40 hover:text-primary"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download JSON
                   </button>
                   <p className="mt-2 text-[11px] text-muted-foreground">Includes all indicators, findings, secrets, and MITRE mapping.</p>
                 </Panel>

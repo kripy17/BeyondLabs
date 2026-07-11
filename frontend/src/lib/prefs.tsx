@@ -67,6 +67,17 @@ export const CUSTOM_THEME_PRESETS: { name: string; theme: CustomTheme }[] = [
   { name: "Arctic White",  theme: { isLight: true,  background: "#f8fafc", foreground: "#0f172a", card: "#ffffff", border: "#e2e8f0", muted: "#f1f5f9", primary: "#0ea5e9", accent: "#6366f1", destructive: "#dc2626" } },
 ];
 
+export type DashboardSections = {
+  commandStrip: boolean;
+  workflowRibbon: boolean;
+  metrics: boolean;
+  continueRow: boolean;
+  pinned: boolean;
+  tracks: boolean;
+  workspaces: boolean;
+  footer: boolean;
+};
+
 export type Prefs = {
   brandName: string;
   brandTagline: string;
@@ -83,6 +94,8 @@ export type Prefs = {
   zebraStripes: boolean;
   focusRingBoost: boolean;
   reduceMotion: boolean;
+  reducedTransparency: boolean;
+  highContrast: boolean;
   slashOpensPalette: boolean;
   showBreadcrumb: boolean;
   showTopbar: boolean;
@@ -92,6 +105,7 @@ export type Prefs = {
     pinned: string[];
     order: string[];
   };
+  dashboardSections: DashboardSections;
 };
 
 
@@ -113,11 +127,23 @@ const DEFAULT: Prefs = {
   zebraStripes: true,
   focusRingBoost: false,
   reduceMotion: false,
+  reducedTransparency: false,
+  highContrast: false,
   slashOpensPalette: true,
   showBreadcrumb: true,
   showTopbar: true,
   customTheme: DEFAULT_CUSTOM_THEME,
 
+  dashboardSections: {
+    commandStrip: true,
+    workflowRibbon: true,
+    metrics: true,
+    continueRow: true,
+    pinned: true,
+    tracks: true,
+    workspaces: true,
+    footer: true,
+  },
   sidebar: {
     hiddenGroups: [],
     pinned: [],
@@ -236,6 +262,8 @@ function applyToDOM(p: Prefs) {
   r.dataset.topbar = p.showTopbar ? "on" : "off";
   r.dataset.zebra = p.zebraStripes ? "on" : "off";
   r.dataset.focusBoost = p.focusRingBoost ? "on" : "off";
+  r.dataset.transparency = p.reducedTransparency ? "reduce" : "full";
+  r.dataset.contrast = p.highContrast ? "high" : "normal";
 
   // Custom theme builder — overrides token block when active.
   if (r.dataset.theme === "custom") {

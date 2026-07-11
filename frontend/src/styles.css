@@ -423,6 +423,11 @@
     background: color-mix(in oklab, var(--muted) 40%, transparent);
   }
 
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    transition: outline-offset 80ms ease;
+  }
   html[data-focus-boost="on"] :focus-visible {
     outline: 3px solid var(--ring) !important;
     outline-offset: 3px !important;
@@ -450,6 +455,23 @@
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+
+  /* Reduced transparency */
+  html[data-transparency="reduce"] {
+    --ba-panel-opacity: 1 !important;
+  }
+  html[data-transparency="reduce"] .backdrop-blur,
+  html[data-transparency="reduce"] [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+  }
+
+  /* High contrast */
+  html[data-contrast="high"] {
+    --border: color-mix(in oklab, var(--foreground) 25%, var(--background)) !important;
+  }
+  html[data-contrast="high"] .text-muted-foreground {
+    opacity: 0.85;
   }
 }
 
@@ -735,6 +757,21 @@ body::before {
 [data-theme="terminal-noir"] h3 {
   font-family: var(--font-mono);
   letter-spacing: -0.02em;
+}
+[data-theme="terminal-noir"] input,
+[data-theme="terminal-noir"] textarea {
+  caret-color: var(--primary);
+  caret-shape: block;
+}
+@supports (caret-shape: block) {
+  [data-theme="terminal-noir"] input,
+  [data-theme="terminal-noir"] textarea {
+    caret-shape: block;
+    animation: ba-blink 1s step-end infinite;
+  }
+}
+@keyframes ba-blink {
+  50% { caret-color: transparent; }
 }
 [data-theme="solar-flare"] h1,
 [data-theme="solar-flare"] .gradient-text {

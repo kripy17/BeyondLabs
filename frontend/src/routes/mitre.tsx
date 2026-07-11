@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, RotateCcw, Search, StickyNote } from "lucide-react";
+import { Target, ArrowRight, Database, ShieldAlert, RotateCcw, Search, StickyNote, Download } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
@@ -56,6 +56,20 @@ function nextCov(c: Cov): Cov {
 }
 function techKey(tacticId: string, techId: string) { return `${tacticId}::${techId}`; }
 
+function genCovExport(cov: Record<string, Cov>, notes: Record<string, string>, tactics: Tactic[]): string {
+  const techniques = tactics.flatMap((t) =>
+    t.techniques.map((x) => ({
+      id: x.id, name: x.name, tactic: t.name, tacticId: t.id,
+      coverage: cov[techKey(t.id, x.id)] || "none", note: notes[x.id] || "",
+    }))
+  );
+  return JSON.stringify({
+    version: "1.0", ts: new Date().toISOString(),
+    stats: { total: techniques.length, full: techniques.filter((t) => t.coverage === "full").length, partial: techniques.filter((t) => t.coverage === "partial").length, none: techniques.filter((t) => t.coverage === "none").length },
+    techniques,
+  }, null, 2);
+}
+
 function MitrePage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<Cov | "all">("all");
@@ -66,6 +80,7 @@ function MitrePage() {
   const [noteDraft, setNoteDraft] = useState("");
   const [noteTech, setNoteTech] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [matrixSearch, setMatrixSearch] = useState("");
 
   const cycleCov = useCallback((tacticId: string, techId: string) => {
     setCov((prev) => {
@@ -86,10 +101,10 @@ function MitrePage() {
   }, [cov]);
 
   const stats = useMemo(() => {
-    const all = TACTICS.flatMap((t) => t.techniques);
-    const n = all.filter((t) => getTechCov(t.id, t.id) === "none").length;
-    const p = all.filter((t) => getTechCov(t.id, t.id) === "partial").length;
-    const f = all.filter((t) => getTechCov(t.id, t.id) === "full").length;
+    const all = TACTICS.flatMap((t) => t.techniques.map((tech) => ({ ...tech, tacticId: t.id })));
+    const n = all.filter((t) => getTechCov(t.tacticId, t.id) === "none").length;
+    const p = all.filter((t) => getTechCov(t.tacticId, t.id) === "partial").length;
+    const f = all.filter((t) => getTechCov(t.tacticId, t.id) === "full").length;
     return { total: all.length, full: f, partial: p, none: n };
   }, [getTechCov]);
 
@@ -224,22 +239,41 @@ function MitrePage() {
           <SectionBar id="MX" label="Coverage matrix" meta={`filter: ${filter}`}
             action={
               <div className="flex items-center gap-1">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <input value={matrixSearch} onChange={e => setMatrixSearch(e.target.value)} placeholder="search…" className="h-7 w-32 rounded border border-border bg-background/60 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50" />
+                </div>
                 {(["all", "full", "partial", "none"] as const).map((f) => (
                   <button key={f} onClick={() => setFilter(f)} className={"rounded border px-1.5 py-0.5 text-mono text-[10px] uppercase " + (filter === f ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{f}</button>
                 ))}
+                <button onClick={() => { const json = genCovExport(cov, notes, TACTICS); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `mitre-coverage-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20"><Download className="h-3 w-3" />export</button>
               </div>
             }
           />
           <div className="-mx-1 overflow-x-auto px-1 pb-1">
             <div className="grid min-w-[920px] grid-cols-5 gap-2 min-w-0">
               {TACTICS.map((t) => {
+                const q = matrixSearch.trim().toLowerCase();
                 const ts = t.techniques.filter((x) => {
                   const c = getTechCov(t.id, x.id);
-                  return filter === "all" || c === filter;
+                  if (filter !== "all" && c !== filter) return false;
+                  if (q && !x.id.toLowerCase().includes(q) && !x.name.toLowerCase().includes(q)) return false;
+                  return true;
                 });
                 const c = tacticPct(t);
+                const heatPct = Math.round(c * 100);
                 return (
-                  <Panel key={t.id} title={t.name} meta={t.id} bodyClassName="p-1.5">
+                  <Panel key={t.id} title={t.name} meta={`${heatPct}% · ${t.id}`} bodyClassName="p-1.5 relative">
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-[0.06]"
+                      style={{
+                        background: c >= 0.7
+                          ? `linear-gradient(135deg, hsl(var(--success)) 0%, transparent ${heatPct}%)`
+                          : c >= 0.34
+                            ? `linear-gradient(135deg, hsl(var(--warning)) 0%, transparent ${heatPct + 20}%)`
+                            : `linear-gradient(135deg, hsl(var(--destructive)) 0%, transparent ${Math.max(heatPct + 30, 50)}%)`
+                      }}
+                    />
                     <div className="mb-1.5 h-1 overflow-hidden rounded-sm bg-border/40">
                       <div className={"h-full transition-all " + (c >= 0.7 ? "bg-success" : c >= 0.34 ? "bg-warning" : "bg-destructive/70")} style={{ width: `${c * 100}%` }} />
                     </div>

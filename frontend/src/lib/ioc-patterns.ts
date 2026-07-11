@@ -35,3 +35,53 @@ export const DOWNLOAD_CRADLES = [
 export const AMSI_BYPASS_PATTERNS = [
   "amsiutils","amsiinitfailed","system.management.automation.amsiutils","etw",
 ];
+
+export interface Secret { type: string; value: string; }
+
+export function refang(s: string): string {
+  return s
+    .replace(/\[\.\]/g, ".")
+    .replace(/\(\.\)/g, ".")
+    .replace(/\{\.\}/g, ".")
+    .replace(/\[:\]/g, ":")
+    .replace(/\[@\]/g, "@")
+    .replace(/\bhxxp/gi, "http");
+}
+
+export function defang(s: string): string {
+  const r = refang(s);
+  return r
+    .replace(/https:\/\//g, "hxxps[:]//")
+    .replace(/http:\/\//g, "hxxp[:]//")
+    .replace(/\./g, "[.]")
+    .replace(/@/g, "[@]");
+}
+
+export function entropy(s: string): number {
+  const freq: Record<string, number> = {};
+  for (const c of s) freq[c] = (freq[c] || 0) + 1;
+  return -Object.values(freq).reduce((sum, n) => { const p = n / s.length; return sum + p * Math.log2(p); }, 0);
+}
+
+export function domainEntropy(host: string): number {
+  const labels = host.replace(/\./g, "");
+  return Math.round(entropy(labels) * 100) / 100;
+}
+
+export function scanSecrets(t: string): Secret[] {
+  const found: Secret[] = [];
+  for (const { type, re } of SECRET_RX) {
+    const matches = t.match(re);
+    if (matches) {
+      for (const m of new Set(matches)) {
+        const masked = m.length > 12 ? m.slice(0, 6) + "*".repeat(m.length - 12) + m.slice(-6) : m;
+        found.push({ type, value: masked });
+      }
+    }
+  }
+  return found;
+}
+
+export function uniq<T>(a: T[]): T[] {
+  return Array.from(new Set(a));
+}

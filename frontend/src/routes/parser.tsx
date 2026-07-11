@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   IntakeCard, StatusBar, ResultBanner, SendToRow, SectionBar, Panel, Chip,
@@ -9,8 +9,15 @@ import {
   Zap, Terminal, ArrowRight, Database, Mail, Link2,
   FileWarning, Activity, Globe, Hash, AtSign, Bug, Crosshair, Network, Copy, Check,
   Sparkles, FileText, Workflow, AlertTriangle, ShieldAlert, Key, Download,
+  Scan, Loader2,
 } from "lucide-react";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS } from "@/lib/ioc-patterns";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS, refang, defang, entropy, scanSecrets, type Secret } from "@/lib/ioc-patterns";
+import { useLocker } from "@/lib/locker";
+import { analyzeFullEmail } from "@/api/phishing";
+import { passiveRecon } from "@/api/recon";
+import { mapMitre } from "@/api/detection";
+import { OsintTools } from "@/components/OsintTools";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/parser")({ component: ParserPage });
 
@@ -26,6 +33,10 @@ const SAMPLES: Record<string, { label: string; text: string }> = {
   secrets: { label: "Code w/ secrets", text: "const apiKey = \"AIzaSyD-example\";\nGITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE" },
   sigma: { label: "Sigma rule", text: "title: Suspicious PowerShell Encoded Command\nid: 6f1f0c20-1111-4444-8888-123456789abc\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    CommandLine|contains: '-EncodedCommand'\n  condition: selection\ntags:\n  - attack.t1059.001" },
   notes: { label: "Analyst notes", text: "10:04 - User reported suspicious password reset email.\n10:08 - Extracted URL hxxps[:]//login.example[.]com/reset\nFinding: Sender domain does not match expected organization.\nNext step: collect headers and draft user-facing summary." },
+
+  email_headers: { label: "Sample email headers", text: "From: \"Security Team\" <security@company.com>\nTo: user@example.org\nSubject: Urgent: Action required on your account\nDate: Mon, 15 Jun 2026 09:23:45 +0000\nReturn-Path: bounce@phish-target.tk\nReply-To: security-verify@phish-target.tk\nReceived: from mx.phish-target.tk (203.0.113.50) by mx.company.com with ESMTPS id ABC123\nReceived-SPF: fail (domain of phish-target.tk does not designate 203.0.113.50 as permitted sender)\nAuthentication-Results: mx.company.com; spf=fail smtp.mailfrom=phish-target.tk; dkim=none; dmarc=fail\nDKIM-Signature: v=1; a=rsa-sha256; d=phish-target.tk; s=selector1;\n bh=2bd0e4a8c9f1b3d5e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9;\nX-Priority: 1 (Highest)\nMIME-Version: 1.0\nContent-Type: text/plain; charset=\"UTF-8\"\n\nDear User,\n\nWe detected suspicious activity on your account. Please verify your identity immediately by clicking the link below:\n\nhttps://login-company.secure-phish.tk/verify?token=abc123def456\n\nFailure to verify within 24 hours will result in account suspension.\n\nThank you,\nSecurity Team" },
+
+  ioc_list: { label: "Sample IOC list", text: "45.33.32.156\n185.94.188.22\n91.121.87.34\n198.51.100.23\n203.0.113.44\n51.15.0.100\nhxxps[:]//evil[.]com/setup.exe\nhxxps[:]//phish-login[.]tk/verify\nhttp://185[.]220[.]101[.]161/payload.ps1\nhxxp://malware[.]download/payload\nexample[.]net\nmalicious[.]com\nphish-target[.]tk\nevil-host[.]ru\n7e0eaa6c2a2c7a0d5c4a3d8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a\na1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2\n44d88612fea8a8f36de82e1278abb02f\nCVE-2024-1234\nCVE-2025-5678\nT1566.002\nT1059.001\nT1204\nphish@evil-host[.]ru\nadmin@malicious[.]com" },
 };
 
 const RX = {
@@ -39,7 +50,27 @@ const RX = {
   ATTACK: /\bT\d{4}(?:\.\d{3})?\b/g,
 };
 
+const RX_MAC = /\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/g;
+const RX_B64 = /\b(?:[A-Za-z0-9+/]{40,}(?:==|=)?)\b/g;
 
+function autoDetectInputType(text: string): { label: string; tone: "primary" | "success" | "warning" | "info" | "default" } | null {
+  const t = text.trim();
+  if (!t) return null;
+  if (/@/.test(t) && /\./.test(t) && (/From:|To:|Subject:/i.test(t) || /@[a-z0-9.-]+\.[a-z]{2,}/i.test(t)))
+    return { label: "Phishing email", tone: "warning" };
+  if (!t.includes("\n") && /:\/\//.test(t))
+    return { label: "URL", tone: "info" };
+  if (/^Begin/i.test(t) || /MIME/i.test(t))
+    return { label: "Email / EML", tone: "primary" };
+  if (/^\d{1,3}\.\d{1,3}\./.test(t))
+    return { label: "IP address", tone: "info" };
+  if (/\[\d|sshd|systemd/i.test(t))
+    return { label: "Log file", tone: "primary" };
+  const lines = t.split("\n");
+  if (lines.length > 1 && /\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b/i.test(t))
+    return { label: "IOC list", tone: "warning" };
+  return null;
+}
 
 const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
   URL: [{ id: "T1566", name: "Phishing" }],
@@ -54,27 +85,19 @@ const MITRE_MAP: Record<string, { id: string; name: string }[]> = {
 
 const KIND_META: Record<string, { icon: any; tone: "default" | "primary" | "warning" | "destructive"; pivot?: string }> = {
   URL:    { icon: Link2,   tone: "warning",     pivot: "/url" },
-  Domain: { icon: Globe,   tone: "default",     pivot: "/osint" },
-  IPv4:   { icon: Network, tone: "default",     pivot: "/osint" },
+  Domain: { icon: Globe,   tone: "default",     pivot: "/recon" },
+  IPv4:   { icon: Network, tone: "default",     pivot: "/recon" },
   MD5:    { icon: Hash,    tone: "primary",     pivot: "/attachment" },
   SHA256: { icon: Hash,    tone: "primary",     pivot: "/attachment" },
   Email:  { icon: AtSign,  tone: "default",     pivot: "/phishing" },
   CVE:    { icon: Bug,     tone: "destructive" },
   ATTACK: { icon: Crosshair, tone: "destructive", pivot: "/mitre" },
+  MAC: { icon: Hash, tone: "default", pivot: "/logs" },
+  Base64: { icon: Terminal, tone: "warning", pivot: "/parser" },
 };
 
 interface Signal { title: string; severity: "info" | "warning" | "destructive" | "success"; reason?: string; action?: string; }
-interface Secret { type: string; value: string; }
 interface CmdFinding { type: string; detail: string; }
-
-function refang(s: string) { return s.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".").replace(/\{\.\}/g, ".").replace(/\bhxxp/gi, "http"); }
-function defang(s: string) { const r = refang(s); return r.replace(/\./g, "[.]").replace(/\bhttp/gi, "hxxp"); }
-
-function entropy(s: string): number {
-  const freq: Record<string, number> = {};
-  for (const c of s) freq[c] = (freq[c] || 0) + 1;
-  return -Object.values(freq).reduce((sum, n) => { const p = n / s.length; return sum + p * Math.log2(p); }, 0);
-}
 
 function dedupSignals(sigs: Signal[]): Signal[] {
   const seen = new Set<string>();
@@ -145,20 +168,6 @@ function genGeneralSignals(iocs: Record<string, string[]>, total: number): Signa
   return s;
 }
 
-function scanSecrets(t: string): Secret[] {
-  const found: Secret[] = [];
-  for (const { type, re } of SECRET_RX) {
-    const matches = t.match(re);
-    if (matches) {
-      for (const m of new Set(matches)) {
-        const masked = m.length > 12 ? m.slice(0, 6) + "*".repeat(m.length - 12) + m.slice(-6) : m;
-        found.push({ type, value: masked });
-      }
-    }
-  }
-  return found;
-}
-
 function scanCmdLines(t: string): CmdFinding[] {
   const f: CmdFinding[] = [];
   const tLower = t.toLowerCase();
@@ -223,12 +232,32 @@ function genMarkdownExport(input: string, iocs: Record<string, string[]>, signal
   return lines.join("\n");
 }
 
+function genJsonExport(input: string, iocs: Record<string, string[]>, signals: Signal[], total: number, family: string, primary: string, secrets: Secret[], cmds: CmdFinding[], mitre: { id: string; name: string }[]): string {
+  const data = {
+    version: "1.0",
+    generated: new Date().toISOString(),
+    classification: { family, primary },
+    indicators: iocs,
+    signals: signals.map(s => ({ severity: s.severity, title: s.title, reason: s.reason, action: s.action })),
+    secrets: secrets.map(s => ({ type: s.type, value: s.value })),
+    commandAnalysis: cmds.map(c => ({ type: c.type, detail: c.detail })),
+    mitre: mitre.map(m => ({ id: m.id, name: m.name })),
+    stats: { total, lines: input.split("\n").length },
+  };
+  return JSON.stringify(data, null, 2);
+}
+
 function ParserPage() {
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<string>("ALL");
   const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
+  const [deepLoading, setDeepLoading] = useState(false);
+  const [deepResults, setDeepResults] = useState<Record<string, unknown> | null>(null);
+  const locker = useLocker();
+
+  const inputType = useMemo(() => autoDetectInputType(input), [input]);
 
   const result = useMemo(() => {
     const t = input.trim();
@@ -243,6 +272,8 @@ function ParserPage() {
       Email: find(RX.Email),
       CVE: find(RX.CVE),
       ATTACK: find(RX.ATTACK),
+      MAC: Array.from(new Set(t.match(RX_MAC) ?? [])),
+      Base64: Array.from(new Set((t.match(RX_B64) ?? []).filter((s: string) => s.length % 4 === 0 && !/^[a-f0-9]{32,64}$/i.test(s)))),
     };
     const lines = t.split("\n").length;
     const total = Object.values(iocs).reduce((a, b) => a + b.length, 0);
@@ -279,19 +310,100 @@ function ParserPage() {
   const visible = result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [];
   const transform = defanged ? defang : refang;
 
+  const hasIps = (result?.iocs.IPv4.length ?? 0) > 0;
+  const hasDomains = (result?.iocs.Domain.length ?? 0) > 0;
+  const hasEmails = (result?.iocs.Email.length ?? 0) > 0;
+  const canDeepScan = hasIps || hasDomains || hasEmails;
+
+  const handleDeepScan = useCallback(async () => {
+    if (!result) return;
+    setDeepLoading(true);
+    setDeepResults(null);
+
+    const r: Record<string, unknown> = {};
+    const run = async (label: string, fn: () => Promise<unknown>) => {
+      try { r[label] = await fn(); } catch { r[label] = { error: "unavailable" }; }
+    };
+
+    const promises: Promise<void>[] = [];
+    if (hasDomains || hasIps) promises.push(run("recon", () => passiveRecon(input.trim())));
+    if (hasEmails) {
+      const lines = input.trim().split("\n");
+      const headerEnd = lines.findIndex((l) => l.trim() === "");
+      const headers = headerEnd > 0 ? lines.slice(0, headerEnd).join("\n") : input.trim();
+      const body = headerEnd > 0 ? lines.slice(headerEnd).join("\n") : "";
+      promises.push(run("phishing", () => analyzeFullEmail(headers, body, true)));
+    }
+    promises.push(run("mitre", () => mapMitre(input.trim())));
+
+    await Promise.all(promises);
+    setDeepResults(r);
+    setDeepLoading(false);
+    toast.success("Deep scan complete");
+  }, [result, input, hasDomains, hasIps, hasEmails]);
+
+  function quickLookups(): { label: string; url: string }[] {
+    const all: { label: string; url: string }[] = [];
+    const add = (label: string, url: string) => all.push({ label, url });
+    if (hasDomains || hasIps) {
+      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
+      if (hasDomains) {
+        add("crt.sh", `https://crt.sh/?q=${encodeURIComponent(input.trim())}`);
+        add("Shodan", `https://www.shodan.io/search?query=${encodeURIComponent(input.trim())}`);
+      }
+      if (hasIps) {
+        add("AbuseIPDB", `https://www.abuseipdb.com/check/${encodeURIComponent(input.trim())}`);
+        add("GreyNoise", `https://viz.greynoise.io/ip/${encodeURIComponent(input.trim())}`);
+      }
+    }
+    if (result?.iocs.URL.length) {
+      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
+      add("urlscan.io", `https://urlscan.io/search/#${encodeURIComponent(input.trim())}`);
+    }
+    if (result?.iocs.MD5.length || result?.iocs.SHA256.length) {
+      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
+      add("AlienVault OTX", `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(input.trim())}`);
+    }
+    add("Google", `https://www.google.com/search?q=${encodeURIComponent(input.trim())}`);
+    return all;
+  }
+
+  const reportMd = useMemo(() => {
+    if (!result) return "";
+    const lines = [
+      `# Smart Parser Report`,
+      `**Family:** ${result.family}  **Primary:** ${result.primary}  **IOCs:** ${result.total}`,
+      `**Generated:** ${new Date().toISOString()}`,
+      "",
+    ];
+    for (const [kind, items] of Object.entries(result.iocs)) {
+      if (items.length) lines.push(`## ${kind} (${items.length})`, ...items.map((i: string) => `- ${i}`), "");
+    }
+    if (result.signals.length) lines.push("## Signals", ...result.signals.map((s: any) => `- [${s.severity.toUpperCase()}] ${s.title}${s.reason ? " — " + s.reason : ""}`));
+    if (deepResults?.recon) {
+      const r = deepResults.recon as Record<string, unknown>;
+      lines.push("", "## Reconnaissance", `- Target: ${(r.target as Record<string, string>)?.hostname ?? "—"}`);
+    }
+    if (deepResults?.phishing) {
+      const p = deepResults.phishing as Record<string, unknown>;
+      lines.push("", "## Phishing Analysis", `- Verdict: ${(p as Record<string, string>).verdict ?? "—"}`);
+    }
+    return lines.join("\n");
+  }, [result, deepResults]);
+
   return (
     <PageShell
-      eyebrow="TRIAGE / SMART PARSER"
-      title="Smart Parser"
-      description="Paste a raw artifact — log, email, IOC list, or rule. The parser surfaces structured indicators and routes you onward."
-      crumbs={[{ label: "Triage" }, { label: "Smart Parser" }]}
+      eyebrow="INVESTIGATION"
+      title="Investigation"
+      description="Analyze artifacts, extract IOCs, and run OSINT lookups — all from one workspace."
+      crumbs={[{ label: "Investigation" }, { label: "Parser" }]}
     >
-      <SectionBar id="IN" label="Intake · raw artifact" meta={`${input.length} chars`} />
+      <SectionBar id="IN" label="Intake · raw artifact" meta={`${input.length} chars`} action={inputType && <Chip tone={inputType.tone}>{inputType.label}</Chip>} />
       <IntakeCard
         icon={Terminal}
         title="Input Terminal"
         value={input}
-        onChange={setInput}
+        onChange={(t) => { setInput(t); setDeepResults(null); }}
         onPaste={(t) => setInput(t)}
         samples={[
           { key: "phishing", label: "Phishing email", hint: "headers + suspicious link" },
@@ -305,6 +417,8 @@ function ParserPage() {
           { key: "secrets",  label: "Code w/ secrets", hint: "API keys + tokens" },
           { key: "sigma",    label: "Sigma rule",     hint: "detection rule" },
           { key: "notes",    label: "Analyst notes",  hint: "timeline entries" },
+          { key: "email_headers", label: "Sample email headers", hint: "full headers + auth results" },
+          { key: "ioc_list", label: "Sample IOC list", hint: "IPs, hashes, domains, CVEs" },
         ]}
         onLoadSample={(k) => setInput(SAMPLES[k].text)}
         onFile={(txt) => setInput(txt)}
@@ -341,7 +455,7 @@ function ParserPage() {
               {[
                 { i: "01", t: "Paste anything", d: "Email headers, log lines, IOC dumps, Sigma rules, EVE JSON — the parser auto-classifies the family." },
                 { i: "02", t: "Inspect inventory", d: "URLs, domains, IPs, hashes, emails, CVEs and ATT&CK IDs are extracted, de-duped, and defanged for safe sharing." },
-                { i: "03", t: "Pivot or hand off", d: "One-click pivots to URL, Phishing, Attachment, OSINT, MITRE, or the Case Notebook." },
+                { i: "03", t: "Pivot or hand off", d: "One-click pivots to URL, Phishing, Attachment, Recon, MITRE, or the Case Notebook." },
               ].map((s) => (
                 <li key={s.i} className="flex gap-3">
                   <span className="text-mono text-[10px] font-semibold text-primary/80">{s.i}</span>
@@ -381,9 +495,33 @@ function ParserPage() {
             </p>
           </div>
 
+          {/* Deep Scan */}
+          {canDeepScan && (
+            <div className="flex items-center justify-between rounded-md border border-dashed border-primary/30 bg-primary/[0.02] px-3.5 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <Scan className="h-4 w-4 text-primary/70" />
+                <div>
+                  <span className="text-mono text-[10px] uppercase tracking-widest text-primary">deep scan available</span>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    {hasDomains && hasIps ? "Domains and IPs" : hasDomains ? "Domains" : hasIps ? "IPs" : ""}
+                    {hasEmails ? `${hasDomains || hasIps ? " and " : ""}Email headers` : ""} detected — run passive recon, phishing check, and MITRE enrichment.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleDeepScan}
+                disabled={deepLoading}
+                className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 shrink-0"
+              >
+                {deepLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Scan className="h-3 w-3" />}
+                {deepLoading ? "scanning..." : "deep scan"}
+              </button>
+            </div>
+          )}
+
           {/* IOC Spectrum */}
           <Panel title="IOC Spectrum" icon={Activity} meta={`${kinds.length} active · ${8 - kinds.length} idle`}>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {kinds.map(([k, v]) => {
                 const meta = KIND_META[k];
                 return (
@@ -447,6 +585,9 @@ function ParserPage() {
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => copy(k, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
                         {copied === k ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
+                      </button>
+                      <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: k.toLowerCase(), source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+                        <Hash className="h-3 w-3" /> locker
                       </button>
                       {meta.pivot && (
                         <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
@@ -562,6 +703,65 @@ function ParserPage() {
             </Panel>
           )}
 
+          {/* External Lookups */}
+          {result && (hasDomains || hasIps || result.iocs.URL.length || result.iocs.MD5.length || result.iocs.SHA256.length) && (() => {
+            const lookups = quickLookups();
+            return (
+              <Panel title="External Lookups" icon={Globe} meta={`${lookups.length} source(s)`} collapsible storageKey="ba.panel.parser.lookups">
+                <div className="flex flex-wrap gap-1.5">
+                  {lookups.map((l) => (
+                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/40 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
+                      <Globe className="h-3 w-3" /> {l.label}
+                    </a>
+                  ))}
+                </div>
+              </Panel>
+            );
+          })()}
+
+          {/* Deep Scan Results */}
+          {deepResults && (
+            <>
+              {deepResults.phishing && !(deepResults.phishing as Record<string, string>).error && (
+                <Panel title="Phishing Analysis" icon={Mail} meta="from deep scan">
+                  <div className="space-y-1">
+                    {[["Verdict", (deepResults.phishing as Record<string, string>).verdict], ["SPF", (deepResults.phishing as any)?.authentication?.spf], ["DKIM", (deepResults.phishing as any)?.authentication?.dkim], ["DMARC", (deepResults.phishing as any)?.authentication?.dmarc]].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 text-mono text-[11px]">
+                        <span className="text-muted-foreground uppercase tracking-widest text-[10px]">{k}</span>
+                        <span className="text-foreground/90">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+              {deepResults.recon && !(deepResults.recon as Record<string, string>).error && (
+                <Panel title="Recon Results" icon={Globe} meta="from deep scan">
+                  <div className="space-y-1">
+                    {[["Target", (deepResults.recon as any)?.target?.hostname], ["Type", (deepResults.recon as any)?.target?.type], ["HTTP Status", (deepResults.recon as any)?.http?.status_code], ["TLS", (deepResults.recon as any)?.ssl ? "Present" : null]].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 text-mono text-[11px]">
+                        <span className="text-muted-foreground uppercase tracking-widest text-[10px]">{k}</span>
+                        <span className="text-foreground/90">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+              {deepResults.mitre && !(deepResults.mitre as Record<string, string>).error && (
+                <Panel title="MITRE ATT&CK Mapping (API)" icon={Crosshair} meta="from deep scan">
+                  {(deepResults.mitre as any)?.matches?.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {((deepResults.mitre as any).matches as any[]).map((m: any) => (
+                        <Chip key={m.technique_id} tone="warning">{m.technique_id} — {m.technique}</Chip>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-mono text-[11px] text-muted-foreground">No MITRE techniques matched.</p>
+                  )}
+                </Panel>
+              )}
+            </>
+          )}
+
           {/* Tabbed IOC explorer */}
           <Panel>
             <div className="-mt-1 mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
@@ -594,6 +794,9 @@ function ParserPage() {
                       <div className="flex items-center gap-1">
                         <button onClick={() => copy(kind, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
                           {copied === kind ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
+                        </button>
+                        <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: kind.toLowerCase(), source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+                          <Hash className="h-3 w-3" /> locker
                         </button>
                         {meta.pivot && (
                           <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
@@ -634,19 +837,28 @@ function ParserPage() {
                 <Download className="h-3.5 w-3.5" />
                 Download Markdown
               </button>
+              <button onClick={() => { const json = genJsonExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20">
+                <Download className="h-3.5 w-3.5" /> Download JSON
+              </button>
+              <button onClick={() => { navigator.clipboard.writeText(reportMd); toast.success("Report copied"); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
+                <Copy className="h-3.5 w-3.5" /> Copy Summary
+              </button>
               <p className="mt-2 text-[11px] text-muted-foreground">Includes all indicators, signals, secrets, and MITRE mapping.</p>
             </Panel>
             <SendToRow targets={[
+              { label: "Recon & Exposure", to: "/recon", icon: Globe },
               { label: "Phishing Triage", to: "/phishing", icon: Mail },
               { label: "Safe URL Analyzer", to: "/url", icon: Link2 },
               { label: "Attachment Triage", to: "/attachment", icon: FileWarning },
               { label: "Detection & MITRE", to: "/mitre", icon: Crosshair },
-              { label: "Logs & Alerts", to: "/logs", icon: Database },
               { label: "Case Notebook", to: "/case", icon: ArrowRight },
             ]} />
           </div>
         </div>
       )}
+      <div className="mt-8 border-t border-border/60 pt-6">
+        <OsintTools showSectionBars />
+      </div>
     </PageShell>
   );
 }

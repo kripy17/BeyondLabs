@@ -102,6 +102,36 @@ const BIN_MAP: Record<string, ToolRef> = {
 
 const ALIASES: Record<string, string> = { "?": "help", h: "help", ls: "tools", cls: "clear" };
 
+const FLAG_SUGGESTIONS: Record<string, string[]> = {
+  nmap: ["-sS", "-sT", "-sU", "-sV", "-sC", "-A", "-O", "-T4", "-T5", "-p-", "-p ", "--top-ports ", "-v", "-vv", "-oN ", "-oX ", "-Pn", "-n", "--reason", "--open"],
+  dig: ["+short", "+noall", "+answer", "+trace", "-x ", "A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "ANY", "@"],
+  ping: ["-c ", "-i ", "-t ", "-s ", "-f", "-q", "-W ", "-4", "-6"],
+  curl: ["-s", "-S", "-v", "-L", "-k", "-I", "-X ", "-H ", "-d ", "-o ", "-O", "-f", "--connect-timeout ", "https://", "http://"],
+  whois: ["-h ", "-p ", "-H"],
+  nslookup: ["-type=", "-port=", "-debug", "-timeout="],
+  traceroute: ["-n", "-m ", "-q ", "-w ", "-p ", "-4", "-6"],
+  sqlmap: ["--batch", "--dbs", "--tables", "--dump", "--level=", "--risk=", "--dbms=", "--os-shell", "-r ", "-u "],
+  gobuster: ["dir", "dns", "vhost", "fuzz", "-w ", "-u ", "-t ", "-x ", "-s ", "-k", "-r"],
+  hydra: ["-l ", "-L ", "-p ", "-P ", "-t ", "-s ", "-V", "-f", "-e nsr", "ssh://", "ftp://", "http-post-form://"],
+  nmap: ["-sS", "-sT", "-sU", "-sV", "-sC", "-A", "-O", "-T4", "-T5", "-p-", "-p ", "--top-ports ", "-v", "-vv", "-oN ", "-oX ", "-Pn", "-n", "--reason", "--open"],
+  nuclei: ["-severity ", "-tags ", "-t ", "-rl ", "-c ", "-o ", "-json", "-silent", "-v"],
+  nikto: ["-ssl", "-nossl", "-port ", "-Format ", "-Tuning ", "-id ", "-evasion ", "-Plugins "],
+  ffuf: ["-w ", "-u ", "-t ", "-e ", "-c", "-s", "-v", "-recursion", "-H ", "-X ", "-d "],
+  wpscan: ["--enumerate ", "--api-token ", "--plugins-detection ", "--url ", "-o "],
+  hashcat: ["-m ", "-a ", "-o ", "--force", "--show", "--username", "-r ", "-O", "-w "],
+  john: ["--wordlist=", "--format=", "--rules", "--show", "--incremental"],
+  theharvester: ["-b ", "-l ", "-d ", "-f "],
+  amass: ["-passive", "-active", "-intel", "-d ", "-o ", "-dir ", "-ip", "-brute", "-min-for-recursive ", "-config "],
+  sublist3r: ["-d ", "-p ", "-t ", "-v", "-o "],
+  dnsrecon: ["-t ", "-d ", "-D ", "-n ", "-r ", "--lifetime ", "--threads ", "--db ", "-a", "-s"],
+  dirb: ["-w ", "-o ", "-X ", "-r", "-z ", "-t ", "-p ", "-H "],
+  searchsploit: ["-e", "-c", "-t", "-w", "--www", "-j", "--id"],
+  binwalk: ["-e", "-Me", "-D", "-d ", "-M", "-r", "-T"],
+  trivy: ["image ", "fs ", "repo ", "k8s ", "--severity ", "--format ", "--output ", "--scanners ", "--ignore-unfixed"],
+  impacket: ["secretsdump", "psexec", "smbexec", "wmiexec", "GetADUsers", "GetNPUsers"],
+  responder: ["-I ", "-A", "-w", "-v", "-F", "--lm", "--NBTNS", "--DHCP"],
+}
+
 const TARGET_RX = /^(?:https?:\/\/)?[a-z0-9][\w.-]*\.[a-z]{2,}(?:\/\S*)?$|^\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?$|^\[?[a-f0-9:]+\]?$/i;
 
 type Line = { kind: "prompt" | "stdout" | "stderr" | "info" | "warn" | "ok" | "err"; text: string };
@@ -160,12 +190,32 @@ function TerminalPage() {
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState<number>(-1);
+  const [historySearch, setHistorySearch] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [busy, setBusy] = useState(false);
   const [backendUrl, setLocalUrl] = useState(() => getBackendUrl());
   const [status, setStatus] = useState<BackendStatus>("unknown");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const MAX_OUTPUT_LINES = 150;
+
+  function expandOutput(rawLines: string[], key: string, kind: "stdout" | "stderr") {
+    if (rawLines.length <= MAX_OUTPUT_LINES) {
+      push(...rawLines.map(l => ({ kind, text: l })));
+      return;
+    }
+    push(...rawLines.slice(0, MAX_OUTPUT_LINES).map(l => ({ kind, text: l })));
+    const remaining = rawLines.slice(MAX_OUTPUT_LINES);
+    const showKey = `${kind}-${key}`;
+    push({
+      kind: "info",
+      text: `[expand-key:${showKey}] … ${remaining.length} more lines — click to show all`,
+    });
+    pendingExpand.current[showKey] = remaining;
+  }
+  const pendingExpand = useRef<Record<string, string[]>>({});
 
   const check = useCallback(async () => {
     setStatus("checking");
@@ -285,18 +335,19 @@ function TerminalPage() {
     }
 
     const { target, args } = splitTargetAndArgs(rest);
-    setBusy(true);
-    try {
-      const res = await runToolRemote({
-        category_id: tool?.categoryId ?? "network_utilities",
-        tool_id: tool?.toolId ?? name,
-        target,
-        args,
-      });
-      if (res.command) push({ kind: "info", text: `# ${res.command}` });
-      if (res.stdout) res.stdout.replace(/\n$/, "").split("\n").forEach(line => push({ kind: "stdout", text: line }));
-      if (res.stderr) res.stderr.replace(/\n$/, "").split("\n").forEach(line => push({ kind: "stderr", text: line }));
-      if (res.error) push({ kind: "err", text: res.error });
+      setBusy(true);
+      const blockId = crypto.randomUUID();
+      try {
+        const res = await runToolRemote({
+          category_id: tool?.categoryId ?? "network_utilities",
+          tool_id: tool?.toolId ?? name,
+          target,
+          args,
+        });
+        if (res.command) push({ kind: "info", text: `# ${res.command}` });
+        if (res.stdout) expandOutput(res.stdout.replace(/\n$/, "").split("\n"), `stdout-${blockId}`, "stdout");
+        if (res.stderr) expandOutput(res.stderr.replace(/\n$/, "").split("\n"), `stderr-${blockId}`, "stderr");
+        if (res.error) push({ kind: "err", text: res.error });
       if (res.suggestion) push({ kind: "info", text: `hint: ${res.suggestion}` });
       const tone: Line["kind"] =
         res.status === "completed" ? "ok"
@@ -312,6 +363,42 @@ function TerminalPage() {
   }, [check, clear, history, push, status]);
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "r" && e.ctrlKey) {
+      e.preventDefault();
+      if (historySearch) { setHistorySearch(false); return; }
+      setHistorySearch(true);
+      setHistoryQuery("");
+      setSelectedIdx(0);
+      return;
+    }
+
+    if (historySearch) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setHistorySearch(false);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIdx(prev => Math.max(0, prev - 1));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIdx(prev => Math.min(filteredHistory.length - 1, prev + 1));
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (filteredHistory.length > 0 && selectedIdx >= 0 && selectedIdx < filteredHistory.length) {
+          setInput(filteredHistory[selectedIdx]);
+        }
+        setHistorySearch(false);
+        return;
+      }
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
       if (busy) return;
@@ -342,6 +429,19 @@ function TerminalPage() {
         const cands = Object.keys(BIN_MAP).filter(k => k.startsWith(parts[0].toLowerCase()));
         if (cands.length === 1) setInput(cands[0] + " ");
         else if (cands.length > 1) push({ kind: "info", text: cands.join("  ") });
+      } else if (parts.length >= 2) {
+        const cmd = parts[0].toLowerCase();
+        const flags = FLAG_SUGGESTIONS[cmd];
+        if (flags) {
+          const partial = parts[parts.length - 1];
+          const cands = flags.filter(f => f.startsWith(partial));
+          if (cands.length === 1) {
+            const rest = parts.slice(0, -1).join(" ");
+            setInput(rest + " " + cands[0]);
+          } else if (cands.length > 1) {
+            push({ kind: "info", text: cands.join("  ") });
+          }
+        }
       }
       return;
     }
@@ -369,6 +469,13 @@ function TerminalPage() {
     : status === "checking" ? "border-warning/40 bg-warning/15 text-warning"
     : "border-border text-muted-foreground",
   [status]);
+
+  const filteredHistory = useMemo(() => {
+    const deduped = [...new Set(history)].reverse();
+    if (!historyQuery.trim()) return deduped.slice(0, 50);
+    const q = historyQuery.toLowerCase();
+    return deduped.filter(h => h.toLowerCase().includes(q)).slice(0, 50);
+  }, [history, historyQuery]);
 
   return (
     <PageShell
@@ -409,17 +516,35 @@ function TerminalPage() {
           </span>
         </div>
 
-        <div
-          ref={scrollRef}
-          onClick={() => inputRef.current?.focus()}
-          className="relative h-[60vh] min-h-[420px] overflow-auto bg-background/70 px-3 py-2 text-mono text-[12px] leading-[1.55] ba-rail"
-        >
-          <div aria-hidden className="pointer-events-none absolute inset-0 scanlines" />
-          {lines.map((l, i) => (
-            <div key={i} className={cls(l.kind)}>
-              {l.kind === "prompt" ? l.text : l.text || "\u00a0"}
-            </div>
-          ))}
+        <div className="relative">
+          <div
+            ref={scrollRef}
+            onClick={() => inputRef.current?.focus()}
+            className="relative h-[60vh] min-h-[420px] overflow-auto bg-background/70 px-3 py-2 text-mono text-[12px] leading-[1.55] ba-rail"
+          >
+            <div aria-hidden className="pointer-events-none absolute inset-0 scanlines" />
+            {lines.map((l, i) => (
+              <div key={i} className={cls(l.kind)} onClick={() => {
+                if (l.kind === "info" && l.text.includes("expand-key:")) {
+                  const m = l.text.match(/expand-key:(stdout|stderr)-([\w-]+)/);
+                  if (m) {
+                    const key = `${m[1]}-${m[2]}`;
+                    const remaining = pendingExpand.current[key];
+                    if (remaining) {
+                      push(...remaining.map(t => ({ kind: m[1] as "stdout" | "stderr", text: t })));
+                      push({ kind: "info", text: `[shown all ${remaining.length} lines]` });
+                      delete pendingExpand.current[key];
+                    }
+                  }
+                }
+              }}>
+                {l.kind === "prompt" ? l.text : l.kind === "stdout" || l.kind === "stderr"
+                  ? <span dangerouslySetInnerHTML={{ __html: renderAnsi(l.text) || "&nbsp;" }} />
+                  : l.kind === "info" && l.text.includes("expand-key:")
+                    ? <span className="cursor-pointer text-info/70 hover:text-info underline decoration-dotted">{l.text.replace(/\[expand-key:\w+-\w+\]\s*/, "")}</span>
+                    : l.text || "\u00a0"}
+              </div>
+            ))}
           <div className="flex items-baseline gap-2">
             <span className="text-primary/80 shrink-0">{PROMPT}</span>
             <input
@@ -428,21 +553,62 @@ function TerminalPage() {
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
-              value={input}
-              onChange={e => setInput(e.target.value)}
+              value={historySearch ? historyQuery : input}
+              onChange={e => {
+                if (historySearch) {
+                  setHistoryQuery(e.target.value);
+                  setSelectedIdx(0);
+                } else {
+                  setInput(e.target.value);
+                }
+              }}
               onKeyDown={onKey}
               disabled={busy}
               className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-              placeholder={busy ? "running…" : "type a command — try `help`"}
+              placeholder={historySearch ? "type to filter history…" : busy ? "running…" : "type a command — try `help`"}
             />
             {busy && <span className="text-warning animate-pulse text-[11px]">● executing</span>}
           </div>
+          </div>
+
+          {historySearch && (
+            <div className="absolute bottom-0 left-0 right-0 z-50 mx-2 mb-1 max-h-48 overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+              <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1 text-mono text-[9.5px] text-muted-foreground">
+                <span className="text-primary/70">reverse-i-search</span>
+                <span className="text-info">{historyQuery || "(empty)"}</span>
+              </div>
+              <div className="max-h-40 overflow-auto ba-rail">
+                {filteredHistory.length === 0 ? (
+                  <div className="px-3 py-2 text-mono text-[11px] text-muted-foreground">no matches</div>
+                ) : (
+                  filteredHistory.map((item, i) => (
+                    <div
+                      key={i + item}
+                      onMouseDown={() => { setInput(item); setHistorySearch(false); }}
+                      className={`cursor-pointer px-3 py-1 text-mono text-[11px] ${
+                        i === selectedIdx ? "bg-primary/20 text-primary" : "text-foreground/80 hover:bg-accent/50"
+                      }`}
+                    >
+                      {item}
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex items-center gap-3 border-t border-border/50 px-2.5 py-1 text-mono text-[9px] text-muted-foreground">
+                <span>↑↓ navigate</span>
+                <span>↵ select</span>
+                <span>Esc cancel</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background/50 px-3 py-1.5 text-mono text-[10px] text-muted-foreground">
           <span>{lines.length.toLocaleString()} lines</span>
           <span>·</span>
           <span>↑/↓ history</span>
+          <span>·</span>
+          <span>Ctrl+R search</span>
           <span>·</span>
           <span>Tab complete</span>
           <span>·</span>
@@ -451,6 +617,75 @@ function TerminalPage() {
       </Panel>
     </PageShell>
   );
+}
+
+
+const ANSI_COLORS: Record<string, string> = {
+  "0":  "",              "1": "font-weight:700",
+  "30": "color:#555",   "31": "color:var(--destructive)", "32": "color:var(--success)",
+  "33": "color:var(--warning)", "34": "color:var(--primary)", "35": "color:var(--chart-2,#c084fc)",
+  "36": "color:var(--chart-3,#22d3ee)", "37": "color:var(--foreground)",
+  "90": "color:#888",   "91": "color:var(--destructive)", "92": "color:var(--success)",
+  "93": "color:var(--warning)", "94": "color:var(--primary)", "95": "color:var(--chart-2,#c084fc)",
+  "96": "color:var(--chart-3,#22d3ee)", "97": "color:var(--foreground)",
+};
+function renderAnsi(text: string): string {
+  const parts: string[] = [];
+  let last = 0, m: RegExpExecArray | null;
+  const re = /\x1b\[(\d+(?:;\d+)*)m/g;
+  re.lastIndex = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push(escapeHtml(text.slice(last, m.index)));
+    const codes = m[1].split(";").map(Number);
+    const style: string[] = [];
+    for (let i = 0; i < codes.length; i++) {
+      const c = codes[i];
+      if (c === 0) { style.length = 0; continue; }
+      if (c === 1) { style.push("font-weight:700"); continue; }
+      if (c === 4) { style.push("text-decoration:underline"); continue; }
+      if (c === 38 && codes[i + 1] === 5 && codes[i + 2] !== undefined) {
+        style.push(`color:${ansi256(codes[i + 2])}`); i += 2; continue;
+      }
+      if (c === 48 && codes[i + 1] === 5 && codes[i + 2] !== undefined) {
+        style.push(`background-color:${ansi256(codes[i + 2])}`); i += 2; continue;
+      }
+      if (c === 38 && codes[i + 1] === 2 && codes[i + 2] !== undefined && codes[i + 3] !== undefined && codes[i + 4] !== undefined) {
+        style.push(`color:rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`); i += 4; continue;
+      }
+      if (c === 48 && codes[i + 1] === 2 && codes[i + 2] !== undefined && codes[i + 3] !== undefined && codes[i + 4] !== undefined) {
+        style.push(`background-color:rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`); i += 4; continue;
+      }
+      const s = ANSI_COLORS[String(c)];
+      if (s) style.push(s);
+    }
+    parts.push(style.length ? `<span style="${style.join(";")}">` : "</span>");
+    last = re.lastIndex;
+  }
+  if (last < text.length) parts.push(escapeHtml(text.slice(last)));
+  return parts.join("");
+}
+
+function ansi256(code: number): string {
+  if (code < 16) {
+    const ansiBasic: [number,number,number][] = [
+      [0,0,0],[205,0,0],[0,205,0],[205,205,0],
+      [0,0,205],[205,0,205],[0,205,205],[229,229,229],
+      [128,128,128],[255,0,0],[0,255,0],[255,255,0],
+      [0,0,255],[255,0,255],[0,255,255],[255,255,255],
+    ];
+    const [r,g,b] = ansiBasic[code] ?? [0,0,0];
+    return `rgb(${r},${g},${b})`;
+  }
+  if (code < 232) {
+    const i = code - 16;
+    const r = (i / 36) * 51 | 0; const g = ((i % 36) / 6) * 51 | 0; const b = (i % 6) * 51 | 0;
+    return `rgb(${r},${g},${b})`;
+  }
+  const gray = (code - 232) * 10 + 8;
+  return `rgb(${gray},${gray},${gray})`;
+}
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function cls(kind: Line["kind"]): string {

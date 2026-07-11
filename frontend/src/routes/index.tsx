@@ -5,6 +5,7 @@ import { ALL_ITEMS, findItem, type WorkspaceItem } from "@/lib/workspaces";
 import { useRecents, clearRecents } from "@/lib/recents";
 import { usePrefs } from "@/lib/prefs";
 import { NumberTicker } from "@/components/magic/NumberTicker";
+import { toast } from "sonner";
 
 import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
 import { Marquee } from "@/components/magic/Marquee";
@@ -29,30 +30,30 @@ export const Route = createFileRoute("/")({
 
 type Track = {
   id: string; label: string; tag: string; blurb: string; url: string;
-  icon: LucideIcon; stages: string[]; accent: "primary" | "accent" | "info";
+  icon: LucideIcon; stages: string[];
 };
 
 const TRACKS: Track[] = [
-  { id: "01", label: "Triage",    tag: "parse → verdict",  url: "/parser",    icon: Wand2,  accent: "primary",
-    blurb: "Normalize IOCs, score phishing, vet URLs & attachments — fully static.",
-    stages: ["parse", "score", "pivot", "verdict"] },
-  { id: "02", label: "Recon",     tag: "map the surface",  url: "/recon",     icon: Radar,  accent: "accent",
+  { id: "01", label: "Investigate", tag: "parse → osint",   url: "/parser",    icon: Wand2,
+    blurb: "Normalize IOCs, score phishing, vet URLs & attachments — plus OSINT lookups.",
+    stages: ["parse", "enrich", "pivot", "verdict"] },
+  { id: "02", label: "Recon",     tag: "map the surface",  url: "/recon",     icon: Radar,
     blurb: "Enumerate subdomains, certs and OSINT. Run bounded port scans.",
     stages: ["scope", "enumerate", "scan", "report"] },
-  { id: "03", label: "Detection", tag: "rule → coverage",  url: "/detection", icon: Target, accent: "info",
+  { id: "03", label: "Detection", tag: "rule → coverage",  url: "/detection", icon: Target,
     blurb: "Author Sigma & YARA, map to ATT&CK, track gaps, draft handoff.",
     stages: ["author", "simulate", "map", "handoff"] },
 ];
 
 const QUICK_ACTIONS: { label: string; url: string; icon: LucideIcon; hint: string }[] = [
-  { label: "Parse artifact", url: "/parser",   icon: Wand2,       hint: "P" },
+  { label: "Investigation",  url: "/parser",   icon: Wand2,       hint: "I" },
   { label: "Score phish",    url: "/phishing", icon: ShieldCheck, hint: "F" },
   { label: "Vet URL",        url: "/url",      icon: Zap,         hint: "U" },
   { label: "Open SIEM",      url: "/siem",     icon: Activity,    hint: "S" },
 ];
 
 const TIPS = [
-  "Paste any artifact into Smart Parser to auto-extract IOCs.",
+  "Paste any artifact into Investigation to auto-extract IOCs and run OSINT lookups.",
   "Phishing Triage scores Auth-Results, headers and body locally.",
   "Detection Workspace lints Sigma & YARA as you type.",
   "Everything runs in-browser. Nothing leaves the tab.",
@@ -83,91 +84,99 @@ function Dashboard() {
       }
     >
       {/* 1 · Command strip — live status, session id, env, palette hint */}
-      <CommandStrip />
+      {prefs.dashboardSections.commandStrip && <CommandStrip />}
 
       {/* 1b · Investigation flow ribbon */}
-      <WorkflowRibbon />
+      {prefs.dashboardSections.workflowRibbon && <WorkflowRibbon />}
 
       {/* 2 · Dashboard metrics */}
-      <MetricGrid
-        columns={4}
-        metrics={[
-          { label: "Modules", value: allModules.length, tone: "primary", icon: LayoutGrid },
-          { label: "Groups", value: groupCount, tone: "info" },
-          { label: "Tracks", value: TRACKS.length, tone: "accent" },
-          { label: "Recent", value: recents.length, tone: recents.length > 0 ? "warning" : "default", icon: Clock },
-        ]}
-      />
+      {prefs.dashboardSections.metrics && (
+        <MetricGrid
+          columns={4}
+          metrics={[
+            { label: "Modules", value: allModules.length, tone: "primary", icon: LayoutGrid },
+            { label: "Groups", value: groupCount, tone: "info" },
+            { label: "Tracks", value: TRACKS.length, tone: "accent" },
+            { label: "Recent", value: recents.length, tone: recents.length > 0 ? "warning" : "default", icon: Clock },
+          ]}
+        />
+      )}
 
-      {/* 3 · Continue + quick actions — single tight row */}
-      <ContinueRow item={recentItems[0]} />
+      {/* 3 · Continue + quick actions */}
+      {prefs.dashboardSections.continueRow && <ContinueRow item={recentItems[0]} />}
 
-      {/* 3 · Pinned chips (if any) */}
-      {pinned.length > 0 && <PinnedRail items={pinned} />}
+      {/* 3a · Pinned chips (if any) */}
+      {prefs.dashboardSections.pinned && pinned.length > 0 && <PinnedRail items={pinned} />}
 
       {/* 4 · Tracks */}
-      <section>
-        <SectionHeader icon={Compass} label="start a track" hint="3 guided paths" />
-        <div className="grid gap-3 ba-stagger grid-cols-3">
-          {TRACKS.map((t) => <TrackCard key={t.id} t={t} />)}
-        </div>
-      </section>
+      {prefs.dashboardSections.tracks && (
+        <section>
+          <SectionHeader icon={Compass} label="start a track" hint="3 guided paths" />
+          <div className="grid gap-3 ba-stagger sm:grid-cols-2 lg:grid-cols-3">
+            {TRACKS.map((t) => <TrackCard key={t.id} t={t} />)}
+          </div>
+        </section>
+      )}
 
       {/* 5 · Workspaces — uniform 5-col tile grid (no nested group bento) */}
-      <section>
-        <SectionHeader
-          icon={LayoutGrid} label="workspaces"
-          hint={<><NumberTicker value={allModules.length} /> modules · <NumberTicker value={groupCount} /> groups</>}
-        />
-        <div className="grid gap-2.5 ba-stagger grid-cols-5">
-          {allModules.map((m) => <ModuleTile key={m.url} m={m} />)}
-        </div>
-      </section>
+      {prefs.dashboardSections.workspaces && (
+        <section>
+          <SectionHeader
+            icon={LayoutGrid} label="workspaces"
+            hint={<><NumberTicker value={allModules.length} /> modules · <NumberTicker value={groupCount} /> groups</>}
+          />
+          <div className="grid gap-2.5 ba-stagger grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {allModules.map((m) => <ModuleTile key={m.url} m={m} />)}
+          </div>
+        </section>
+      )}
 
       {/* 6 · Footer utility row — recents + tips, balanced */}
-      <section className="grid gap-3 grid-cols-2">
-        <Panel
-          label="recent activity" icon={Clock}
-          right={
-            recentItems.length > 0 ? (
-              <button onClick={clearRecents} className="text-mono inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
-                <Eraser className="h-3 w-3" /> clear
-              </button>
-            ) : null
-          }
-        >
-          {recentItems.length === 0 ? (
-            <EmptyHint icon={Clock} text="No activity yet — your last 8 workspaces will appear here." />
-          ) : (
-            <ul className="divide-y divide-border/50">
-              {recentItems.slice(0, 6).map((it, i) => (
-                <li key={it.url}>
-                  <Link to={it.url} className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-background/40">
-                    <span className="text-mono w-5 shrink-0 text-[10px] text-muted-foreground/70">{String(i + 1).padStart(2, "0")}</span>
-                    <it.icon className="h-3.5 w-3.5 text-primary/90" />
-                    <span className="min-w-0 flex-1 truncate text-mono text-[12px] text-foreground">{it.title}</span>
-                    <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{it.group}</span>
-                    <ArrowUpRight className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+      {prefs.dashboardSections.footer && (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <Panel
+            label="recent activity" icon={Clock}
+            right={
+              recentItems.length > 0 ? (
+                <button onClick={() => { clearRecents(); toast("Recents cleared"); }} className="text-mono inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                  <Eraser className="h-3 w-3" /> clear
+                </button>
+              ) : null
+            }
+          >
+            {recentItems.length === 0 ? (
+              <EmptyHint icon={Clock} text="No activity yet — your last 8 workspaces will appear here." />
+            ) : (
+              <ul className="divide-y divide-border/50">
+                {recentItems.slice(0, 6).map((it, i) => (
+                  <li key={it.url}>
+                    <Link to={it.url} className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-background/40">
+                      <span className="text-mono w-5 shrink-0 text-[10px] text-muted-foreground/70">{String(i + 1).padStart(2, "0")}</span>
+                      <it.icon className="h-3.5 w-3.5 text-primary/90" />
+                      <span className="min-w-0 flex-1 truncate text-mono text-[12px] text-foreground">{it.title}</span>
+                      <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{it.group}</span>
+                      <ArrowUpRight className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
 
-        <Panel label="tips & shortcuts" icon={Keyboard}>
-          <div className="grid gap-0 divide-y divide-border/50">
-            <ShortcutRow keys={["⌘", "K"]} label="Command palette" />
-            <ShortcutRow keys={["/"]}      label="Focus top search" />
-            <ShortcutRow keys={["G", "P"]} label="Go to Smart Parser" />
-            <ShortcutRow keys={["G", "S"]} label="Go to Settings" />
-          </div>
-          <div className="border-t border-border/50 px-3 py-2.5">
-            <div className="text-mono mb-1.5 text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">// tip</div>
-            <RotatingTip />
-          </div>
-        </Panel>
-      </section>
+          <Panel label="tips & shortcuts" icon={Keyboard}>
+            <div className="grid gap-0 divide-y divide-border/50">
+              <ShortcutRow keys={["⌘", "K"]} label="Command palette" />
+              <ShortcutRow keys={["/"]}      label="Focus top search" />
+              <ShortcutRow keys={["G", "P"]} label="Go to Smart Parser" />
+              <ShortcutRow keys={["G", "S"]} label="Go to Settings" />
+            </div>
+            <div className="border-t border-border/50 px-3 py-2.5">
+              <div className="text-mono mb-1.5 text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">// tip</div>
+              <RotatingTip />
+            </div>
+          </Panel>
+        </section>
+      )}
     </PageShell>
   );
 }
@@ -249,7 +258,7 @@ function StripCell({
 
 function ContinueRow({ item }: { item?: WorkspaceItem }) {
   return (
-    <section className="grid gap-2.5 grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <section className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       {/* Continue */}
       {item ? (
         <Link
@@ -311,8 +320,6 @@ function ContinueRow({ item }: { item?: WorkspaceItem }) {
 /* --------------------------------- Track ---------------------------------- */
 
 function TrackCard({ t }: { t: Track }) {
-  // Single consistent treatment: primary tile, theme-aware. Variety comes from icon shape, not random colors.
-  void t.accent;
   return (
     <Link
       to={t.url}

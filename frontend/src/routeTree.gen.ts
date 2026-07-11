@@ -20,7 +20,6 @@ import { Route as OsintRouteImport } from './routes/osint'
 import { Route as NmapRouteImport } from './routes/nmap'
 import { Route as MitreRouteImport } from './routes/mitre'
 import { Route as LogsRouteImport } from './routes/logs'
-import { Route as IdsRouteImport } from './routes/ids'
 import { Route as HackingToolkitRouteImport } from './routes/hacking-toolkit'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as DetectionRouteImport } from './routes/detection'
@@ -84,11 +83,6 @@ const LogsRoute = LogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IdsRoute = IdsRouteImport.update({
-  id: '/ids',
-  path: '/ids',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HackingToolkitRoute = HackingToolkitRouteImport.update({
   id: '/hacking-toolkit',
   path: '/hacking-toolkit',
@@ -133,7 +127,6 @@ export interface FileRoutesByFullPath {
   '/detection': typeof DetectionRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
-  '/ids': typeof IdsRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
@@ -154,7 +147,6 @@ export interface FileRoutesByTo {
   '/detection': typeof DetectionRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
-  '/ids': typeof IdsRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
@@ -176,7 +168,6 @@ export interface FileRoutesById {
   '/detection': typeof DetectionRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
-  '/ids': typeof IdsRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
@@ -199,7 +190,6 @@ export interface FileRouteTypes {
     | '/detection'
     | '/guide'
     | '/hacking-toolkit'
-    | '/ids'
     | '/logs'
     | '/mitre'
     | '/nmap'
@@ -220,7 +210,6 @@ export interface FileRouteTypes {
     | '/detection'
     | '/guide'
     | '/hacking-toolkit'
-    | '/ids'
     | '/logs'
     | '/mitre'
     | '/nmap'
@@ -241,7 +230,6 @@ export interface FileRouteTypes {
     | '/detection'
     | '/guide'
     | '/hacking-toolkit'
-    | '/ids'
     | '/logs'
     | '/mitre'
     | '/nmap'
@@ -263,7 +251,6 @@ export interface RootRouteChildren {
   DetectionRoute: typeof DetectionRoute
   GuideRoute: typeof GuideRoute
   HackingToolkitRoute: typeof HackingToolkitRoute
-  IdsRoute: typeof IdsRoute
   LogsRoute: typeof LogsRoute
   MitreRoute: typeof MitreRoute
   NmapRoute: typeof NmapRoute
@@ -356,13 +343,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ids': {
-      id: '/ids'
-      path: '/ids'
-      fullPath: '/ids'
-      preLoaderRoute: typeof IdsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/hacking-toolkit': {
       id: '/hacking-toolkit'
       path: '/hacking-toolkit'
@@ -423,7 +403,6 @@ const rootRouteChildren: RootRouteChildren = {
   DetectionRoute: DetectionRoute,
   GuideRoute: GuideRoute,
   HackingToolkitRoute: HackingToolkitRoute,
-  IdsRoute: IdsRoute,
   LogsRoute: LogsRoute,
   MitreRoute: MitreRoute,
   NmapRoute: NmapRoute,

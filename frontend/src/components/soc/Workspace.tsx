@@ -4,6 +4,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, Clock, Filter, Settings2, Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 /* ============================================================
  * Shared workspace primitives. Mirror the reference BeyondLabs
@@ -102,7 +103,7 @@ export function Panel({
   const canCollapse = collapsible && !!title;
 
   return (
-    <section className={"group/panel ba-fade-in relative overflow-hidden rounded-md border border-border bg-card/60 transition-colors hover:border-primary/30 " + (sticky ? "sticky top-0 z-10 shadow-sm" : "") + " " + className}>
+    <section className={"group/panel ba-fade-in relative overflow-hidden rounded-md border border-border bg-card/60 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] transition-colors hover:border-primary/30 " + (sticky ? "sticky top-0 z-10 shadow-sm" : "") + " " + className}>
       <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-2 w-2 border-l border-t border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       <span aria-hidden className="pointer-events-none absolute right-0 top-0 h-2 w-2 border-r border-t border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
       <span aria-hidden className="pointer-events-none absolute left-0 bottom-0 h-2 w-2 border-l border-b border-primary/40 transition-all group-hover/panel:h-2.5 group-hover/panel:w-2.5 group-hover/panel:border-primary/80" />
@@ -480,7 +481,7 @@ export function StatusBar({
   stats: { label: string; value: ReactNode; tone?: "default" | "primary" | "success" | "warning" | "destructive" | "muted" }[];
 }) {
   return (
-    <div className="relative flex flex-wrap items-center gap-x-5 gap-y-1.5 overflow-hidden rounded-md border border-border bg-card/40 px-3 py-2">
+    <div className="relative flex flex-wrap items-center gap-x-5 gap-y-1.5 overflow-hidden rounded-md border border-border bg-card/40 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] px-3 py-2">
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-primary/50" />
       {stats.map((s, i) => {
         const dot =
@@ -634,7 +635,14 @@ export function IocInventory({
             title={g.kind}
             meta={`${g.items.length}`}
             bodyClassName="p-0"
-            actions={<span className={"inline-block h-1.5 w-1.5 rounded-full " + dot} aria-hidden />}
+            actions={
+              <div className="flex items-center gap-1">
+                {g.items.length > 0 && (
+                  <IocBulkCopy values={g.items} label={g.kind} />
+                )}
+                <span className={"inline-block h-1.5 w-1.5 rounded-full " + dot} aria-hidden />
+              </div>
+            }
           >
             {g.items.length === 0 ? (
               <div className="px-4 py-3 text-mono text-[11px] text-muted-foreground">no items</div>
@@ -646,14 +654,17 @@ export function IocInventory({
                       <span className={"h-1 w-1 shrink-0 rounded-full " + dot} aria-hidden />
                       <code className="truncate text-mono text-[11px] text-foreground/90">{v}</code>
                     </div>
-                    {onSendTo && (
-                      <button
-                        onClick={() => onSendTo(g.kind, v)}
-                        className="shrink-0 rounded border border-border bg-card/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground opacity-0 transition-all hover:border-primary/50 hover:text-primary group-hover/ioc:opacity-100"
-                      >
-                        send →
-                      </button>
-                    )}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <IocCopyBtn value={v} />
+                      {onSendTo && (
+                        <button
+                          onClick={() => onSendTo(g.kind, v)}
+                          className="rounded border border-border bg-card/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground opacity-0 transition-all hover:border-primary/50 hover:text-primary group-hover/ioc:opacity-100"
+                        >
+                          send →
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -662,6 +673,37 @@ export function IocInventory({
         );
       })}
     </div>
+  );
+}
+
+function IocCopyBtn({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+      aria-label="Copy IOC value"
+      className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 opacity-0 transition-all hover:border-primary/40 hover:text-primary group-hover/ioc:opacity-100"
+    >
+      {copied ? "done" : "copy"}
+    </button>
+  );
+}
+
+function IocBulkCopy({ values, label }: { values: string[]; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(values.join("\n"));
+        setCopied(true);
+        toast(`Copied ${values.length} ${label}`);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      aria-label={`Copy all ${label}`}
+      className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 transition-all hover:border-primary/40 hover:text-primary"
+    >
+      {copied ? "done" : "copy all"}
+    </button>
   );
 }
 

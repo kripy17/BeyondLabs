@@ -6,7 +6,10 @@ import {
   Panel, EvidenceCard, SendToRow, Empty, Chip, RiskScore,
   TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
 } from "@/components/soc/Workspace";
+import { useLocker } from "@/lib/locker";
+import { CopyInline } from "@/components/CopyButton";
 import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity, Copy, Check, X } from "lucide-react";
+import { toast } from "sonner";
 import { uploadMalwareFile } from "@/api/backend";
 
 export const Route = createFileRoute("/attachment")({ component: AttachmentPage });
@@ -20,6 +23,20 @@ interface ApiResult {
   suspicious_strings: { keyword: string; severity: string; detail: string }[];
   summary: { score: number; rating: string; total_findings: number; confidence: string; note?: string };
   findings: { severity: string; title: string; detail: string; recommendation: string }[];
+}
+
+function genJsonExport(result: ApiResult): string {
+  return JSON.stringify({
+    version: "1.0",
+    ts: new Date().toISOString(),
+    filename: result.metadata.filename,
+    file_type: result.file_type,
+    hashes: result.hashes,
+    entropy: result.entropy,
+    suspicious_strings: result.suspicious_strings,
+    findings: result.findings,
+    summary: result.summary,
+  }, null, 2);
 }
 
 function formatSize(bytes: number): string {
@@ -36,6 +53,8 @@ function AttachmentPage() {
   const [result, setResult] = useState<ApiResult | null>(null);
   const [zoomedHash, setZoomedHash] = useState<{ algo: string; value: string; bits: number } | null>(null);
   const [hashCopied, setHashCopied] = useState("");
+  const [hashInput, setHashInput] = useState("");
+  const locker = useLocker();
 
   async function handleUpload() {
     if (!file) return;
@@ -90,6 +109,38 @@ function AttachmentPage() {
           )}
         </div>
         {!file && <p className="mt-2 text-mono text-[10px] text-muted-foreground">Supports any file type. Max 15 MB for MVP.</p>}
+      </Panel>
+
+      {/* Hash lookup */}
+      <Panel title="Hash Lookup" icon={Hash}>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={hashInput}
+            onChange={(e) => setHashInput(e.target.value)}
+            placeholder="Paste a SHA-256, MD5, or SHA-1 hash…"
+            className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2.5 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+          />
+          <button
+            onClick={() => setHashInput("7e0eaa6c2a2c7a0d5c4a3d8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a")}
+            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+          >
+            Sample PE hash
+          </button>
+          <button
+            onClick={() => setHashInput("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2")}
+            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+          >
+            Sample document hash
+          </button>
+          {hashInput && (
+            <button
+              onClick={() => { navigator.clipboard.writeText(hashInput); toast("Hash copied to clipboard"); }}
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary"
+            >
+              Copy
+            </button>
+          )}
+        </div>
       </Panel>
 
       <StatusBar stats={[
@@ -156,7 +207,11 @@ function AttachmentPage() {
           />
 
           {/* Cryptographic Identity */}
-          <Panel title="Cryptographic Identity" icon={Hash} meta="4 algorithms">
+          <Panel title="Cryptographic Identity" icon={Hash} meta="4 algorithms" actions={
+            <div className="flex items-center gap-1">
+              <button onClick={() => { [result.hashes.md5, result.hashes.sha1, result.hashes.sha256, result.hashes.sha512].forEach((h) => locker.add({ value: h, type: h.length === 32 ? "md5" : h.length === 40 ? "sha1" : h.length === 64 ? "sha256" : "unknown", source: "/attachment" })); toast("Added all hashes to locker"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ all to locker</button>
+            </div>
+          }>
             <div className="grid gap-2 grid-cols-4">
               {([
                 { algo: "MD5", value: result.hashes.md5, bits: 128, tone: "default" as const },
@@ -164,18 +219,21 @@ function AttachmentPage() {
                 { algo: "SHA-256", value: result.hashes.sha256, bits: 256, tone: "success" as const },
                 { algo: "SHA-512", value: result.hashes.sha512, bits: 512, tone: "primary" as const },
               ]).map((h) => (
-                <button
+                <div
                   key={h.algo}
-                  onClick={() => setZoomedHash({ algo: h.algo, value: h.value, bits: h.bits })}
-                  className="group rounded-md border border-border/60 bg-card/50 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card/80"
+                  className="group relative rounded-md border border-border/60 bg-card/50 p-2.5 transition-colors hover:border-primary/40 hover:bg-card/80"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{h.algo}</span>
                     <Chip tone={h.tone}>{h.bits}-bit</Chip>
                   </div>
-                  <code className="mt-1.5 block break-all text-mono text-[10.5px] leading-snug text-foreground/90 group-hover:text-primary">{h.value}</code>
-                  <span className="mt-1 block text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">click to inspect</span>
-                </button>
+                  <code className="mt-1.5 block break-all text-mono text-[10.5px] leading-snug text-foreground/90">{h.value}</code>
+                  <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <CopyInline value={h.value} />
+                    <button onClick={() => { locker.add({ value: h.value, type: h.algo.toLowerCase() as any, source: "/attachment" }); toast(`Added ${h.algo} to locker`); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 hover:text-primary">locker</button>
+                    <button onClick={() => setZoomedHash({ algo: h.algo, value: h.value, bits: h.bits })} className="rounded border border-border/40 bg-card/30 px-1.5 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 hover:text-primary">zoom</button>
+                  </div>
+                </div>
               ))}
             </div>
           </Panel>
@@ -319,9 +377,22 @@ function AttachmentPage() {
                   a.href = url; a.download = `attachment-report-${result.hashes.sha256.slice(0, 8)}.md`;
                   a.click(); URL.revokeObjectURL(url);
                 }}
-                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20 hover:shadow-[0_0_12px_-2px_hsl(var(--primary)/0.45)]"
+                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
               >
-                <Download className="h-3 w-3" /> Download Markdown Report
+                <Download className="h-3 w-3" /> Markdown Report
+              </button>
+              <button
+                onClick={() => {
+                  const json = genJsonExport(result);
+                  const blob = new Blob([json], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = `attachment-${result.hashes.sha256.slice(0, 8)}.json`;
+                  a.click(); URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
+              >
+                <Download className="h-3 w-3" /> JSON Export
               </button>
             </div>
           </Panel>

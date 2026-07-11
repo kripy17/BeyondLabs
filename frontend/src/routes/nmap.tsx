@@ -4,12 +4,13 @@ import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, Chip, SendToRow, StatusBar } from "@/components/soc/Workspace";
 import { TerminalOutput } from "@/components/soc/TerminalOutput";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
+import { useLocker } from "@/lib/locker";
 import { takePendingArtifact } from "@/lib/handoff";
 import { runReconNmapScan } from "@/api/backend";
 import { toast } from "sonner";
 import {
   Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
-  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2, Search,
+  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2, Search, Database,
 } from "lucide-react";
 
 export const Route = createFileRoute("/nmap")({ component: NmapPage });
@@ -24,6 +25,51 @@ const MODES = {
   full:      { label: "Full TCP + OS",     args: "-sS -p- -O -sV -Pn",                         risk: "high",   desc: "Every TCP port + OS fingerprint. Slow and loud.",     backend: "full_tcp" },
 } as const;
 type ModeKey = keyof typeof MODES;
+
+function parseNmapPorts(stdout: string): { port: string; state: string; service: string }[] {
+  const ports: { port: string; state: string; service: string }[] = [];
+  const lines = stdout.split("\n");
+  let inPorts = false;
+  for (const line of lines) {
+    if (/^PORT\s+STATE\s+SERVICE/i.test(line)) { inPorts = true; continue; }
+    if (!inPorts) continue;
+    if (/^\d+\/(tcp|udp)\s+/.test(line)) {
+      const parts = line.trim().split(/\s{2,}|\t+/);
+      const [portProto, state, ...rest] = parts;
+      const svc = parts.length >= 3 ? parts.slice(1).find((p) => /^[a-z]/.test(p)) || rest[0] || "" : "";
+      ports.push({ port: portProto || "", state: state || "", service: svc });
+    }
+    if (/^$|^#|^MAC|^TRACEROUTE|^OS|^Too many|^Warning/i.test(line) && ports.length > 0) break;
+  }
+  return ports;
+}
+
+function portRiskTone(service: string): "destructive" | "warning" | "success" | "default" {
+  const svc = service.toLowerCase().trim();
+  if (["netbios-ssn","microsoft-ds","kdc","kerberos","ldaps","domain","rpc","epmap","msrpc"].some((p) => svc.startsWith(p))) return "success";
+  if (["ssh","telnet","rdp","vnc","mysql","mssql","oracle","smb","netbios","ldap","snmp","ftp"].some((p) => svc.startsWith(p))) return "destructive";
+  if (["http","https","http-proxy","http-alt","www","nginx","apache","iis","tomcat","dns","smtp","pop3","imap","redis","memcached"].some((p) => svc.startsWith(p))) return "warning";
+  return "default";
+}
+
+function genJsonExport(target: string, mode: ModeKey, timing: TimingKey, result: Record<string, unknown> | null): string {
+  const scan = result?.scan as NmapScanResult | undefined;
+  const stdout = scan?.stdout ?? "";
+  const truncated = stdout.length > 10000;
+  const ports = parseNmapPorts(stdout);
+  const ips = stdout.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
+  const uniqueIps = [...new Set(ips)].filter((ip) => ip !== target && !ip.startsWith("127.") && !ip.startsWith("10.") && !ip.startsWith("192.168.") && !ip.startsWith("172."));
+  if (truncated) toast.warning("Output truncated — full export not available");
+  return JSON.stringify({
+    version: "1.0", ts: new Date().toISOString(), target,
+    mode: MODES[mode].label, timing: `-${timing}`,
+    ports: ports.slice(0, 200), discoveredIps: uniqueIps,
+    raw: stdout.slice(0, 10000),
+    truncated,
+  }, null, 2);
+}
+
+const HISTORY_KEY = "ba.nmap.history";
 
 const TIMINGS = [
   { k: "T2", label: "Polite",      hint: "stealth · low rate" },
@@ -55,9 +101,12 @@ function NmapPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [running, setRunning] = useState(false);
   const [realResult, setRealResult] = useState<Record<string, unknown> | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
 
+  const locker = useLocker();
   const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   useEffect(() => { const h = takePendingArtifact(); if (h?.value) setTarget(h.value); }, []);
+  useEffect(() => { try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]")); } catch {} }, []);
 
   const has = target.trim().length > 0;
   const cmd = `nmap ${MODES[mode].args} -${timing} ${has ? target : "<target>"}`;
@@ -79,6 +128,7 @@ function NmapPage() {
         confirmPermission: confirmed,
       });
       setRealResult(res as Record<string, unknown>);
+      setHistory((prev) => { const next = [target.trim(), ...prev.filter((p) => p !== target.trim())].slice(0, 8); try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {} return next; });
       toast.success("Scan complete", { description: `${target} — ${MODES[mode].label}` });
     } catch {
       setRealResult({ error: "Scan request failed" });
@@ -266,13 +316,71 @@ function NmapPage() {
         <Panel><p className="text-mono text-[11px] text-muted-foreground">Confirm permission and execute the scan to see results.</p></Panel>
       )}
 
-      {realResult && scanResult && scanResult.stdout && (
-        <Panel title="Report" meta="markdown" collapsible storageKey="ba.panel.nmap.report" defaultCollapsed actions={
-          <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
-        }>
-          <pre className="max-h-40 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(target, mode, timing, scanResult.stdout ?? "")}</pre>
+      {history.length > 0 && (
+        <Panel icon={Database} title="Recent targets" meta={`${history.length} targets`} collapsible storageKey="ba.panel.nmap.history" defaultCollapsed>
+          <div className="flex flex-wrap gap-1.5">
+            {history.map((h) => (
+              <button key={h} onClick={() => setTarget(h)} className="inline-flex items-center gap-1 rounded border border-border/60 bg-background/40 px-2 py-0.5 text-mono text-[10px] text-muted-foreground hover:border-primary/50 hover:text-primary">
+                {h}
+              </button>
+            ))}
+          </div>
         </Panel>
       )}
+
+      {realResult && scanResult && scanResult.stdout && (() => {
+        const ports = parseNmapPorts(scanResult.stdout);
+        const ips = [...new Set(scanResult.stdout.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [])]
+          .filter((ip) => ip !== target && !ip.startsWith("127.") && !ip.startsWith("10.") && !ip.startsWith("192.168.") && !ip.startsWith("172."));
+        return (
+          <>
+          {ports.length > 0 && (
+            <Panel icon={Server} title="Port summary" meta={`${ports.length} open port(s)`}>
+              <div className="mb-2 flex items-center gap-3 text-mono text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded bg-destructive/60" /> danger</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded bg-warning/60" /> web-exposed</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded bg-success/60" /> trusted</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-mono text-[11px]">
+                  <thead><tr className="border-b border-border/60 text-left text-[10px] uppercase tracking-widest text-muted-foreground"><th className="px-2 py-1">Port</th><th className="px-2 py-1">State</th><th className="px-2 py-1">Service</th></tr></thead>
+                  <tbody>
+                    {ports.slice(0, 50).map((p, i) => (
+                      <tr key={i} className={"border-b border-border/30 hover:bg-primary/[0.02] " + ({ destructive: "border-l-2 border-l-destructive bg-destructive/[0.02]", warning: "border-l-2 border-l-warning bg-warning/[0.02]", success: "border-l-2 border-l-success bg-success/[0.02]", transparent: "" }[portRiskTone(p.service)] ?? "")}>
+                        <td className="px-2 py-1 text-foreground/90 font-mono">{p.port}</td>
+                        <td className="px-2 py-1"><Chip tone={p.state === "open" ? "destructive" : p.state === "filtered" ? "warning" : "default"}>{p.state}</Chip></td>
+                        <td className="px-2 py-1 text-muted-foreground">{p.service}</td>
+                      </tr>
+                    ))}
+                    {ports.length > 50 && <tr><td colSpan={3} className="px-2 py-1 text-muted-foreground italic">… {ports.length - 50} more</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          )}
+          {ips.length > 0 && (
+            <Panel icon={Globe2} title="Discovered IPs" meta={`${ips.length} address(es)`} actions={
+              <button onClick={() => { ips.forEach((ip) => locker.add({ value: ip, type: "ipv4", source: "/nmap" })); toast(`Added ${ips.length} IPs to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker</button>
+            }>
+              <div className="flex flex-wrap gap-1.5">
+                {ips.map((ip) => (
+                  <span key={ip} className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background/40 px-2 py-0.5 text-mono text-[11px] text-foreground/90">
+                    {ip}
+                    <button onClick={() => locker.add({ value: ip, type: "ipv4", source: "/nmap" })} className="rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-primary group-hover:opacity-100" title="add to locker">+</button>
+                  </span>
+                ))}
+              </div>
+            </Panel>
+          )}
+          <Panel title="Export" meta="report" collapsible storageKey="ba.panel.nmap.export" defaultCollapsed>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => { const md = genReport(target, mode, timing, scanResult.stdout as string); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"><Download className="h-3 w-3" /> Markdown Report</button>
+              <button onClick={() => { const json = genJsonExport(target, mode, timing, realResult); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `nmap-${target}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"><Download className="h-3 w-3" /> JSON Export</button>
+            </div>
+          </Panel>
+          </>
+        );
+      })()}
 
       <SendToRow targets={[
         { label: "Recon Exposure", to: "/recon",     icon: ArrowRight },

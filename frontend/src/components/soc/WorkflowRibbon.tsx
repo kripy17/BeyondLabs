@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronRight, Wand2, MailWarning, Radar, Activity, FileText, type LucideIcon } from "lucide-react";
 
 const steps: { title: string; url: string; icon: LucideIcon; tag: string }[] = [
-  { title: "Parse",     url: "/parser",   icon: Wand2,       tag: "01" },
+  { title: "Investigate", url: "/parser", icon: Wand2,       tag: "01" },
   { title: "Triage",    url: "/phishing", icon: MailWarning, tag: "02" },
   { title: "Recon",     url: "/recon",    icon: Radar,    tag: "03" },
   { title: "Pivot",     url: "/siem",     icon: Activity, tag: "04" },

@@ -9,6 +9,7 @@ from app.services.nmap_runner import run_custom_nmap_command, run_nmap_scan
 from app.services.parser import normalize_target
 from app.services.ssl_lookup import get_ssl_certificate
 from app.services.web_exposure import run_web_exposure_review
+from app.services.whois_rdap import whois_lookup, rdap_lookup
 
 router = APIRouter()
 
@@ -73,14 +74,14 @@ def _backend_meta(method: str, limitations: str) -> dict:
 
 
 @router.post("/passive")
-def passive_recon(request: ReconRequest):
+async def passive_recon(request: ReconRequest):
     normalized = normalize_target(request.target)
     hostname = normalized.get("hostname")
     root_domain = normalized.get("root_domain") or hostname
 
     dns_result = lookup_dns(root_domain) if normalized.get("type") == "domain" and root_domain else None
-    whois_result = {"skipped": "Domain WHOIS is not run automatically in passive mode to avoid slow registry lookups."} if normalized.get("type") == "domain" and root_domain else None
-    rdap_result = {"skipped": "IP RDAP is not run automatically in passive mode; use an approved manual RDAP lookup when needed."} if normalized.get("type") == "ip" and hostname else None
+    whois_result = await whois_lookup(root_domain) if normalized.get("type") == "domain" and root_domain else None
+    rdap_result = await rdap_lookup(hostname) if normalized.get("type") == "ip" and hostname else None
     http_result = probe_http(hostname, request.fetch_mode, request.follow_redirects, request.timeout_seconds) if hostname else None
     ssl_result = get_ssl_certificate(hostname) if hostname and request.fetch_mode != "no_fetch" else None
 
@@ -102,12 +103,12 @@ def passive_recon(request: ReconRequest):
             "max_response_bytes": 0,
             "limitations": "Safe backend metadata collection only. No JavaScript, browser rendering, scraping, brute force, exploit checks, or external reputation lookup.",
         },
-        "warning": "Backend passive metadata lookup completed where the target type allowed it.",
+        "warning": "Backend metadata lookup completed.",
     }
 
 
 @router.post("/dns")
-def dns_recon(request: DnsReconRequest):
+async def dns_recon(request: DnsReconRequest):
     if not request.confirm_permission:
         raise HTTPException(status_code=400, detail="Confirm authorization before running backend DNS/RDAP checks.")
 
@@ -125,16 +126,10 @@ def dns_recon(request: DnsReconRequest):
 
     if normalized.get("type") == "domain":
         dns_result = lookup_dns(root_domain)
-        whois_result = {
-            "skipped": "WHOIS/RDAP is intentionally not queried by default because registry responses can be slow or unreliable. DNS records were collected through the local backend.",
-            "domain": root_domain,
-        }
+        whois_result = await whois_lookup(root_domain)
     else:
         reverse_dns_result = lookup_reverse_dns(hostname)
-        rdap_result = {
-            "skipped": "IP RDAP is intentionally not queried by default because registry responses can be slow or unreliable. Reverse DNS/PTR was collected through the local backend.",
-            "ip": hostname,
-        }
+        rdap_result = await rdap_lookup(hostname)
 
     return {
         "target": normalized,
@@ -143,7 +138,7 @@ def dns_recon(request: DnsReconRequest):
         "whois": whois_result,
         "rdap": rdap_result,
         "meta": _backend_meta(
-            "dnspython DNS/PTR lookup with manual WHOIS/RDAP fallback guidance",
+            "dnspython DNS/PTR lookup with WHOIS/RDAP",
             "Availability depends on network, resolver, registry, and target type. No external reputation, scraping, brute force, or exploit checks are performed.",
         ),
         "warning": "Authorized DNS/RDAP metadata lookup completed. Validate records against asset ownership and expected providers.",

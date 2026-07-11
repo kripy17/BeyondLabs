@@ -1,12 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, SendToRow, Chip, KeyFields, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/soc/Workspace";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, StickyNote, Save, X, ListFilter, Info } from "lucide-react";
-import { mapMitre, generateSigmaRule } from "@/api/detection";
+import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule } from "@/api/detection";
+import { sendToCase } from "@/lib/handoff";
+import { useLocker } from "@/lib/locker";
+import { toast } from "sonner";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
+
+function autoDetectFmt(text: string): Format | null {
+  if (/^title:/m.test(text) && /^detection:/m.test(text)) return "sigma";
+  if (/^rule\s/m.test(text) && /^\s{2}meta:/m.test(text)) return "yara";
+  if (/\b(where\s|project\b|summarize\b)/i.test(text)) return "kql";
+  return null;
+}
 
 export const Route = createFileRoute("/detection")({ component: DetectionPage });
 
@@ -258,6 +268,56 @@ function DetectionPage() {
   const [genLoading, setGenLoading] = useState(false);
   const [genResult, setGenResult] = useState<GenResult | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+  const locker = useLocker();
+
+  /* ── IDS Rule Generator ── */
+  const [idsTemplates, setIdsTemplates] = useState<Record<string, unknown> | null>(null);
+  const [idsSelected, setIdsSelected] = useState<string | null>(null);
+  const [idsMsg, setIdsMsg] = useState("");
+  const [idsContent, setIdsContent] = useState("");
+  const [idsSid, setIdsSid] = useState("2000001");
+  const [idsPriority, setIdsPriority] = useState("2");
+  const [idsRule, setIdsRule] = useState<string | null>(null);
+  const [idsBuildLoading, setIdsBuildLoading] = useState(false);
+  const [idsCopied, setIdsCopied] = useState(false);
+  const [idsShowPanel, setIdsShowPanel] = useState(false);
+
+  useEffect(() => {
+    getIdsRuleTemplates()
+      .then((data) => { setIdsTemplates(data as Record<string, unknown>); const keys = Object.keys(data as Record<string, unknown>); if (keys.length) setIdsSelected(keys[0]); })
+      .catch(() => setIdsTemplates({}));
+  }, []);
+
+  useEffect(() => {
+    if (idsTemplates && idsSelected) {
+      const t = (idsTemplates[idsSelected] as any)?.data || {};
+      setIdsMsg(t.msg || "");
+      setIdsContent(t.content || "");
+      setIdsSid(t.sid || "2000001");
+      setIdsPriority(t.priority || "2");
+      setIdsRule(null);
+    }
+  }, [idsTemplates, idsSelected]);
+
+  const handleIdsBuild = async () => {
+    if (!idsMsg && !idsContent) return;
+    setIdsBuildLoading(true);
+    setIdsRule(null);
+    try {
+      const res = await buildIdsRule({
+        engine: "snort", action: "alert", protocol: "tcp",
+        src_ip: "$EXTERNAL_NET", src_port: "any", direction: "->", dst_ip: "$HOME_NET", dst_port: "80",
+        msg: idsMsg, content: idsContent, pcre: "", flow: "to_server,established",
+        classtype: "trojan-activity", priority: idsPriority, sid: idsSid, rev: "1",
+        extra_options: "", nocase: true, http_uri: false, http_header: false,
+      }) as any;
+      setIdsRule(res.rule);
+    } catch (e: any) {
+      toast.error(e?.message || "IDS build failed");
+    } finally {
+      setIdsBuildLoading(false);
+    }
+  };
 
   /* ── Rule library ── */
   const [showLib, setShowLib] = useState(false);
@@ -265,6 +325,7 @@ function DetectionPage() {
   const [libName, setLibName] = useState("");
   const [libTags, setLibTags] = useState("");
   const [libNotice, setLibNotice] = useState("");
+  const [ruleSearch, setRuleSearch] = useState("");
 
   /* ── Validation & analysis ── */
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -365,8 +426,11 @@ function DetectionPage() {
     loadRule(entry);
   };
 
-  const fmtRules = savedRules.filter(r => r.format === fmt);
-  const otherRules = savedRules.filter(r => r.format !== fmt);
+  const filteredSaved = ruleSearch.trim()
+    ? savedRules.filter(r => r.name.toLowerCase().includes(ruleSearch.toLowerCase()) || r.tags.some(t => t.toLowerCase().includes(ruleSearch.toLowerCase())) || r.rule.toLowerCase().includes(ruleSearch.toLowerCase()))
+    : savedRules;
+  const fmtRules = filteredSaved.filter(r => r.format === fmt);
+  const otherRules = filteredSaved.filter(r => r.format !== fmt);
 
   const refIcon = (f: Format) => { const Ic = FMT_ICONS[f]; return <Ic className="h-3 w-3" />; };
 
@@ -375,12 +439,13 @@ function DetectionPage() {
       eyebrow="DETECTION / RULE EDITOR"
       title="Detection Editor"
       description="Compose Sigma · YARA · KQL detections, dry-run against events, map to MITRE ATT&CK, or generate Sigma rules from a description."
-      crumbs={[{ label: "Detection" }, { label: "Editor" }]}
-    >
+      crumbs={[{ label: "Detection" }]}
+      jumps={[{ label: "SIEM", to: "/siem" }, { label: "Investigation", to: "/parser" }]}>
+      <>
       <SectionBar id="IN" label="Intake · format & rule body" meta={`${ruleLines.length} lines · ${rule.length} chars`} />
 
       {/* Format selector with descriptive cards */}
-      <div className="mb-3 grid gap-2 grid-cols-4">
+      <div className="mb-3 grid gap-2 grid-cols-2 sm:grid-cols-3">
         {(["sigma", "yara", "kql"] as Format[]).map((f) => {
           const active = fmt === f;
           const desc = f === "sigma" ? "Vendor-neutral log rule" : f === "yara" ? "File / memory signature" : "Defender / Azure query";
@@ -520,8 +585,17 @@ function DetectionPage() {
             </button>
           </div>
 
-          {savedRules.length === 0 ? (
-            <div className="text-center text-mono text-[11px] text-muted-foreground py-4">No rules saved yet. Write a rule and save it above.</div>
+          <div className="relative px-3 pb-1 pt-1">
+            <Search className="absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/50" />
+            <input
+              value={ruleSearch}
+              onChange={e => setRuleSearch(e.target.value)}
+              placeholder="search rules by name, tag, or content…"
+              className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+            />
+          </div>
+          {filteredSaved.length === 0 ? (
+            <div className="text-center text-mono text-[11px] text-muted-foreground py-4">{savedRules.length === 0 ? "No rules saved yet. Write a rule and save it above." : "No rules match your search."}</div>
           ) : (
             <div className="space-y-2 max-h-80 overflow-auto">
               {fmtRules.map(r => (
@@ -539,8 +613,8 @@ function DetectionPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /> load</button>
-                    <button onClick={() => duplicateRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Copy className="inline h-3 w-3" /></button>
-                    <button onClick={() => deleteRule(r.id)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-destructive"><Trash2 className="inline h-3 w-3" /></button>
+                    <button onClick={() => duplicateRule(r)} aria-label="Duplicate rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Copy className="inline h-3 w-3" /></button>
+                    <button onClick={() => deleteRule(r.id)} aria-label="Delete rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-destructive"><Trash2 className="inline h-3 w-3" /></button>
                   </div>
                 </div>
               ))}
@@ -556,7 +630,7 @@ function DetectionPage() {
                           <span className="text-mono text-[11px] text-foreground/80">{r.name}</span>
                           <span className="ml-2 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{r.format}</span>
                         </div>
-                        <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /></button>
+                        <button onClick={() => loadRule(r)} aria-label="Load rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /></button>
                       </div>
                     ))}
                   </div>
@@ -605,6 +679,11 @@ function DetectionPage() {
               <textarea
                 value={rule}
                 onChange={(e) => setRule(e.target.value)}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  const detected = autoDetectFmt(text);
+                  if (detected && detected !== fmt) switchFmt(detected);
+                }}
                 spellCheck={false}
                 className="absolute inset-0 resize-none overflow-hidden bg-transparent p-2 text-mono text-[12px] leading-[1.5] text-transparent caret-primary outline-none"
                 style={{ WebkitTextFillColor: "transparent" }}
@@ -811,6 +890,23 @@ function DetectionPage() {
             { kind: "URL", items: iocs.urls, tone: "warning" },
             { kind: "Hash", items: iocs.hashes, tone: "warning" },
           ]} onSendTo={() => {}} />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {iocs.ips.length > 0 && (
+              <button onClick={() => { iocs.ips.forEach((v) => locker.add({ value: v, type: "ipv4", source: "/detection" })); toast(`Added ${iocs.ips.length} IPs to locker`); }}
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+              >+ IPs ({iocs.ips.length})</button>
+            )}
+            {iocs.urls.length > 0 && (
+              <button onClick={() => { iocs.urls.forEach((v) => locker.add({ value: v, type: "url", source: "/detection" })); toast(`Added ${iocs.urls.length} URLs to locker`); }}
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+              >+ URLs ({iocs.urls.length})</button>
+            )}
+            {iocs.hashes.length > 0 && (
+              <button onClick={() => { iocs.hashes.forEach((v) => locker.add({ value: v, type: v.length === 32 ? "md5" : v.length === 40 ? "sha1" : v.length === 64 ? "sha256" : "unknown", source: "/detection" })); toast(`Added ${iocs.hashes.length} hashes to locker`); }}
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+              >+ Hashes ({iocs.hashes.length})</button>
+            )}
+          </div>
         </CollapsibleSection>
 
         {/* Report */}
@@ -823,14 +919,58 @@ function DetectionPage() {
           <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(tpl, result, rule)}</pre>
         </Panel>
 
+          {/* IDS Rule Generator (from IdsBuilder essence) */}
+          <Panel title="IDS Rule Generator" icon={ShieldAlert} meta="Snort/Suricata" collapsible defaultCollapsed>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">template</span>
+                <select
+                  value={idsSelected || ""}
+                  onChange={(e) => setIdsSelected(e.target.value)}
+                  className="rounded border border-border/60 bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+                >
+                  {idsTemplates && Object.keys(idsTemplates).map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 grid-cols-[1fr_2fr_80px_60px]">
+                <input value={idsMsg} onChange={(e) => setIdsMsg(e.target.value)} placeholder="msg: Trojan activity detected" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <input value={idsContent} onChange={(e) => setIdsContent(e.target.value)} placeholder="content:|evil.exe|" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <input value={idsSid} onChange={(e) => setIdsSid(e.target.value)} placeholder="sid" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <select value={idsPriority} onChange={(e) => setIdsPriority(e.target.value)} className="rounded border border-border/60 bg-background/60 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none focus:border-primary/50">
+                  {["1","2","3","4"].map((p) => <option key={p} value={p}>prio {p}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={handleIdsBuild} disabled={idsBuildLoading || (!idsMsg && !idsContent)} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40">
+                  {idsBuildLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  {idsBuildLoading ? "building..." : "generate"}
+                </button>
+                <button onClick={() => setIdsShowPanel(!idsShowPanel)} className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">{idsShowPanel ? "hide" : "show"} preview</button>
+              </div>
+              {idsShowPanel && idsRule && (
+                <div className="rounded border border-border/50 bg-background/60 p-3">
+                  <pre className="overflow-x-auto text-mono text-[11px] leading-relaxed text-foreground/90 whitespace-pre-wrap">{idsRule}</pre>
+                  <button onClick={() => { navigator.clipboard.writeText(idsRule); setIdsCopied(true); setTimeout(() => setIdsCopied(false), 1200); }} className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                    {idsCopied ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy rule</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          </Panel>
+
         <SendToRow targets={[
           { label: "MITRE Coverage", to: "/mitre", icon: ArrowRight },
           { label: "SOC Guide", to: "/guide", icon: ShieldAlert },
-          { label: "Case Notebook", to: "/case", icon: Database },
+          { label: "Case Notebook", to: "/case", icon: Database, onClick: () => sendToCase({ body: genReport(tpl, result, rule), source: "/detection", kind: "evidence" }) },
         ]} />
+
+
       </div>
       </OutputFilter>
       )}
+      </>
     </PageShell>
   );
 }

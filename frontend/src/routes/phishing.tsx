@@ -8,7 +8,8 @@ import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS } from "@/lib/ioc-patterns";
+import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
+import { useLocker } from "@/lib/locker";
 import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
@@ -79,6 +80,50 @@ Content-Type: text/html; charset=utf-8
 </form>
 </body>
 </html>`,
+
+  suspicious_invoice: `From: Accounts Payable <invoices@acmecorp-billing[.]net>
+To: finance@example.org
+Subject: INV-2024-8932 — Overdue payment notice
+Return-Path: noreply@acmecorp-billing.net
+Reply-To: disputes@acmecorp-billing.net
+Authentication-Results: mx.example.org; spf=softfail smtp.mailfrom=acmecorp-billing.net; dkim=neutral; dmarc=fail
+Received: from mail.acmecorp-billing.net (198.51.100.99) by mx.example.org with ESMTPS
+
+Dear Finance Department,
+
+Your invoice INV-2024-8932 for $12,847.50 is now overdue.
+To avoid service interruption and late fees, please process payment immediately.
+
+View and pay your invoice here: hxxps[:]//acmecorp-billing[.]net/pay/invoice/INV-2024-8932
+
+Reference: 7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
+If you have already paid, please disregard this notice.
+
+Accounts Receivable
+ACMECorp Billing Portal
+disputes@acmecorp-billing.net`,
+
+  account_alert: `From: Security Alerts <alert@secure-verify[.]tk>
+To: user@example.org
+Subject: Security Alert: Unusual sign-in detected
+Return-Path: bounce@secure-verify.tk
+Reply-To: support@secure-verify.tk
+Authentication-Results: mx.example.org; spf=fail smtp.mailfrom=secure-verify.tk; dkim=none; dmarc=fail
+Received: from mail.secure-verify.tk (203.0.113.77) by mx.example.org with ESMTPS
+
+We detected a sign-in attempt from an unfamiliar device or location.
+
+• Location: Moscow, Russia
+• Device: Windows 10 / Chrome 124
+• Time: April 15, 2026 3:42 AM UTC
+
+If this was not you, your account may be compromised.
+
+Secure your account now: hxxps[:]//secure-verify[.]tk/account/recovery?id=U2FsdGVkX18
+
+This is an automated security alert. Do not reply to this message.
+
+— Account Security Team`,
 };
 
 const RX = {
@@ -126,15 +171,6 @@ function detectAuth(input: string, family: "spf" | "dkim" | "dmarc"): AuthState 
   return "none";
 }
 
-function refang(s: string) { return s.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".").replace(/\{\.\}/g, ".").replace(/\bhxxp/gi, "http"); }
-function defang(s: string) { const r = refang(s); return r.replace(/\./g, "[.]").replace(/\bhttp/gi, "hxxp"); }
-
-function entropy(s: string): number {
-  const freq: Record<string, number> = {};
-  for (const c of s) freq[c] = (freq[c] || 0) + 1;
-  return -Object.values(freq).reduce((sum, n) => { const p = n / s.length; return sum + p * Math.log2(p); }, 0);
-}
-
 function extractBody(input: string): string {
   const parts = input.split(/\r?\n\r?\n/);
   return parts.length > 1 ? parts.slice(1).join("\n\n").trim() : "";
@@ -150,20 +186,6 @@ function detectAttachments(input: string): { hasAttachments: boolean; detail: st
   const dispos = Array.from(input.matchAll(/Content-Disposition:\s*attachment;?\s*(.*)/gi));
   for (const m of dispos) d.push(`Attachment: ${m[1]?.trim() || "unnamed"}`);
   return { hasAttachments: d.length > 0, detail: d };
-}
-
-function scanSecrets(t: string): { type: string; value: string }[] {
-  const found: { type: string; value: string }[] = [];
-  for (const { type, re } of SECRET_RX) {
-    const matches = t.match(re);
-    if (matches) {
-      for (const m of new Set(matches)) {
-        const masked = m.length > 12 ? m.slice(0, 6) + "*".repeat(m.length - 12) + m.slice(-6) : m;
-        found.push({ type, value: masked });
-      }
-    }
-  }
-  return found;
 }
 
 function getDomain(email: string): string {
@@ -239,6 +261,21 @@ function genMarkdown(input: string, data: any, iocs: any): string {
   return lines.join("\n");
 }
 
+function genJsonExport(data: any, iocs: any): string {
+  const exportData = {
+    version: "1.0",
+    generated: new Date().toISOString(),
+    verdict: data.verdict,
+    authentication: { spf: data.spf, dkim: data.dkim, dmarc: data.dmarc },
+    findings: data.findings.map((f: any) => ({ severity: f.sev, title: f.t, reason: f.r, action: f.a })),
+    iocs: { ...data.iocs },
+    secrets: data.secrets.map((s: any) => ({ type: s.type, value: s.value })),
+    mitre: data.mitre.map((m: any) => ({ id: m.id, name: m.name, source: m.source })),
+    signalBreakdown: data.breakdown.map((b: any) => ({ signal: b.signal, state: b.state, weight: b.weight })),
+  };
+  return JSON.stringify(exportData, null, 2);
+}
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
@@ -279,7 +316,7 @@ function EmptyPreview() {
   ];
   return (
     <Panel title="Awaiting Analysis" icon={FlaskConical} meta="expected output structure">
-      <div className="grid gap-3 grid-cols-3">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
         {cards.map(([title, text]) => (
           <div key={title} className="rounded-md border border-dashed border-border/60 bg-card/30 p-3">
             <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-foreground/80">{title}</div>
@@ -289,6 +326,35 @@ function EmptyPreview() {
       </div>
     </Panel>
   );
+}
+
+const BRAND_KEYWORDS = ["paypal", "apple", "google", "microsoft", "amazon", "netflix", "facebook", "instagram", "linkedin", "twitter", "x.com", "dropbox", "adobe", "dhl", "fedex", "ups", "usps", "bank of america", "chase", "wells fargo", "citi", "capital one", "american express", "visa", "mastercard", "github", "gitlab", "bitbucket", "slack", "zoom", "teams", "office 365", "microsoft 365", "outlook", "gmail", "yahoo", "aol"];
+
+function ScoreGauge({ score, maxScore, label }: { score: number; maxScore: number; label: string }) {
+  const pct = maxScore > 0 ? Math.min(100, Math.round((score / maxScore) * 100)) : 0;
+  const tone = pct >= 60 ? "destructive" : pct >= 30 ? "warning" : "success";
+  const color = tone === "destructive" ? "bg-destructive" : tone === "warning" ? "bg-warning" : "bg-success";
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-2 rounded-full bg-card/60 overflow-hidden">
+        <div className={"h-full transition-all " + color} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={"text-mono text-[11px] font-semibold tabular-nums " + (tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-warning" : "text-success")}>{score}/{maxScore}</span>
+      <span className="text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function PhishingPage() {
@@ -302,6 +368,7 @@ function PhishingPage() {
   const [runs, setRuns] = useState(() => pendingRef.current ? 1 : 0);
   const [apiResult, setApiResult] = useState<Record<string, any> | null>(null);
   const navigate = useNavigate();
+  const locker = useLocker();
   const has = input.trim().length > 0;
   const committed = runs > 0 && has;
 
@@ -339,6 +406,9 @@ function PhishingPage() {
     const body = extractBody(input);
     const headers = extractHeaders(input);
     const bodyLower = body.toLowerCase();
+    const subject = (input.match(/Subject:\s*(.+)/i)?.[1] ?? "").toLowerCase();
+    const brandMatch = BRAND_KEYWORDS.find(b => bodyLower.includes(b) || subject.includes(b));
+
     const hasForm = /<form/i.test(body) || /<input.*type=["']?(?:text|password|email)["' ]/i.test(body);
     const hasPasswordField = /<input.*type=["']?password["' ]/i.test(body) || /password/i.test(bodyLower);
     const hasHtmlForm = /<form\s/i.test(body);
@@ -381,6 +451,8 @@ function PhishingPage() {
       hasAttachment.hasAttachments && { sev: "warning" as const, t: "Email carries attachments", r: hasAttachment.detail.length ? hasAttachment.detail.join("; ") : "Multipart content detected.", a: "Submit to Attachment Triage before opening." },
       fromDomain && SENDER_TLDS.has(fromDomain.split(".").pop() || "") && { sev: "warning" as const, t: "Sender TLD is high-risk", r: `Sender domain uses suspicious TLD .${fromDomain.split(".").pop()}`, a: "Investigate domain registration in OSINT." },
       hasLookalike && { sev: "warning" as const, t: "Envelope domain mismatch", r: envelopeFlags.join("; "), a: "Verify sender identity out-of-band." },
+      brandMatch && spf === "fail" && { sev: "destructive" as const, t: `Brand impersonation: ${brandMatch}`, r: `Message references '${brandMatch}' while authentication fails.`, a: "Verify sender out-of-band." },
+      brandMatch && spf !== "fail" && { sev: "warning" as const, t: `Brand reference: ${brandMatch}`, r: `Message references '${brandMatch}' in body or subject.`, a: "Verify legitimacy with sender." },
       ...genBodySignals(body, iocs),
     ].filter(Boolean) as { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }[];
 
@@ -396,6 +468,7 @@ function PhishingPage() {
       { signal: "Attachments",     weight: hasAttachment.hasAttachments ? 10 : 0, state: hasAttachment.hasAttachments ? "fail" as const : "pass" as const },
       { signal: "Sender TLD risk", weight: fromDomain && SENDER_TLDS.has(fromDomain.split(".").pop() || "") ? 10 : 0, state: "fail" as const },
       { signal: "Envelope mismatch", weight: hasLookalike ? 15 : 0, state: hasLookalike ? "fail" as const : "pass" as const },
+      { signal: "Brand impersonation", weight: brandMatch && (spf === "fail" || dmarc === "fail") ? 30 : 0, state: "fail" as const },
     ];
     const destructiveCount = findings.filter((f) => f.sev === "destructive").length;
     const warningCount = findings.filter((f) => f.sev === "warning").length;
@@ -411,7 +484,7 @@ function PhishingPage() {
     if (iocs.cve.length) addMitre("T1190", "Exploit Public-Facing Application", "ioc");
     if (iocs.attack.length) for (const a of iocs.attack) addMitre(a, "Technique referenced", "ioc");
 
-    return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine };
+    return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine, brandMatch };
   }, [committed, input, apiResult]);
 
   const handoff = (kind: string, value: string, to: string) => {
@@ -466,6 +539,7 @@ function PhishingPage() {
       title="Phishing Triage"
       description="Static-only inspection of email envelope, auth results, body, and embedded indicators. No links followed."
       crumbs={[{ label: "Triage" }, { label: "Phishing" }]}
+      jumps={[{ label: "URL Analysis", to: "/url" }, { label: "Detection", to: "/detection" }]}
     >
       <ToolShell
         icon={Mail}
@@ -489,6 +563,8 @@ function PhishingPage() {
                 { key: "bec", label: "BEC wire request", hint: "lookalike domain, attachment" },
                 { key: "invoice", label: "Invoice / portal", hint: "all auth pass, attachment" },
                 { key: "html", label: "HTML form phish", hint: "form, password field, secrets" },
+                { key: "suspicious_invoice", label: "Suspicious invoice", hint: "overdue payment lure" },
+                { key: "account_alert", label: "Account alert", hint: "security alert + spoofed sender" },
               ]}
               onLoadSample={(key) => {
                 const s = SAMPLES[key as keyof typeof SAMPLES] ?? SAMPLES.lure;
@@ -534,6 +610,13 @@ function PhishingPage() {
                 </div>
               </Panel>
 
+              <div className="flex items-center gap-2 rounded-md border border-border/40 bg-card/30 px-3 py-1.5">
+                <span className="mr-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Auth Chain</span>
+                <Chip tone={data.spf === "pass" ? "success" : data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : "default"}>SPF: {data.spf.toUpperCase()}</Chip>
+                <Chip tone={data.dkim === "pass" ? "success" : data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : "default"}>DKIM: {data.dkim.toUpperCase()}</Chip>
+                <Chip tone={data.dmarc === "pass" ? "success" : data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : "default"}>DMARC: {data.dmarc.toUpperCase()}</Chip>
+              </div>
+
               <Panel title="Sender Identity" icon={ShieldCheck}>
                 <KeyFields items={[
                   { label: "From", value: data.fromLine || "\u2014" },
@@ -553,6 +636,12 @@ function PhishingPage() {
                     <pre className="max-h-[280px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
                   ) : (
                     <pre className="max-h-[200px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
+                  )}
+                  {data.hasHtmlForm && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">plain text extract ({htmlToText(data.body).length} chars)</summary>
+                      <pre className="mt-1 max-h-[160px] overflow-auto rounded border border-border/40 bg-background/40 p-2 text-mono text-[11px] text-foreground/80 whitespace-pre-wrap">{htmlToText(data.body)}</pre>
+                    </details>
                   )}
                 </Panel>
               )}
@@ -619,6 +708,17 @@ function PhishingPage() {
               {data.iocs && (
                 <>
                   <SectionBar id="IO" label="IOC inventory" meta="urls · domains · ips · hashes · emails · cve · attack" />
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(Object.entries(data.iocs) as [string, string[]][]).filter(([, v]) => v.length > 0).map(([k, v]) => (
+                      <button
+                        key={k}
+                        onClick={() => { const t = k === "urls" ? "url" : k === "ips" ? "ipv4" : k === "hashes" ? "sha256" : k === "domains" ? "domain" : k === "emails" ? "email" : k === "cve" ? "cve" : k === "attack" ? "mitre-attack" : "unknown"; v.forEach((item: string) => locker.add({ value: item, type: t, source: "/phishing", note: "" })); flashNotice(`Added ${v.length} ${k} to locker`); }}
+                        className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground transition-colors"
+                      >
+                        + {k} ({v.length})
+                      </button>
+                    ))}
+                  </div>
                   <IocInventory
                     onSendTo={(kind, value) => {
                       const map: Record<string, string> = { urls: "/url", domains: "/osint", ips: "/osint", hashes: "/attachment", emails: "/osint", cve: "/detection", attack: "/detection" };
@@ -660,7 +760,8 @@ function PhishingPage() {
               {/* Scoring breakdown table */}
               <SectionBar id="TA" label="Technical · scoring breakdown" meta={`score computed from ${data.breakdown.filter((b: any) => b.weight > 0).length} signal(s)`} />
               <Panel icon={Activity} title="Signal weights" meta="how the risk score was assembled">
-                <div className="overflow-x-auto rounded border border-border/50">
+                {(() => { const totalScore = data.breakdown.reduce((a: number, b: any) => a + (b.state === "pass" ? 0 : b.weight), 0); const maxScore = data.breakdown.reduce((a: number, b: any) => a + b.weight, 0); return <ScoreGauge score={totalScore} maxScore={maxScore} label="risk score" />; })()}
+                <div className="mt-3 overflow-x-auto rounded border border-border/50">
                   <table className="w-full text-mono text-[11.5px]">
                     <thead className="bg-background/40 text-[10px] uppercase tracking-widest text-muted-foreground">
                       <tr>
@@ -745,6 +846,18 @@ function PhishingPage() {
                     className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-3 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
                   >
                     <Download className="h-3.5 w-3.5" /> MD
+                  </button>
+                  <button
+                    onClick={() => {
+                      const json = genJsonExport(data, data.iocs);
+                      const blob = new Blob([json], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url; a.download = `phishing-report-${Date.now()}.json`; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="mt-1 group inline-flex w-full items-center justify-center gap-2 rounded border border-border/60 bg-card/40 px-3 py-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-all hover:bg-card/70 hover:text-foreground"
+                  >
+                    <Download className="h-3.5 w-3.5" /> JSON
                   </button>
                 </Panel>
                 <SendToRow targets={[

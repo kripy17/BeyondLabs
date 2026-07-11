@@ -12,6 +12,8 @@ import {
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
   Hash, User, ChevronDown, ChevronRight,
 } from "lucide-react";
+import { sendToCase } from "@/lib/handoff";
+import { useLocker } from "@/lib/locker";
 
 export const Route = createFileRoute("/siem")({ component: SiemPage });
 
@@ -56,9 +58,10 @@ Mar 15 10:13:30 webserver sshd[1242]: Accepted password for root from 185.94.188
 
 function backendToEvent(be: Record<string, unknown>, idx: number): Event {
   const raw = String(be.raw ?? be.message ?? "");
+  const ts = typeof be.timestamp === "string" && be.timestamp.length >= 19 ? be.timestamp : "";
   return {
-    ts: typeof be.timestamp === "string" && be.timestamp.length >= 19 ? be.timestamp.slice(11, 19) : String(be.time_bucket ?? "—"),
-    min: idx,
+    ts: ts ? ts.slice(11, 19) : String(be.time_bucket ?? "—"),
+    min: ts ? parseInt(ts.slice(11, 13), 10) * 60 + parseInt(ts.slice(14, 16), 10) : idx,
     src: String(be.src_ip ?? be.source_ip ?? "—"),
     dst: String(be.dest_ip ?? be.destination_ip ?? "—"),
     user: String(be.user ?? "-"),
@@ -117,9 +120,10 @@ function parsePastedEvents(raw: string, startMin: number): Event[] {
       try {
         const j = JSON.parse(line);
         const tsRaw = String(j.ts ?? j.timestamp ?? "—");
+        const parsedMin = tsRaw.length >= 19 ? parseInt(tsRaw.slice(11, 13), 10) * 60 + parseInt(tsRaw.slice(14, 16), 10) : m;
         out.push({
           ts: tsRaw.length >= 19 ? tsRaw.slice(11, 19) : tsRaw,
-          min: m++,
+          min: parsedMin,
           src: String(j.src ?? j.src_ip ?? j.source ?? "—"),
           dst: String(j.dst ?? j.dest_ip ?? j.destination ?? "—"),
           user: String(j.user ?? j.account ?? "-"),
@@ -273,6 +277,7 @@ function SiemPage() {
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showNarrative, setShowNarrative] = useState(false);
+  const locker = useLocker();
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const flash = (msg: string) => {
@@ -305,6 +310,12 @@ function SiemPage() {
 
   useEffect(() => {
     if (pasted) { flash("Loaded pending artifact from handoff — auto-ingesting"); ingest(pasted); }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") { setExpanded(null); } };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, []);
 
   useEffect(() => { savePersist(LOCALSTORE_RANGE, range); }, [range]);
@@ -414,6 +425,17 @@ function SiemPage() {
   const highCount = filtered.filter((e) => e.sev === "high").length;
   const fieldTopSrc = fieldSummary.find((f) => f.field === "src")?.top[0]?.[0] ?? "—";
 
+  const logClassify = useMemo(() => {
+    const txt = pasted || "";
+    const fmt = /sshd/i.test(txt) ? "SSH Auth" : /event_type/.test(txt) ? "Suricata/JSON" : /Event ID: 4688/.test(txt) ? "Windows Security" : /Event ID: [13]/.test(txt) ? "Sysmon" : /DROP|ALLOW/.test(txt) ? "Firewall" : /GET |POST /.test(txt) ? "HTTP/Apache" : /EncodedCommand/.test(txt) ? "PowerShell" : /IOC/i.test(txt) ? "IOC List" : "Generic";
+    const ips = [...new Set(txt.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [])];
+    const users = [...new Set(txt.match(/(?:user|account|Account Name:)\s*(\S+)/ig) ?? [])];
+    const procs = [...new Set(txt.match(/\b(powershell|cmd|sshd|bash|wmic|rundll32|mshta|curl|wget|chrome|update)(?:\.exe)?\b/gi) ?? [])];
+    const hashes = [...new Set(txt.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) ?? [])];
+    return { fmt, ips, users, procs, hashes } as const;
+  }, [pasted]);
+  const { fmt: logFmt, ips: classifyIps, users: classifyUsers, procs: classifyProcs, hashes: classifyHashes } = logClassify;
+
   const narrative = useMemo(() => buildMetricsNarrative(apiMetrics, activeEvents, findings), [apiMetrics, activeEvents, findings]);
 
   const handleSendTo = (page: string) => {
@@ -425,10 +447,19 @@ function SiemPage() {
     <PageShell
       eyebrow="SIEM / WORKSPACE"
       title="SIEM Workspace"
-      description="Query, filter, and analyse event streams — paste logs, load samples, and pivot on findings."
+      description="Query, filter, and analyse event streams — auto‑classifies log format, counts entities, and lets you filter by them."
       crumbs={[{ label: "SIEM" }, { label: "Workspace" }]}
+      jumps={[{ label: "Detection", to: "/detection" }]}
     >
-      <SectionBar id="IN" label="Intake · query + paste" meta={`${filtered.length} / ${activeEvents.length} events`} />
+      <SectionBar id="IN" label="Intake · query + paste" meta={`${filtered.length} / ${activeEvents.length} events`} action={
+        has ? (
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-destructive">{filtered.filter((e: any) => e.sev === "high").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-warning">{filtered.filter((e: any) => e.sev === "med" || e.sev === "medium").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{filtered.filter((e: any) => e.sev === "low").length}</span>
+          </div>
+        ) : undefined
+      } />
 
       <div className="grid gap-3 grid-cols-2">
         <IntakeCard
@@ -523,6 +554,22 @@ function SiemPage() {
         { label: "High sev", value: highCount, tone: highCount ? "warning" : "default" },
         { label: "Window",   value: range },
       ]} />
+
+      {/* ── Log Classification (from LogsViewer essence) ── */}
+      {has && (
+        <div className="mb-4">
+          <div className="inline-flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-card/40 px-3 py-2">
+            <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">format</span>
+            <Chip tone="primary">{logFmt}</Chip>
+            <span className="mx-2 h-3 w-px bg-border/60" />
+            <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">entities</span>
+            <button onClick={() => { classifyIps.forEach((ip) => addChip("src", ip)); }} className="inline-flex items-center gap-1 rounded border border-info/30 bg-info/10 px-1.5 py-0.5 text-mono text-[9px] text-info hover:bg-info/20 hover:border-info/50 cursor-pointer transition-colors" title="Filter all IPs as src">{classifyIps.length} IPs</button>
+            {classifyUsers.length > 0 && <button onClick={() => { classifyUsers.forEach((u) => addChip("user", u)); }} className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono text-[9px] text-warning hover:bg-warning/20 hover:border-warning/50 cursor-pointer transition-colors" title="Filter all users">{classifyUsers.length} users</button>}
+            {classifyProcs.length > 0 && <button onClick={() => { classifyProcs.forEach((p) => addChip("sig", p)); }} className="inline-flex items-center gap-1 rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-mono text-[9px] text-accent hover:bg-accent/20 hover:border-accent/50 cursor-pointer transition-colors" title="Filter all processes">{classifyProcs.length} processes</button>}
+            {classifyHashes.length > 0 && <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono text-[9px] text-destructive">{classifyHashes.length} hashes</span>}
+          </div>
+        </div>
+      )}
 
       <SectionBar id="OT" label="Output · events + analysis" meta={`${findings.length} finding(s) · ${mitre.length} mitre`} />
 
@@ -759,14 +806,20 @@ function SiemPage() {
       {iocs.length > 0 && (
         <Panel title="IOC Inventory" icon={Database} collapsible storageKey="ba.panel.siem.iocs" defaultCollapsed>
           <IocInventory groups={iocs} onSendTo={() => {}} />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {iocs.map((g) => (
+              <button key={g.kind} onClick={() => { const t = g.kind === "URLs" ? "url" : g.kind === "IPs" ? "ipv4" : g.kind === "Emails" ? "email" : g.kind === "Domains" ? "domain" : "unknown"; g.items.forEach((v) => locker.add({ value: v, type: t, source: "/siem" })); toast(`Added ${g.items.length} ${g.kind} to locker`); }}
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+              >+ {g.kind} ({g.items.length})</button>
+            ))}
+          </div>
         </Panel>
       )}
 
       <SendToRow targets={[
-        { label: "Logs & Alerts",  to: "/logs",      icon: Database },
         { label: "Detection",      to: "/detection", icon: ShieldAlert },
         { label: "MITRE Coverage", to: "/mitre",     icon: ArrowRight },
-        { label: "Case Notebook",  to: "/case",      icon: ArrowRight },
+        { label: "Case Notebook",  to: "/case",      icon: ArrowRight, onClick: () => sendToCase({ body: JSON.stringify(filtered.slice(0, 20), null, 2), source: "/siem", kind: "evidence" }) },
       ]} />
       </OutputFilter>
 
@@ -814,11 +867,11 @@ function EventExpanded({ event, onFilter, onSendTo, onShowJson }: {
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
         <button onClick={onShowJson} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
-        <button onClick={() => onSendTo("logs-alerts")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Logs & Alerts</button>
+        <button onClick={() => onSendTo("logs-alerts")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Raw Logs</button>
         <button onClick={() => onSendTo("detection-mitre")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Detection & MITRE</button>
         <button onClick={() => onSendTo("soc-guide")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">SOC Guide</button>
       </div>
-      <div className="grid grid-cols-2 gap-2 grid-cols-3">
+      <div className="grid gap-2 grid-cols-3">
         {entries.map(({ field, label, value }) => (
           <button
             key={field}

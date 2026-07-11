@@ -12,6 +12,7 @@ declare module "@/api/backend" {
   export const usernameOsint: (username: string) => Promise<Record<string, unknown>>;
   export const getLocalOsintTools: () => Promise<Record<string, unknown>>;
   export const runLocalOsintTool: (opts: { toolId: string; domain: string; source: string; limit: number }) => Promise<Record<string, unknown>>;
+  export const runTheHarvester: (opts: { domain: string; source: string; limit: number; confirmPermission: boolean }) => Promise<Record<string, unknown>>;
   export const runMaigret: (username: string) => Promise<Record<string, unknown>>;
   export const uploadMalwareFile: (file: File) => Promise<Record<string, unknown>>;
 }

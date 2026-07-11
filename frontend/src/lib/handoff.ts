@@ -33,3 +33,22 @@ export function peekPendingArtifact(): Handoff | null {
     return raw ? (JSON.parse(raw) as Handoff) : null;
   } catch { return null; }
 }
+
+/* ── Case notebook handoff ── */
+export type CaseHandoff = { body: string; source: string; kind: string };
+const CASE_KEY = "ba.pendingCaseEntry";
+
+export function sendToCase(h: CaseHandoff) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(CASE_KEY, JSON.stringify(h)); } catch {}
+}
+
+export function takePendingCaseEntry(): CaseHandoff | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CASE_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(CASE_KEY);
+    return JSON.parse(raw) as CaseHandoff;
+  } catch { return null; }
+}
