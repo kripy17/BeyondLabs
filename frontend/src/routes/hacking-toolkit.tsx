@@ -7,6 +7,8 @@ import { Empty, ResultBanner, EvidenceCard } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { toast } from "sonner";
 import { PanelSkeleton } from "@/components/Skeleton";
 import { TerminalOutput } from "@/components/soc/TerminalOutput";
 import { NmapOutput } from "@/components/output/NmapOutput";
@@ -352,6 +354,59 @@ function HackingToolkitPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, Record<string, any>>>({});
+  const [nmapConfirmed, setNmapConfirmed] = useState(false);
+  const [nmapMode, setNmapMode] = useState("service");
+  const [scanStartTime, setScanStartTime] = useState<number | null>(null);
+
+  const NMAP_MODES = useMemo(() => [
+    { k: "discovery", label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes." },
+    { k: "fast",      label: "Top-100 TCP",       args: "-sS --top-ports 100 -Pn",                    risk: "medium", desc: "SYN scan of the 100 most common TCP ports." },
+    { k: "service",   label: "Service & version", args: "-sV -sC --top-ports 1000 -Pn",               risk: "medium", desc: "Version detection + default NSE on common ports." },
+    { k: "vuln",      label: "Safe NSE scripts",  args: "-sV --script default,safe --top-ports 200 -Pn", risk: "high", desc: "Safe NSE scripts. Noisy — explicit auth only." },
+    { k: "full",      label: "Full TCP + OS",     args: "-sS -p- -O -sV -Pn",                         risk: "high",   desc: "Every TCP port + OS fingerprint. Slow and loud." },
+  ] as const, []);
+
+  const NMAP_TIMINGS = useMemo(() => [
+    { k: "T2", label: "Polite",      hint: "stealth · low rate" },
+    { k: "T3", label: "Normal",      hint: "default" },
+    { k: "T4", label: "Aggressive",  hint: "lab / authorised" },
+    { k: "T5", label: "Insane",      hint: "very loud" },
+  ] as const, []);
+
+  const [nmapTiming, setNmapTiming] = useState<(typeof NMAP_TIMINGS)[number]["k"]>("T3");
+
+  function NmapProgress({ startTime }: { startTime: number }) {
+    const [elapsed, setElapsed] = useState(0);
+    const [phase, setPhase] = useState<"indeterminate" | "determinate">("indeterminate");
+    const estimatedSeconds = 30;
+    useEffect(() => {
+      const interval = setInterval(() => {
+        const e = (Date.now() - startTime) / 1000;
+        setElapsed(e);
+        if (e >= 5) setPhase("determinate");
+      }, 100);
+      return () => clearInterval(interval);
+    }, [startTime]);
+    const pct = phase === "determinate" ? Math.min(95, (elapsed / estimatedSeconds) * 100) : null;
+    return (
+      <div className="w-full space-y-1">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted/30">
+          <div
+            className={
+              "h-full rounded-full transition-all duration-300 " +
+              (phase === "indeterminate"
+                ? "w-1/3 animate-[ba-shimmer_1.5s_ease-in-out_infinite] bg-gradient-to-r from-primary/40 via-primary to-primary/40"
+                : "bg-primary")
+            }
+            style={pct !== null ? { width: `${pct}%` } : undefined}
+          />
+        </div>
+        <div className="flex justify-between text-mono ba-text-2xs text-muted-foreground">
+          <span>{phase === "indeterminate" ? "Starting nmap scan…" : `Scanning… ${Math.round(elapsed)}s / ${estimatedSeconds}s`}</span>
+        </div>
+      </div>
+    );
+  }
 
   function getFieldVals(toolId: string): Record<string, any> {
     return fieldValues[toolId] ?? defaultFieldValues(toolId);
@@ -463,9 +518,15 @@ function HackingToolkitPage() {
 
   async function run() {
     if (!activeTool || !activeCat) return;
+    if (activeTool.id === "nmap" && !nmapConfirmed) {
+      toast.error("Confirm you have permission to scan this target first.");
+      return;
+    }
     setRunning(activeTool.id);
+    setScanStartTime(Date.now());
     setOutputs((p) => ({ ...p, [activeTool.id]: null }));
     try {
+      const finalArgs = activeTool.id === "nmap" && !args ? NMAP_MODES.find(m => m.k === nmapMode)?.args ?? args : args;
       const res: any = await runHackingtoolTool({
         categoryId: activeCat.id,
         toolId: activeTool.id,
@@ -495,6 +556,10 @@ function HackingToolkitPage() {
           body,
         },
       }));
+      if (activeTool.id === "nmap" && status === "completed") {
+        const portCount = (body.match(/^\d+\/(tcp|udp)\s+open/m) || []).length;
+        pushTimelineEvent({ source: "nmap", verb: "scanned", detail: `${target} — ${NMAP_MODES.find(m => m.k === nmapMode)?.label ?? "scan"} (${portCount} open ports)`, target });
+      }
     } catch (err: any) {
       const body = err?.message || "API call failed";
       const entry: HistoryEntry = {
@@ -834,6 +899,52 @@ function HackingToolkitPage() {
                         </div>
                       )}
 
+                      {activeTool.id === "nmap" && (
+                        <div className="border-t border-border bg-muted/10 px-3 py-2 space-y-2">
+                          <div>
+                            <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Scan mode</label>
+                            <div className="flex flex-wrap gap-1">
+                              {NMAP_MODES.map((m) => (
+                                <button
+                                  key={m.k}
+                                  onClick={() => { setNmapMode(m.k); setArgsMap((p) => ({ ...p, nmap: m.args })); }}
+                                  className={"rounded border px-2 py-1 text-mono text-[10px] transition-colors " + (nmapMode === m.k ? "border-primary/50 bg-primary/15 text-primary" : "border-divider-strong bg-background/40 text-muted-foreground hover:text-foreground")}
+                                  title={m.desc}
+                                >
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Timing</label>
+                            <div className="flex gap-1">
+                              {NMAP_TIMINGS.map((t) => (
+                                <button
+                                  key={t.k}
+                                  onClick={() => setNmapTiming(t.k)}
+                                  className={"rounded border px-2 py-0.5 text-mono text-[10px] transition-colors " + (nmapTiming === t.k ? "border-primary/50 bg-primary/15 text-primary" : "border-divider-strong bg-background/40 text-muted-foreground hover:text-foreground")}
+                                  title={t.hint}
+                                >
+                                  -{t.k}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={nmapConfirmed}
+                              onChange={(e) => setNmapConfirmed(e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-border accent-primary"
+                            />
+                            <span className="text-mono text-[10px] text-muted-foreground">I own or have permission to scan this target</span>
+                          </label>
+                          {running === activeTool.id && scanStartTime && (
+                            <NmapProgress startTime={scanStartTime} />
+                          )}
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background/40 px-3 py-2">
                         <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">cmd</span>
                         <code className="min-w-0 flex-1 truncate rounded border border-divider-strong bg-background/70 px-2 py-1 text-mono ba-text-sm text-foreground/90">

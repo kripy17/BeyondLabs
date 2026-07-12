@@ -397,7 +397,7 @@ function ChefPage() {
       <div className="flex gap-3" style={{ height: "calc(100vh - 310px)" }}>
 
         {/* PANE 1 — Operations (CyberChef style) */}
-        <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-md border border-border bg-card/40">
+        <aside className="flex w-[260px] shrink-0 flex-col overflow-hidden rounded-md border border-border bg-card/40">
           <div className="border-b border-divider-strong px-2.5 py-2">
             <div className="flex items-center gap-1.5">
               <ChefHat className="h-3.5 w-3.5 text-primary" />
@@ -424,26 +424,41 @@ function ChefPage() {
                   </div>
                 );
               }
-              return CATEGORIES.map((cat) => {
-                const catOps = OPS.filter((o) => o.category === cat.id);
-                if (!catOps.length) return null;
-                return (
-                  <div key={cat.id} className="mb-3">
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <span className="text-mono ba-text-2xs font-bold uppercase tracking-[0.18em] text-foreground/70">{cat.label}</span>
-                      <span className="text-mono ba-text-3xs text-muted-foreground/40">{catOps.length}</span>
+              const favOps = favs.length > 0 ? OPS.filter((o) => favs.includes(o.id)) : [];
+              return (
+                <>
+                  {favOps.length > 0 && (
+                    <div key="favourites" className="mb-3">
+                      <div className="flex items-center gap-2 px-2 py-1">
+                        <span className="text-mono ba-text-2xs font-bold uppercase tracking-[0.18em] text-warning">Favourites</span>
+                        <span className="text-mono ba-text-3xs text-muted-foreground/40">{favOps.length}</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {favOps.map((op) => (
+                          <OpItem key={op.id} op={op} isFav onAdd={addStep} onFav={toggleFav} />
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      {catOps.map((op) => {
-                        const isFav = favs.includes(op.id);
-                        return (
-                          <OpItem key={op.id} op={op} isFav={isFav} onAdd={addStep} onFav={toggleFav} />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              });
+                  )}
+                  {CATEGORIES.map((cat) => {
+                    const catOps = OPS.filter((o) => o.category === cat.id);
+                    if (!catOps.length) return null;
+                    return (
+                      <div key={cat.id} className="mb-3">
+                        <div className="flex items-center gap-2 px-2 py-1">
+                          <span className="text-mono ba-text-2xs font-bold uppercase tracking-[0.18em] text-foreground/70">{cat.label}</span>
+                          <span className="text-mono ba-text-3xs text-muted-foreground/40">{catOps.length}</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {catOps.map((op) => (
+                            <OpItem key={op.id} op={op} isFav={favs.includes(op.id)} onAdd={addStep} onFav={toggleFav} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              );
             })()}
           </div>
         </aside>
@@ -451,7 +466,7 @@ function ChefPage() {
         {/* PANE 2 — Recipe */}
         <section
           ref={recipePanelRef}
-          className="flex w-[320px] shrink-0 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card/40"
+          className="flex w-[280px] shrink-0 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card/40"
           onDragOver={(e) => { if (e.dataTransfer.types.includes("text/op-id")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
           onDrop={(e) => {
             const id = e.dataTransfer.getData("text/op-id");
@@ -559,7 +574,7 @@ function ChefPage() {
         </section>
 
         {/* PANE 3 — Input + Output stacked */}
-        <div className="grid grid-rows-2 min-h-0 gap-3">
+        <div className="flex-1 grid grid-rows-[1fr_1.5fr] min-h-0 gap-3">
           {/* Input */}
           <section
             className={"flex min-h-0 flex-col overflow-hidden rounded-md border bg-card/40 transition-colors " + (inputDrag ? "border-primary/60 bg-primary/5" : "border-border")}

@@ -27,7 +27,7 @@ export const GROUPS: WorkspaceGroup[] = [
   {
     label: "Investigate",
     items: [
-      { title: "Smart Parser",      url: "/parser",     icon: Wand2,     desc: "Normalize IOCs from artifacts",  group: "Investigate" },
+      { title: "Smart Parser",      url: "/parser",     icon: Wand2,     desc: "Universal intake — parse & pivot IOCs",  group: "Investigate" },
       { title: "Phishing Triage",   url: "/phishing",   icon: MailWarning, desc: "Auth, headers, body verdict",    group: "Investigate" },
       { title: "URL Analyzer",      url: "/url",        icon: Link2,     desc: "Redirects, lists, reputation",   group: "Investigate" },
       { title: "Attachment Triage", url: "/attachment", icon: Paperclip, desc: "Hashes, strings, markers",       group: "Investigate" },
@@ -37,7 +37,15 @@ export const GROUPS: WorkspaceGroup[] = [
     label: "Recon",
     items: [
       { title: "Recon & Exposure", url: "/recon", icon: Radar,    desc: "Subdomains, certs, cloud surface", group: "Recon" },
-
+    ],
+  },
+  {
+    label: "Detection",
+    items: [
+      { title: "Detection & MITRE",   url: "/mitre",     icon: Target,      desc: "ATT&CK coverage & gaps",       group: "Detection" },
+      { title: "Detection Workspace", url: "/detection", icon: ShieldCheck, desc: "Author & simulate Sigma/YARA", group: "Detection" },
+      { title: "SOC Guide",           url: "/guide",     icon: BookOpen,    desc: "Runbooks, playbooks",          group: "Detection" },
+      { title: "Case & Report",       url: "/case",      icon: FileText,    desc: "Compose handoff brief",        group: "Detection" },
     ],
   },
   {
@@ -49,23 +57,13 @@ export const GROUPS: WorkspaceGroup[] = [
   {
     label: "Offensive",
     items: [
-      { title: "Hacking Toolkit", url: "/hacking-toolkit", icon: Swords,    desc: "Browse offensive tools & build commands", group: "Offensive" },
-      { title: "Terminal",        url: "/terminal",        icon: Terminal, desc: "Shell wired to backend tools",               group: "Offensive" },
+      { title: "Hacking Toolkit", url: "/hacking-toolkit", icon: Swords, desc: "Browse offensive tools & build commands", group: "Offensive" },
     ],
   },
   {
     label: "Tools",
     items: [
       { title: "CyberChef",      url: "/chef", icon: Wrench, desc: "Encode, decode, transform", group: "Tools" },
-    ],
-  },
-  {
-    label: "Detection",
-    items: [
-      { title: "Detection & MITRE",   url: "/mitre",     icon: Target,      desc: "ATT&CK coverage & gaps",       group: "Detection" },
-      { title: "Detection Workspace", url: "/detection", icon: ShieldCheck, desc: "Author & simulate Sigma/YARA", group: "Detection" },
-      { title: "SOC Guide",           url: "/guide",     icon: BookOpen,    desc: "Runbooks, playbooks",          group: "Detection" },
-      { title: "Case & Report",       url: "/case",      icon: FileText,    desc: "Compose handoff brief",        group: "Detection" },
     ],
   },
   {

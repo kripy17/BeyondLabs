@@ -81,7 +81,6 @@ export type DashboardSections = {
 
 export type Prefs = {
   brandName: string;
-  brandTagline: string;
   brandIcon: string;
   accent: string | null;
   radius: number;
@@ -114,7 +113,6 @@ const STORAGE_KEY = "ba.prefs.v1";
 
 const DEFAULT: Prefs = {
   brandName: "BeyondLabs",
-  brandTagline: "soc · workbench",
   brandIcon: "shield-half",
   accent: null,
   radius: 0.5,

@@ -25,7 +25,7 @@ import { analyzeFullEmail } from "@/api/phishing";
 import { passiveRecon } from "@/api/recon";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { mapMitre } from "@/api/detection";
-import { OsintTools } from "@/components/OsintTools";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/parser")({ component: ParserPage });
@@ -386,30 +386,57 @@ function ParserPage() {
     });
   }, [result, input, hasDomains, hasIps, hasEmails]);
 
-  function quickLookups(): { label: string; url: string }[] {
-    const all: { label: string; url: string }[] = [];
-    const add = (label: string, url: string) => all.push({ label, url });
-    if (hasDomains || hasIps) {
-      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
-      if (hasDomains) {
-        add("crt.sh", `https://crt.sh/?q=${encodeURIComponent(input.trim())}`);
-        add("Shodan", `https://www.shodan.io/search?query=${encodeURIComponent(input.trim())}`);
+  const OSINT_TOOLS_PER_KIND: Record<string, { label: string; url: (v: string) => string }[]> = {
+    URL: [
+      { label: "VirusTotal", url: (v) => `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}` },
+      { label: "urlscan.io", url: (v) => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
+    ],
+    Domain: [
+      { label: "VirusTotal", url: (v) => `https://www.virustotal.com/gui/domain/${encodeURIComponent(v)}` },
+      { label: "crt.sh", url: (v) => `https://crt.sh/?q=${encodeURIComponent(v)}` },
+      { label: "Shodan", url: (v) => `https://www.shodan.io/search?query=${encodeURIComponent(v)}` },
+      { label: "SecurityTrails", url: (v) => `https://securitytrails.com/list/apex_domain/${encodeURIComponent(v)}` },
+      { label: "ViewDNS", url: (v) => `https://viewdns.info/reverseip/?host=${encodeURIComponent(v)}` },
+      { label: "DNSDumpster", url: (v) => `https://dnsdumpster.com/domain/${encodeURIComponent(v)}` },
+      { label: "BuiltWith", url: (v) => `https://builtwith.com/${encodeURIComponent(v)}` },
+      { label: "WhoisXML", url: (v) => `https://whois.whoisxmlapi.com/lookup?domain=${encodeURIComponent(v)}` },
+      { label: "Pulsedive", url: (v) => `https://pulsedive.com/indicator/?query=${encodeURIComponent(v)}` },
+      { label: "Talos", url: (v) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(v)}` },
+      { label: "Wayback", url: (v) => `https://web.archive.org/web/*/${encodeURIComponent(v)}` },
+    ],
+    IPv4: [
+      { label: "VirusTotal", url: (v) => `https://www.virustotal.com/gui/ip-address/${encodeURIComponent(v)}` },
+      { label: "AbuseIPDB", url: (v) => `https://www.abuseipdb.com/check/${encodeURIComponent(v)}` },
+      { label: "Shodan", url: (v) => `https://www.shodan.io/host/${encodeURIComponent(v)}` },
+      { label: "GreyNoise", url: (v) => `https://viz.greynoise.io/ip/${encodeURIComponent(v)}` },
+      { label: "Censys", url: (v) => `https://search.censys.io/search?q=${encodeURIComponent(v)}` },
+      { label: "LeakIX", url: (v) => `https://leakix.net/search?q=${encodeURIComponent(v)}` },
+    ],
+    MD5: [
+      { label: "VirusTotal", url: (v) => `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}` },
+      { label: "AlienVault OTX", url: (v) => `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(v)}` },
+    ],
+    SHA256: [
+      { label: "VirusTotal", url: (v) => `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}` },
+      { label: "AlienVault OTX", url: (v) => `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(v)}` },
+    ],
+    Email: [
+      { label: "Have I Been Pwned", url: (v) => `https://haveibeenpwned.com/account/${encodeURIComponent(v)}` },
+      { label: "DeHashed", url: (v) => `https://dehashed.com/search?query=${encodeURIComponent(v)}` },
+      { label: "Hunter.io", url: (v) => `https://hunter.io/search/${encodeURIComponent(v)}` },
+    ],
+  };
+
+  function iocOsintTools() {
+    const groups: { kind: string; tools: { label: string; url: string }[] }[] = [];
+    for (const [kind, items] of Object.entries(result?.iocs ?? {})) {
+      const lookups = OSINT_TOOLS_PER_KIND[kind];
+      if (lookups && items.length > 0) {
+        const val = items[0] as string;
+        groups.push({ kind, tools: lookups.map((t) => ({ label: t.label, url: t.url(val) })) });
       }
-      if (hasIps) {
-        add("AbuseIPDB", `https://www.abuseipdb.com/check/${encodeURIComponent(input.trim())}`);
-        add("GreyNoise", `https://viz.greynoise.io/ip/${encodeURIComponent(input.trim())}`);
-      }
     }
-    if (result?.iocs.URL.length) {
-      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
-      add("urlscan.io", `https://urlscan.io/search/#${encodeURIComponent(input.trim())}`);
-    }
-    if (result?.iocs.MD5.length || result?.iocs.SHA256.length) {
-      add("VirusTotal", `https://www.virustotal.com/gui/search/${encodeURIComponent(input.trim())}`);
-      add("AlienVault OTX", `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(input.trim())}`);
-    }
-    add("Google", `https://www.google.com/search?q=${encodeURIComponent(input.trim())}`);
-    return all;
+    return groups;
   }
 
   const reportMd = useMemo(() => {
@@ -786,19 +813,24 @@ function ParserPage() {
             </Panel>
           )}
 
-          {/* External Lookups */}
-          {result && (hasDomains || hasIps || result.iocs.URL.length || result.iocs.MD5.length || result.iocs.SHA256.length) && (() => {
-            const lookups = quickLookups();
+          {/* OSINT Tools per IOC kind */}
+          {result && (() => {
+            const groups = iocOsintTools();
+            if (groups.length === 0) return null;
             return (
-              <Panel title="External Lookups" icon={Globe} meta={`${lookups.length} source(s)`} priority="secondary" collapsible storageKey="ba.panel.parser.lookups">
-                <div className="flex flex-wrap gap-1.5">
-                  {lookups.map((l) => (
-                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/40 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
-                      <Globe className="h-3 w-3" /> {l.label}
-                    </a>
-                  ))}
-                </div>
-              </Panel>
+              <div className="space-y-3">
+                {groups.map((g) => (
+                  <Panel key={g.kind} title={`${g.kind} OSINT tools`} icon={Globe} priority="secondary" collapsible storageKey={`ba.panel.parser.osint.${g.kind}`}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.tools.map((t) => (
+                        <a key={t.label} href={t.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/40 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
+                          <Globe className="h-3 w-3" /> {t.label}
+                        </a>
+                      ))}
+                    </div>
+                  </Panel>
+                ))}
+              </div>
             );
           })()}
 
@@ -944,9 +976,7 @@ function ParserPage() {
           </div>
         </div>
       )}
-      <div className="mt-8 border-t border-divider-strong pt-6">
-        <OsintTools showSectionBars />
-      </div>
+
     </PageShell>
   );
 }

@@ -16,6 +16,10 @@
  * Switch via <html data-theme="..."> attribute.
  * ============================================================ */
 
+html {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

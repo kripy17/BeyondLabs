@@ -17,7 +17,7 @@ export function setBackendUrl(url: string) {
 
 export type BackendStatus = "unknown" | "checking" | "online" | "offline";
 
-export type BackendPingResult = { ok: boolean; ms: number };
+export type BackendPingResult = { ok: boolean; ms: number; version?: string; uptime_s?: number };
 
 export async function pingBackend(signal?: AbortSignal): Promise<BackendPingResult> {
   const url = getBackendUrl();
@@ -25,13 +25,17 @@ export async function pingBackend(signal?: AbortSignal): Promise<BackendPingResu
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 3500);
-    const res = await fetch(`${url}/api/hackingtool/categories`, {
+    const res = await fetch(`${url}/health`, {
       method: "GET",
       signal: signal ?? ctl.signal,
     });
     clearTimeout(t);
     const ms = Math.round(performance.now() - start);
-    return { ok: res.ok, ms };
+    if (res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: true, ms, version: body.version, uptime_s: body.uptime_s };
+    }
+    return { ok: false, ms };
   } catch {
     const ms = Math.round(performance.now() - start);
     return { ok: false, ms };
@@ -52,11 +56,15 @@ export type RunToolResponse = {
 export function useBackendStatus() {
   const [status, setStatus] = useState<BackendStatus>("unknown");
   const [latency, setLatency] = useState(0);
+  const [version, setVersion] = useState<string | undefined>();
+  const [uptime, setUptime] = useState<number | undefined>();
 
   const check = useCallback(async () => {
     setStatus("checking");
     const result = await pingBackend();
     setLatency(result.ms);
+    setVersion(result.version);
+    setUptime(result.uptime_s);
     setStatus(result.ok ? "online" : "offline");
   }, []);
 
@@ -66,7 +74,7 @@ export function useBackendStatus() {
     return () => clearInterval(id);
   }, [check]);
 
-  return { status, latency, check, online: status === "online" };
+  return { status, latency, check, online: status === "online", version, uptime };
 }
 
 export async function runToolRemote(input: {

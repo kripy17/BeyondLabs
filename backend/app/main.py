@@ -45,10 +45,15 @@ def root():
     }
 
 
+import time
+_start_time = time.time()
+
 @app.get("/health")
 def health():
     return {
-        "status": "ok"
+        "status": "ok",
+        "version": "0.1.0",
+        "uptime_s": round(time.time() - _start_time, 1),
     }
 
 

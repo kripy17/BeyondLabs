@@ -14,9 +14,8 @@ async def whois_lookup(domain: str) -> dict | None:
             "whois", domain,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            timeout=15,
         )
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
         output = stdout.decode("utf-8", errors="replace")[:16000]
         if proc.returncode != 0:
             return {"domain": domain, "raw": "", "error": stderr.decode("utf-8", errors="replace")[:500]}
@@ -30,7 +29,7 @@ async def whois_lookup(domain: str) -> dict | None:
             "status": _extract_whois_list(output, "Domain Status:"),
             "organization": _extract_whois_field(output, "OrgName:") or _extract_whois_field(output, "Registrant Organization:"),
         }
-    except (asyncio.TimeoutError, FileNotFoundError, OSError) as e:
+    except (TimeoutError, FileNotFoundError, OSError) as e:
         return {"domain": domain, "raw": "", "error": str(e)}
 
 

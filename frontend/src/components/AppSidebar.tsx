@@ -123,7 +123,6 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <div className="text-mono ba-text-base font-bold leading-tight tracking-tight truncate">{prefs.brandName}</div>
-            <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-sidebar-foreground/55 truncate">{prefs.brandTagline}</div>
           </div>
         </Link>
 

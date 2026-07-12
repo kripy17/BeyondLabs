@@ -16,7 +16,7 @@ import {
   LayoutGrid, Keyboard, Shield, Network, Wifi,
   type LucideIcon,
 } from "lucide-react";
-import { getBackendUrl, setBackendUrl, pingBackend } from "@/lib/backend";
+import { getBackendUrl, setBackendUrl, useBackendStatus } from "@/lib/backend";
 import { clearRecents } from "@/lib/recents";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
@@ -158,8 +158,7 @@ function SettingsPage() {
       </div>
 
       {/* BRAND */}
-      <Panel id="BR" label="brand" icon={Tag}
-        right={<span className="text-mono ba-text-2xs text-muted-foreground">name · tagline · icon</span>}>
+      <Panel id="BR" label="brand" icon={Tag}>
         <div className="grid gap-5 grid-cols-[1fr_auto]">
           <div className="space-y-3">
             <div>
@@ -170,16 +169,6 @@ function SettingsPage() {
                 maxLength={32}
                 onChange={(e) => setPrefs({ brandName: e.target.value || "BeyondLabs" })}
                 placeholder="BeyondLabs"
-              />
-            </div>
-            <div>
-              <Label>tagline</Label>
-              <Input
-                className="mt-2 text-mono"
-                value={prefs.brandTagline}
-                maxLength={40}
-                onChange={(e) => setPrefs({ brandTagline: e.target.value })}
-                placeholder="soc · workbench"
               />
             </div>
             <div>
@@ -215,14 +204,11 @@ function SettingsPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-mono ba-text-base font-bold leading-tight truncate">{prefs.brandName || "BeyondLabs"}</div>
-                <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground truncate">
-                  {prefs.brandTagline || "—"}
-                </div>
               </div>
             </div>
             <Button
               variant="ghost" size="sm" className="text-mono ba-text-sm"
-              onClick={() => setPrefs({ brandName: "BeyondLabs", brandTagline: "soc · workbench", brandIcon: "shield-half" })}
+              onClick={() => setPrefs({ brandName: "BeyondLabs", brandIcon: "shield-half" })}
             >
               reset brand
             </Button>
@@ -1420,7 +1406,7 @@ function IconBtn({ children, onClick, disabled, label }: { children: React.React
 
 function BackendPanel() {
   const [url, setUrl] = useState(getBackendUrl());
-  const [pingState, setPingState] = useState<"idle" | "testing" | "ok" | "fail">("idle");
+  const { status, latency, version, uptime, check } = useBackendStatus();
 
   const handleSave = () => {
     setBackendUrl(url);
@@ -1434,18 +1420,14 @@ function BackendPanel() {
     toast("Backend URL reset to default");
   };
 
-  const handlePing = async () => {
-    setPingState("testing");
-    const r = await pingBackend();
-    setPingState(r.ok ? "ok" : "fail");
-  };
+  const pingState = status === "checking" ? "testing" : status === "online" ? "ok" : status === "offline" ? "fail" : "idle";
 
   return (
-    <Panel label="backend connection" icon={Network}
+    <Panel label="backend health" icon={Network}
       right={
         <span className="inline-flex items-center gap-1.5 text-mono ba-text-2xs">
           <span className={"inline-block h-1.5 w-1.5 rounded-full " + (pingState === "ok" ? "bg-success shadow-[0_0_6px_hsl(var(--success))]" : pingState === "fail" ? "bg-destructive" : pingState === "testing" ? "bg-warning animate-pulse" : "bg-muted-foreground/40")} />
-          {pingState === "ok" ? "connected" : pingState === "fail" ? "unreachable" : pingState === "testing" ? "testing…" : "not tested"}
+          {pingState === "ok" ? `${latency}ms` : pingState === "fail" ? "offline" : pingState === "testing" ? "…" : "unknown"}
         </span>
       }>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1460,14 +1442,18 @@ function BackendPanel() {
             <button onClick={handleReset} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Reset to default" aria-label="Reset to default"><RotateCcw className="h-3.5 w-3.5" /></button>
           </div>
         </Row>
-        <Row label="Connection test" desc="Ping the backend health endpoint.">
-          <div className="flex items-center gap-1.5">
+        <Row label="Status" desc="Ping latency, version, and uptime.">
+          <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded border border-divider-strong bg-card/40 px-2 py-1 text-mono ba-text-2xs text-muted-foreground">
               <Wifi className={"h-3 w-3 " + (pingState === "ok" ? "text-success" : pingState === "fail" ? "text-destructive" : "text-muted-foreground/60")} />
-              {pingState === "ok" ? "Live" : pingState === "fail" ? "No response" : pingState === "testing" ? "…" : "—"}
+              {pingState === "ok" ? `${latency}ms` : pingState === "fail" ? "no response" : "—"}
             </span>
-            <button onClick={handlePing} disabled={pingState === "testing"} className="inline-flex h-7 items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors">
-              {pingState === "testing" ? "pinging…" : "ping"}
+            {version && <span className="text-mono ba-text-2xs text-muted-foreground">v{version}</span>}
+            {typeof uptime === "number" && uptime > 0 && (
+              <span className="text-mono ba-text-2xs text-muted-foreground/60">{uptime < 60 ? `${uptime}s` : `${Math.floor(uptime / 60)}m`} up</span>
+            )}
+            <button onClick={check} disabled={pingState === "testing"} className="inline-flex h-7 items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors">
+              {pingState === "testing" ? "…" : "ping"}
             </button>
           </div>
         </Row>

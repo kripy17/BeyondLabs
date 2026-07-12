@@ -10,43 +10,43 @@ import { Search, ExternalLink, Globe as Globe2, ArrowRight, Zap, Database, Termi
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
-type Tool = { id: string; label: string; cat: string; tagline: string; href: (v: string) => string; supports: TargetKind[] };
+type Tool = { id: string; label: string; cat: string; href: (v: string) => string; supports: TargetKind[] };
 type TargetKind = "domain" | "ipv4" | "email" | "hash" | "raw";
 
 const TOOLS: Tool[] = [
-  { id: "vt", label: "VirusTotal", cat: "Reputation", tagline: "Hash / URL / IP reputation aggregate.", supports: ["domain","ipv4","hash","raw"], href: (v) => `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}` },
-  { id: "abuseipdb", label: "AbuseIPDB", cat: "Reputation", tagline: "IP abuse confidence score.", supports: ["ipv4"], href: (v) => `https://www.abuseipdb.com/check/${encodeURIComponent(v)}` },
-  { id: "otx", label: "AlienVault OTX", cat: "Reputation", tagline: "Threat-intel pulses & indicators.", supports: ["domain","ipv4","hash"], href: (v) => `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(v)}` },
-  { id: "urlscan", label: "urlscan.io", cat: "URL", tagline: "Render & analyse a URL safely.", supports: ["domain","raw"], href: (v) => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
-  { id: "shodan", label: "Shodan", cat: "Exposure", tagline: "Internet-facing service map.", supports: ["domain","ipv4"], href: (v) => `https://www.shodan.io/search?query=${encodeURIComponent(v)}` },
-  { id: "censys", label: "Censys", cat: "Exposure", tagline: "Host & certificate search.", supports: ["domain","ipv4"], href: (v) => `https://search.censys.io/search?q=${encodeURIComponent(v)}` },
-  { id: "greynoise", label: "GreyNoise", cat: "Exposure", tagline: "Internet scanner / noise context.", supports: ["ipv4"], href: (v) => `https://viz.greynoise.io/ip/${encodeURIComponent(v)}` },
-  { id: "crtsh", label: "crt.sh", cat: "Certificates", tagline: "CT log certificate history.", supports: ["domain"], href: (v) => `https://crt.sh/?q=${encodeURIComponent(v)}` },
-  { id: "viewdns", label: "ViewDNS reverse-ip", cat: "DNS", tagline: "Find siblings on a shared host.", supports: ["domain","ipv4"], href: (v) => `https://viewdns.info/reverseip/?host=${encodeURIComponent(v)}` },
-  { id: "securitytrails", label: "SecurityTrails", cat: "DNS", tagline: "Historic DNS & subdomain graph.", supports: ["domain","ipv4"], href: (v) => `https://securitytrails.com/list/apex_domain/${encodeURIComponent(v)}` },
-  { id: "whoisxml", label: "WhoisXML", cat: "WHOIS", tagline: "Registration & registrar.", supports: ["domain"], href: (v) => `https://whois.whoisxmlapi.com/lookup?domain=${encodeURIComponent(v)}` },
-  { id: "haveibeenpwned", label: "haveibeenpwned", cat: "Breach", tagline: "Account breach exposure.", supports: ["email"], href: (v) => `https://haveibeenpwned.com/account/${encodeURIComponent(v)}` },
-  { id: "dehashed", label: "DeHashed", cat: "Breach", tagline: "Credential & breach search.", supports: ["email","domain"], href: (v) => `https://dehashed.com/search?query=${encodeURIComponent(v)}` },
-  { id: "google", label: "Google dork", cat: "Search", tagline: "Indexed surface for a host.", supports: ["domain","email","raw"], href: (v) => `https://www.google.com/search?q=site%3A${encodeURIComponent(v)}` },
-  { id: "github", label: "GitHub code", cat: "Search", tagline: "Leaked refs & config snippets.", supports: ["domain","email","raw","hash"], href: (v) => `https://github.com/search?q=${encodeURIComponent(v)}&type=code` },
+  { id: "vt", label: "VirusTotal", cat: "Reputation",     supports: ["domain","ipv4","hash","raw"], href: (v) => `https://www.virustotal.com/gui/search/${encodeURIComponent(v)}` },
+  { id: "abuseipdb", label: "AbuseIPDB", cat: "Reputation", supports: ["ipv4"], href: (v) => `https://www.abuseipdb.com/check/${encodeURIComponent(v)}` },
+  { id: "otx", label: "AlienVault OTX", cat: "Reputation", supports: ["domain","ipv4","hash"], href: (v) => `https://otx.alienvault.com/browse/global/pulses?q=${encodeURIComponent(v)}` },
+  { id: "urlscan", label: "urlscan.io", cat: "URL", supports: ["domain","raw"], href: (v) => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
+  { id: "shodan", label: "Shodan", cat: "Exposure", supports: ["domain","ipv4"], href: (v) => `https://www.shodan.io/search?query=${encodeURIComponent(v)}` },
+  { id: "censys", label: "Censys", cat: "Exposure", supports: ["domain","ipv4"], href: (v) => `https://search.censys.io/search?q=${encodeURIComponent(v)}` },
+  { id: "greynoise", label: "GreyNoise", cat: "Exposure", supports: ["ipv4"], href: (v) => `https://viz.greynoise.io/ip/${encodeURIComponent(v)}` },
+  { id: "crtsh", label: "crt.sh", cat: "Certificates", supports: ["domain"], href: (v) => `https://crt.sh/?q=${encodeURIComponent(v)}` },
+  { id: "viewdns", label: "ViewDNS reverse-ip", cat: "DNS", supports: ["domain","ipv4"], href: (v) => `https://viewdns.info/reverseip/?host=${encodeURIComponent(v)}` },
+  { id: "securitytrails", label: "SecurityTrails", cat: "DNS", supports: ["domain","ipv4"], href: (v) => `https://securitytrails.com/list/apex_domain/${encodeURIComponent(v)}` },
+  { id: "whoisxml", label: "WhoisXML", cat: "WHOIS", supports: ["domain"], href: (v) => `https://whois.whoisxmlapi.com/lookup?domain=${encodeURIComponent(v)}` },
+  { id: "haveibeenpwned", label: "haveibeenpwned", cat: "Breach", supports: ["email"], href: (v) => `https://haveibeenpwned.com/account/${encodeURIComponent(v)}` },
+  { id: "dehashed", label: "DeHashed", cat: "Breach", supports: ["email","domain"], href: (v) => `https://dehashed.com/search?query=${encodeURIComponent(v)}` },
+  { id: "google", label: "Google dork", cat: "Search", supports: ["domain","email","raw"], href: (v) => `https://www.google.com/search?q=site%3A${encodeURIComponent(v)}` },
+  { id: "github", label: "GitHub code", cat: "Search", supports: ["domain","email","raw","hash"], href: (v) => `https://github.com/search?q=${encodeURIComponent(v)}&type=code` },
 
-  { id: "hunter", label: "Hunter.io", cat: "Discovery", tagline: "Email discovery & domain search.", supports: ["domain"], href: (v) => `https://hunter.io/search/${encodeURIComponent(v)}` },
-  { id: "intelx", label: "IntelX", cat: "Discovery", tagline: "Dark web & data leak search.", supports: ["domain","email","raw"], href: (v) => `https://intelx.io/?s=${encodeURIComponent(v)}` },
-  { id: "leakix", label: "LeakIX", cat: "Discovery", tagline: "Open data & leak index.", supports: ["domain","ipv4"], href: (v) => `https://leakix.net/search?q=${encodeURIComponent(v)}` },
+  { id: "hunter", label: "Hunter.io", cat: "Discovery", supports: ["domain"], href: (v) => `https://hunter.io/search/${encodeURIComponent(v)}` },
+  { id: "intelx", label: "IntelX", cat: "Discovery", supports: ["domain","email","raw"], href: (v) => `https://intelx.io/?s=${encodeURIComponent(v)}` },
+  { id: "leakix", label: "LeakIX", cat: "Discovery", supports: ["domain","ipv4"], href: (v) => `https://leakix.net/search?q=${encodeURIComponent(v)}` },
 
-  { id: "builtwith", label: "BuiltWith", cat: "Tech Stack", tagline: "Technology profile & stack.", supports: ["domain"], href: (v) => `https://builtwith.com/${encodeURIComponent(v)}` },
-  { id: "wappalyzer", label: "Wappalyzer", cat: "Tech Stack", tagline: "Live tech stack detection.", supports: ["domain"], href: (v) => `https://www.wappalyzer.com/lookup/${encodeURIComponent(v)}` },
+  { id: "builtwith", label: "BuiltWith", cat: "Tech Stack", supports: ["domain"], href: (v) => `https://builtwith.com/${encodeURIComponent(v)}` },
+  { id: "wappalyzer", label: "Wappalyzer", cat: "Tech Stack", supports: ["domain"], href: (v) => `https://www.wappalyzer.com/lookup/${encodeURIComponent(v)}` },
 
-  { id: "dnsdumpster", label: "DNSDumpster", cat: "DNS", tagline: "DNS recon & domain map.", supports: ["domain"], href: (v) => `https://dnsdumpster.com/domain/${encodeURIComponent(v)}` },
+  { id: "dnsdumpster", label: "DNSDumpster", cat: "DNS", supports: ["domain"], href: (v) => `https://dnsdumpster.com/domain/${encodeURIComponent(v)}` },
 
-  { id: "pulsedive", label: "Pulsedive", cat: "Threat Intel", tagline: "Threat indicator scoring.", supports: ["domain","ipv4","hash","raw"], href: (v) => `https://pulsedive.com/indicator/?query=${encodeURIComponent(v)}` },
-  { id: "talos", label: "Talos Intelligence", cat: "Threat Intel", tagline: "Cisco threat intelligence.", supports: ["domain","ipv4","hash"], href: (v) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(v)}` },
-  { id: "threatminer", label: "ThreatMiner", cat: "Threat Intel", tagline: "Threat intelligence data.", supports: ["domain","ipv4","hash"], href: (v) => `https://www.threatminer.org/domain.php?q=${encodeURIComponent(v)}` },
+  { id: "pulsedive", label: "Pulsedive", cat: "Threat Intel", supports: ["domain","ipv4","hash","raw"], href: (v) => `https://pulsedive.com/indicator/?query=${encodeURIComponent(v)}` },
+  { id: "talos", label: "Talos Intelligence", cat: "Threat Intel", supports: ["domain","ipv4","hash"], href: (v) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(v)}` },
+  { id: "threatminer", label: "ThreatMiner", cat: "Threat Intel", supports: ["domain","ipv4","hash"], href: (v) => `https://www.threatminer.org/domain.php?q=${encodeURIComponent(v)}` },
 
-  { id: "wayback", label: "Wayback Machine", cat: "Archive", tagline: "Historical page snapshots.", supports: ["domain","raw"], href: (v) => `https://web.archive.org/web/*/${encodeURIComponent(v)}` },
-  { id: "domaintools", label: "DomainTools", cat: "WHOIS", tagline: "WHOIS history & domain profile.", supports: ["domain","ipv4"], href: (v) => `https://whois.domaintools.com/${encodeURIComponent(v)}` },
-  { id: "fofa", label: "FOFA", cat: "Exposure", tagline: "Cyberspace search engine.", supports: ["domain","ipv4"], href: (v) => `https://en.fofa.info/result?qbase64=${btoa(encodeURIComponent(v))}` },
-  { id: "zoomeye", label: "ZoomEye", cat: "Exposure", tagline: "Device & service search.", supports: ["domain","ipv4"], href: (v) => `https://www.zoomeye.org/searchResult?q=${encodeURIComponent(v)}` },
+  { id: "wayback", label: "Wayback Machine", cat: "Archive", supports: ["domain","raw"], href: (v) => `https://web.archive.org/web/*/${encodeURIComponent(v)}` },
+  { id: "domaintools", label: "DomainTools", cat: "WHOIS", supports: ["domain","ipv4"], href: (v) => `https://whois.domaintools.com/${encodeURIComponent(v)}` },
+  { id: "fofa", label: "FOFA", cat: "Exposure", supports: ["domain","ipv4"], href: (v) => `https://en.fofa.info/result?qbase64=${btoa(encodeURIComponent(v))}` },
+  { id: "zoomeye", label: "ZoomEye", cat: "Exposure", supports: ["domain","ipv4"], href: (v) => `https://www.zoomeye.org/searchResult?q=${encodeURIComponent(v)}` },
 ];
 
 const CAT_META: Record<string, { icon: LucideIcon; tone: "primary" | "warning" | "success" | "info" | "accent" }> = {
@@ -432,7 +432,6 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
                             <ExternalLink className={"mt-[3px] h-3 w-3 shrink-0 " + (enabled ? "text-muted-foreground group-hover:text-primary" : "text-muted-foreground/60")} />
                             <div className="min-w-0">
                               <div className="text-mono text-[11.5px] text-foreground/90 group-hover:text-primary">{t.label}</div>
-                              <div className="truncate text-mono text-[10px] text-muted-foreground">{t.tagline}</div>
                             </div>
                           </button>
                           {!supported && ready && (

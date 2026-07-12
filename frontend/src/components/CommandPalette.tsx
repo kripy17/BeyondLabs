@@ -6,30 +6,7 @@ import { useRecents } from "@/lib/recents";
 import { useTheme, THEMES } from "@/lib/theme";
 import { usePrefs } from "@/lib/prefs";
 import { useLocker } from "@/lib/locker";
-import { Plus, Palette, Settings as SettingsIcon, RotateCcw, Sparkles, Search, PackageOpen } from "lucide-react";
-
-const MITRE_QUICK: { id: string; name: string }[] = [
-  { id: "T1059", name: "Command and Scripting Interpreter" },
-  { id: "T1059.001", name: "PowerShell" },
-  { id: "T1566", name: "Phishing" },
-  { id: "T1566.001", name: "Spearphishing Attachment" },
-  { id: "T1566.002", name: "Spearphishing Link" },
-  { id: "T1071", name: "Application Layer Protocol" },
-  { id: "T1071.001", name: "Web Protocols" },
-  { id: "T1055", name: "Process Injection" },
-  { id: "T1003", name: "OS Credential Dumping" },
-  { id: "T1082", name: "System Information Discovery" },
-  { id: "T1047", name: "Windows Management Instrumentation" },
-  { id: "T1204", name: "User Execution" },
-  { id: "T1053", name: "Scheduled Task/Job" },
-  { id: "T1485", name: "Data Destruction" },
-  { id: "T1490", name: "Inhibit System Recovery" },
-  { id: "T1134", name: "Access Token Manipulation" },
-  { id: "T1547", name: "Boot or Logon Autostart Execution" },
-  { id: "T1036", name: "Masquerading" },
-  { id: "T1550", name: "Use Alternate Authentication Material" },
-  { id: "T1574", name: "Hijack Execution Flow" },
-];
+import { Plus, Palette, RotateCcw, Sparkles, Search, PackageOpen } from "lucide-react";
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const navigate = useNavigate();
@@ -48,7 +25,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Search workspaces, MITRE, settings…"
+        placeholder="Search workspaces…"
         onValueChange={(v) => setSearchValue(v)}
         value={searchValue}
       />
@@ -99,41 +76,6 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             })}
           </CommandGroup>
         ))}
-
-        <CommandSeparator />
-        <CommandGroup heading="MITRE Techniques">
-          {MITRE_QUICK.map((t) => (
-            <CommandItem key={t.id} onSelect={() => go("/mitre")} value={`mitre ${t.id} ${t.name}`}>
-              <Search className="h-4 w-4" />
-              <span className="text-mono text-[12.5px]">{t.id}</span>
-              <span className="ml-auto truncate text-[11px] text-muted-foreground">{t.name}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-
-        <CommandSeparator />
-        <CommandGroup heading="Settings">
-          {[
-            { id: "BR", label: "Brand" },
-            { id: "TH", label: "Theme Gallery" },
-            { id: "CT", label: "Custom Theme" },
-            { id: "AC", label: "Accent" },
-            { id: "DR", label: "Density" },
-            { id: "TY", label: "Typography" },
-            { id: "SB", label: "Sidebar" },
-            { id: "ACY", label: "Accessibility" },
-            { id: "QL", label: "Motion & QoL" },
-            { id: "DB", label: "Dashboard" },
-            { id: "KS", label: "Shortcuts" },
-            { id: "DP", label: "Data & Privacy" },
-          ].map((s) => (
-            <CommandItem key={s.id} onSelect={() => { onOpenChange(false); navigate({ to: "/settings", hash: `panel-${s.id}` }); }}
-              value={`settings ${s.label} ${s.id}`}>
-              <SettingsIcon className="h-4 w-4" />
-              <span className="text-mono text-[12.5px]">{s.label}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
 
         <CommandSeparator />
         <CommandGroup heading="Actions">
