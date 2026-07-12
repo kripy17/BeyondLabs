@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import {
-  StatusBar, KeyFields, SectionBar,
-  Panel, EvidenceCard, SendToRow, Empty, Chip, RiskScore,
-  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
-} from "@/components/soc/Workspace";
+import { SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
+import { StatusBar, KeyFields, EvidenceCard, Empty, RiskScore, TwoColumnOutput, MetricGrid, CollapsibleSection } from "@/components/output";
 import { useLocker } from "@/lib/locker";
 import { CopyInline } from "@/components/CopyButton";
-import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, ShieldCheck, ShieldX, Activity, Copy, Check, X } from "lucide-react";
+import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, Activity, Copy, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { uploadMalwareFile } from "@/api/backend";
 
@@ -92,23 +89,23 @@ function AttachmentPage() {
           <input ref={fileRef} type="file" className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setResult(null); setError(null); }} />
           <button
             onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-2 text-mono ba-text-sm uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
           >
             <Upload className="h-3.5 w-3.5" /> Choose file
           </button>
           {file && (
             <>
-              <span className="text-mono text-[11px] text-foreground/90">{file.name} ({formatSize(file.size)})</span>
-              <button onClick={handleUpload} disabled={loading} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20 hover:shadow-[0_0_12px_-2px_hsl(var(--primary)/0.45)] disabled:opacity-50">
+              <span className="text-mono ba-text-sm text-foreground/90">{file.name} ({formatSize(file.size)})</span>
+              <button onClick={handleUpload} disabled={loading} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20 hover:shadow-[0_0_12px_-2px_hsl(var(--primary)/0.45)] disabled:opacity-50">
                 {loading ? "Analyzing..." : "Analyze"}
               </button>
-              <button onClick={handleClear} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive">
+              <button onClick={handleClear} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive">
                 <Eraser className="h-3 w-3" /> clear
               </button>
             </>
           )}
         </div>
-        {!file && <p className="mt-2 text-mono text-[10px] text-muted-foreground">Supports any file type. Max 15 MB for MVP.</p>}
+        {!file && <p className="mt-2 text-mono ba-text-2xs text-muted-foreground">Supports any file type. Max 15 MB for MVP.</p>}
       </Panel>
 
       {/* Hash lookup */}
@@ -118,24 +115,24 @@ function AttachmentPage() {
             value={hashInput}
             onChange={(e) => setHashInput(e.target.value)}
             placeholder="Paste a SHA-256, MD5, or SHA-1 hash…"
-            className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2.5 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+            className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2.5 py-1.5 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
           />
           <button
             onClick={() => setHashInput("7e0eaa6c2a2c7a0d5c4a3d8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a")}
-            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
           >
             Sample PE hash
           </button>
           <button
             onClick={() => setHashInput("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2")}
-            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
           >
             Sample document hash
           </button>
           {hashInput && (
             <button
               onClick={() => { navigator.clipboard.writeText(hashInput); toast("Hash copied to clipboard"); }}
-              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary"
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary"
             >
               Copy
             </button>
@@ -151,38 +148,24 @@ function AttachmentPage() {
       ]} />
 
       {!result && !loading && !error && !file && (
-        <Empty icon={FileWarning} title="No file loaded" hint="Select a file above and click Analyze for static triage." />
+        <Empty icon={FileWarning} title="No file loaded" hint="File Triage computes hashes (MD5/SHA1/SHA256), extracts embedded strings and URLs, detects suspicious patterns, and can detonate in a sandbox. Select a file above and click Analyze." />
       )}
 
       {loading && (
         <Panel title="Analysis in progress" icon={Sigma}>
-          <p className="text-mono text-[11px] text-muted-foreground">Computing hashes, extracting strings, scanning for suspicious patterns...</p>
+          <p className="text-mono ba-text-sm text-muted-foreground">Computing hashes, extracting strings, scanning for suspicious patterns...</p>
         </Panel>
       )}
 
       {error && (
         <Panel title="Error" icon={AlertTriangle}>
-          <p className="text-mono text-[11px] text-destructive">{error}</p>
+          <p className="text-mono ba-text-sm text-destructive">{error}</p>
         </Panel>
       )}
 
       {result && !loading && (
         <div className="space-y-5">
           <SectionBar id="OT" label="Output · signals & findings" meta={`${result.summary.total_findings} findings · ${result.suspicious_strings.length} suspicious strings`} />
-
-          {/* Verdict Banner */}
-          <VerdictBanner
-            verdict={result.summary.rating}
-            tone={result.summary.score >= 70 ? "destructive" : result.summary.score >= 40 ? "warning" : "success"}
-            icon={result.summary.score >= 70 ? ShieldX : result.summary.score >= 40 ? AlertTriangle : ShieldCheck}
-            score={`${result.summary.score}/100`}
-            details={[
-              result.metadata.filename,
-              `${result.file_type.magic_type} · ${formatSize(result.metadata.size_bytes)}`,
-              result.suspicious_strings.length > 0 ? `${result.suspicious_strings.length} suspicious string(s)` : "",
-              result.summary.note || "Static analysis only — no detonation performed.",
-            ].filter(Boolean)}
-          />
 
           {/* Metrics */}
           <MetricGrid
@@ -209,7 +192,7 @@ function AttachmentPage() {
           {/* Cryptographic Identity */}
           <Panel title="Cryptographic Identity" icon={Hash} meta="4 algorithms" actions={
             <div className="flex items-center gap-1">
-              <button onClick={() => { [result.hashes.md5, result.hashes.sha1, result.hashes.sha256, result.hashes.sha512].forEach((h) => locker.add({ value: h, type: h.length === 32 ? "md5" : h.length === 40 ? "sha1" : h.length === 64 ? "sha256" : "unknown", source: "/attachment" })); toast("Added all hashes to locker"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ all to locker</button>
+              <button onClick={() => { [result.hashes.md5, result.hashes.sha1, result.hashes.sha256, result.hashes.sha512].forEach((h) => locker.add({ value: h, type: h.length === 32 ? "md5" : h.length === 40 ? "sha1" : h.length === 64 ? "sha256" : "unknown", source: "/attachment" })); toast("Added all hashes to locker"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ all to locker</button>
             </div>
           }>
             <div className="grid gap-2 grid-cols-4">
@@ -221,17 +204,17 @@ function AttachmentPage() {
               ]).map((h) => (
                 <div
                   key={h.algo}
-                  className="group relative rounded-md border border-border/60 bg-card/50 p-2.5 transition-colors hover:border-primary/40 hover:bg-card/80"
+                  className="group relative rounded-md border border-divider-strong bg-card/50 p-2.5 transition-colors hover:border-primary/40 hover:bg-card/80"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{h.algo}</span>
+                    <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">{h.algo}</span>
                     <Chip tone={h.tone}>{h.bits}-bit</Chip>
                   </div>
                   <code className="mt-1.5 block break-all text-mono text-[10.5px] leading-snug text-foreground/90">{h.value}</code>
                   <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <CopyInline value={h.value} />
-                    <button onClick={() => { locker.add({ value: h.value, type: h.algo.toLowerCase() as any, source: "/attachment" }); toast(`Added ${h.algo} to locker`); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 hover:text-primary">locker</button>
-                    <button onClick={() => setZoomedHash({ algo: h.algo, value: h.value, bits: h.bits })} className="rounded border border-border/40 bg-card/30 px-1.5 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 hover:text-primary">zoom</button>
+                    <button onClick={() => { locker.add({ value: h.value, type: h.algo.toLowerCase() as any, source: "/attachment" }); toast(`Added ${h.algo} to locker`); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-px text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/60 hover:text-primary">locker</button>
+                    <button onClick={() => setZoomedHash({ algo: h.algo, value: h.value, bits: h.bits })} className="rounded border border-divider-soft bg-card/30 px-1.5 py-px text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/60 hover:text-primary">zoom</button>
                   </div>
                 </div>
               ))}
@@ -246,28 +229,28 @@ function AttachmentPage() {
               meta={`${zoomedHash.bits}-bit`}
               actions={
                 <button onClick={() => setZoomedHash(null)}
-                  className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                  className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                   close <X className="ml-1 inline h-3 w-3" />
                 </button>
               }
             >
               <div className="space-y-3">
                 <div>
-                  <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Full hash</div>
+                  <div className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">Full hash</div>
                   <code className="mt-1 block break-all rounded border border-border/50 bg-card/40 p-3 text-mono text-[12px] leading-relaxed text-foreground/90 select-all">{zoomedHash.value}</code>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => { try { navigator.clipboard.writeText(zoomedHash.value); } catch {/* noop */} setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
-                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 hover:text-foreground">
                     {hashCopied === zoomedHash.algo ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {hashCopied === zoomedHash.algo ? "copied" : "copy hash"}
                   </button>
                   <a href={`https://www.virustotal.com/gui/file/${zoomedHash.algo === "MD5" ? result.hashes.md5 : zoomedHash.algo === "SHA-1" ? result.hashes.sha1 : result.hashes.sha256}`} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 hover:text-foreground">
                     <ExternalLink className="h-3.5 w-3.5" /> VirusTotal
                   </a>
                   <a href={`https://bazaar.abuse.ch/sample/${zoomedHash.algo === "MD5" ? result.hashes.md5 : zoomedHash.algo === "SHA-1" ? result.hashes.sha1 : result.hashes.sha256}/`} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-foreground/80 hover:text-foreground">
+                    className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 hover:text-foreground">
                     <ExternalLink className="h-3.5 w-3.5" /> MalwareBazaar
                   </a>
                 </div>
@@ -292,9 +275,9 @@ function AttachmentPage() {
             right={
               <Panel title="External References" meta="manual reputation">
                 <div className="flex flex-col gap-2">
-                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://www.virustotal.com/gui/file/${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> VirusTotal</a>
-                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://bazaar.abuse.ch/sample/${result.hashes.sha256}/`}><ExternalLink className="h-3 w-3" /> MalwareBazaar</a>
-                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono text-[10px] uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://hybrid-analysis.com/search?query=${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> Hybrid Analysis</a>
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono ba-text-2xs uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://www.virustotal.com/gui/file/${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> VirusTotal</a>
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono ba-text-2xs uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://bazaar.abuse.ch/sample/${result.hashes.sha256}/`}><ExternalLink className="h-3 w-3" /> MalwareBazaar</a>
+                  <a className="inline-flex items-center gap-1 rounded border border-border bg-card/70 px-2 py-1.5 text-mono ba-text-2xs uppercase text-foreground/80 hover:text-primary" target="_blank" rel="noreferrer" href={`https://hybrid-analysis.com/search?query=${result.hashes.sha256}`}><ExternalLink className="h-3 w-3" /> Hybrid Analysis</a>
                 </div>
               </Panel>
             }
@@ -305,7 +288,7 @@ function AttachmentPage() {
             <CollapsibleSection id="SS" label="Suspicious Strings" meta={`${result.suspicious_strings.length} keyword(s)`} icon={Binary}>
               <ul className="space-y-1">
                 {result.suspicious_strings.map((s) => (
-                  <li key={s.keyword} className="flex items-center justify-between gap-2 border-b border-border/40 py-1 text-mono text-[11px]">
+                  <li key={s.keyword} className="flex items-center justify-between gap-2 border-b border-divider-soft py-1 text-mono ba-text-sm">
                     <code className="truncate text-foreground/90">{s.keyword}</code>
                     <Chip tone={s.severity === "high" ? "destructive" : "warning"}>{s.severity}</Chip>
                   </li>
@@ -320,7 +303,7 @@ function AttachmentPage() {
               <div className="max-h-48 overflow-y-auto">
                 <ul className="space-y-0.5">
                   {result.strings_preview.map((s, i) => (
-                    <li key={i} className="border-b border-border/30 py-0.5 text-mono text-[10.5px] text-foreground/80">{s}</li>
+                    <li key={i} className="border-b border-divider-soft py-0.5 text-mono text-[10.5px] text-foreground/80">{s}</li>
                   ))}
                 </ul>
               </div>
@@ -377,7 +360,7 @@ function AttachmentPage() {
                   a.href = url; a.download = `attachment-report-${result.hashes.sha256.slice(0, 8)}.md`;
                   a.click(); URL.revokeObjectURL(url);
                 }}
-                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
+                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
               >
                 <Download className="h-3 w-3" /> Markdown Report
               </button>
@@ -390,7 +373,7 @@ function AttachmentPage() {
                   a.href = url; a.download = `attachment-${result.hashes.sha256.slice(0, 8)}.json`;
                   a.click(); URL.revokeObjectURL(url);
                 }}
-                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
+                className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
               >
                 <Download className="h-3 w-3" /> JSON Export
               </button>

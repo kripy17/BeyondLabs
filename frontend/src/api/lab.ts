@@ -1,14 +1,14 @@
 import { getJson, postJson } from "../lib/apiClient"
 
-export function analyzePowerShell(command) {
+export function analyzePowerShell(command: string) {
   return postJson("/api/lab/powershell/analyze", { command })
 }
 
-export function lookupWindowsEvent(eventId) {
+export function lookupWindowsEvent(eventId: string) {
   return postJson("/api/lab/windows-events/lookup", { event_id: eventId })
 }
 
-export function analyzeWindowsEventText(text) {
+export function analyzeWindowsEventText(text: string) {
   return postJson("/api/lab/windows-events/analyze-text", { text })
 }
 

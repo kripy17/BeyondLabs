@@ -42,7 +42,7 @@ export function IocLockerPanel({ open, onClose }: { open: boolean; onClose: () =
           (open ? "translate-x-0" : "translate-x-full")
         }
       >
-        <header className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
+        <header className="flex items-center gap-2 border-b border-divider-strong px-4 py-3">
           <span className="grid h-7 w-7 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary">
             <PackageOpen className="h-4 w-4" />
           </span>
@@ -52,7 +52,7 @@ export function IocLockerPanel({ open, onClose }: { open: boolean; onClose: () =
             {items.length > 0 && (
               <button
                 onClick={() => { clear(); toast("Locker cleared"); }}
-                className="rounded border border-border/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+                className="rounded border border-divider-strong px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
               >
                 clear all
               </button>
@@ -80,7 +80,7 @@ export function IocLockerPanel({ open, onClose }: { open: boolean; onClose: () =
         </div>
 
         {items.length > 0 && (
-          <footer className="border-t border-border/70 px-4 py-2">
+          <footer className="border-t border-divider-strong px-4 py-2">
             <div className="flex items-center gap-2 text-mono text-[10px] text-muted-foreground">
               <span>{items.filter((i) => i.type === "ipv4" || i.type === "domain").length} network</span>
               <span className="text-border/60">·</span>
@@ -98,7 +98,7 @@ export function IocLockerPanel({ open, onClose }: { open: boolean; onClose: () =
 function LockerRow({ item, onRemove }: { item: LockerItem; onRemove: (id: string) => void }) {
   const { updateNote } = useLocker();
   const [editingNote, setEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(item.note);
+  const [noteDraft, setNoteDraft] = useState(item.note ?? "");
   const ts = new Date(item.ts).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -142,10 +142,10 @@ function LockerRow({ item, onRemove }: { item: LockerItem; onRemove: (id: string
                 onChange={(e) => setNoteDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { updateNote(item.id, noteDraft); setEditingNote(false); }
-                  if (e.key === "Escape") { setNoteDraft(item.note); setEditingNote(false); }
+                  if (e.key === "Escape") { setNoteDraft(item.note ?? ""); setEditingNote(false); }
                 }}
                 onBlur={() => { updateNote(item.id, noteDraft); setEditingNote(false); }}
-                className="min-w-0 flex-1 rounded border border-border/60 bg-background/60 px-1.5 py-0.5 text-mono text-[10.5px] text-foreground outline-none"
+                className="min-w-0 flex-1 rounded border border-divider-strong bg-background/60 px-1.5 py-0.5 text-mono text-[10.5px] text-foreground outline-none"
                 placeholder="Add a note…"
                 autoFocus
               />
@@ -160,7 +160,7 @@ function LockerRow({ item, onRemove }: { item: LockerItem; onRemove: (id: string
 
       {!item.note && !editingNote && (
         <button
-          onClick={() => { setEditingNote(true); setNoteDraft(item.note); }}
+          onClick={() => { setEditingNote(true); setNoteDraft(item.note ?? ""); }}
           className="mt-1 text-mono text-[9.5px] text-muted-foreground/50 hover:text-foreground/70"
         >
           + add note

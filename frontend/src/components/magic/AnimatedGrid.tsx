@@ -37,7 +37,7 @@ export function AnimatedGrid({
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0,1fr))` }}
       >
         {cells.map((i) => (
-          <div key={i} className="relative border-r border-b border-border/30">
+          <div key={i} className="relative border-r border-b border-divider-soft">
             <span
               className={cn(
                 "absolute inset-[3px] rounded-sm transition-all duration-700",

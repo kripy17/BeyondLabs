@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Pin, Settings as SettingsIcon, Search, ChevronDown, X,
+  Pin, Settings as SettingsIcon, ChevronDown, Notebook,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { GROUPS, findItem, type WorkspaceItem } from "@/lib/workspaces";
 import { usePrefs, getBrandIcon } from "@/lib/prefs";
+import { useActiveCase } from "@/lib/case";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { BackendPill } from "@/components/BackendPill";
 import { cn } from "@/lib/utils";
+
+const PRIMARY_GROUPS = new Set(["Overview", "Triage"]);
 
 function Row({
   item, active, pinned, onTogglePin, collapsed,
@@ -28,7 +32,7 @@ function Row({
         title={collapsed ? item.title : undefined}
         className={cn(
           "group/row relative flex h-8 items-center gap-2.5 rounded-md px-2 transition-colors",
-          "text-mono text-[13px] tracking-tight",
+          "text-mono ba-text-base tracking-tight",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground/75 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -41,7 +45,7 @@ function Row({
             active ? "bg-primary shadow-[0_0_8px_var(--primary)]" : "bg-transparent group-hover/row:bg-sidebar-border",
           )}
         />
-        <Icon className={cn("h-4 w-4 shrink-0 transition-transform", active ? "text-primary" : "group-hover/row:scale-110")} />
+        <Icon className={cn("h-4 w-4 shrink-0 transition-transform translate-y-[0.5px]", active ? "text-primary" : "group-hover/row:scale-110")} />
         {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
         {!collapsed && (
           <button
@@ -96,9 +100,8 @@ export function AppSidebar() {
   const BrandIcon = getBrandIcon(prefs.brandIcon);
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { activeCase } = useActiveCase();
 
-  const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
   const order = prefs.sidebar.order.length ? prefs.sidebar.order : GROUPS.map((g) => g.label);
   const ordered = order
     .map((label) => GROUPS.find((g) => g.label === label))
@@ -108,15 +111,7 @@ export function AppSidebar() {
     .map(findItem)
     .filter((x): x is NonNullable<typeof x> => !!x);
 
-  const filtered = useMemo(() => {
-    if (!q) return ordered;
-    return ordered
-      .map((g) => ({ ...g, items: g.items.filter((i) => i.title.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)) }))
-      .filter((g) => g.items.length > 0);
-  }, [ordered, q]);
-
   const totalCount = ordered.reduce((s, g) => s + g.items.length, 0);
-  const visibleCount = filtered.reduce((s, g) => s + g.items.length, 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -127,40 +122,27 @@ export function AppSidebar() {
             <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-success ring-2 ring-sidebar ba-glow" aria-hidden />
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="text-mono text-[13px] font-bold leading-tight tracking-tight truncate">{prefs.brandName}</div>
+            <div className="text-mono ba-text-base font-bold leading-tight tracking-tight truncate">{prefs.brandName}</div>
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-sidebar-foreground/55 truncate">{prefs.brandTagline}</div>
           </div>
         </Link>
 
-        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <div className="group/search relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/40 group-focus-within/search:text-primary transition-colors" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter workspaces"
-              className="h-7 w-full rounded-md border border-sidebar-border/70 bg-sidebar-accent/30 pl-7 pr-7 text-mono text-[11px] text-sidebar-foreground placeholder:text-sidebar-foreground/40 outline-none transition-all focus:border-primary/60 focus:bg-sidebar-accent/60 focus:ring-2 focus:ring-primary/15"
-            />
-            {query ? (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                aria-label="Clear filter"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            ) : (
-              <kbd className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 rounded border border-sidebar-border/60 bg-sidebar/50 px-1 text-mono text-[9px] uppercase tracking-widest text-sidebar-foreground/45">
-                filter
-              </kbd>
-            )}
+        <div className="group-data-[collapsible=icon]:hidden px-2 pb-2 space-y-1">
+          <div className="flex items-center justify-between rounded-md border border-sidebar-border/70 bg-sidebar-accent/20 px-2 py-1">
+            <BackendPill />
           </div>
+          {activeCase && (
+            <Link to="/case" className="flex items-center gap-1.5 rounded-md border border-sidebar-border/70 bg-sidebar-accent/20 px-2 py-1 text-mono text-[10px] text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+              <Notebook className="h-3 w-3 shrink-0 text-primary/70" />
+              <span className="truncate">{activeCase.title}</span>
+              <span className="ml-auto rounded-sm border border-sidebar-border/60 bg-sidebar-accent/30 px-1 text-[8px] uppercase tracking-widest text-sidebar-foreground/45">{activeCase.state}</span>
+            </Link>
+          )}
         </div>
       </SidebarHeader>
 
       <SidebarContent className="gap-0">
-        {!q && pinnedItems.length > 0 && (
+        {pinnedItems.length > 0 && (
           <GroupBlock label="Pinned" count={pinnedItems.length} collapsed={collapsed} defaultOpen>
             {pinnedItems.map((item) => (
               <Row key={`pin-${item.url}`} item={item} active={isActive(item.url)} pinned onTogglePin={togglePin} collapsed={collapsed} />
@@ -168,10 +150,10 @@ export function AppSidebar() {
           </GroupBlock>
         )}
 
-        {filtered.map((g) => {
+        {ordered.map((g) => {
           const hasActive = g.items.some((i) => isActive(i.url));
           return (
-            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={!!q || hasActive || true}>
+            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={hasActive || PRIMARY_GROUPS.has(g.label)}>
               {g.items.map((item) => (
                 <Row
                   key={item.url}
@@ -185,17 +167,16 @@ export function AppSidebar() {
             </GroupBlock>
           );
         })}
-
-        {q && filtered.length === 0 && (
-          <div className="px-4 py-6 text-center text-mono text-[11px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-            No workspaces match &ldquo;{query}&rdquo;
-          </div>
-        )}
-
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/70 gap-1 p-2">
+        <div className="group-data-[collapsible=icon]:flex justify-center py-1 hidden">
+          <BackendPill />
+        </div>
         <div className="group-data-[collapsible=icon]:hidden">
+          <div className="flex items-center justify-between px-1 py-0.5">
+            <BackendPill />
+          </div>
           <ThemeSwitcher />
         </div>
 
@@ -204,7 +185,7 @@ export function AppSidebar() {
             to="/settings"
             title="Settings"
             className={cn(
-              "flex h-8 flex-1 items-center gap-2 rounded-md px-2 text-mono text-[12px] transition-colors",
+              "flex h-8 flex-1 items-center gap-2 rounded-md px-2 text-mono ba-text-base transition-colors",
               isActive("/settings")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/75 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -217,7 +198,7 @@ export function AppSidebar() {
         </div>
 
         <div className="text-center text-mono text-[9px] uppercase tracking-[0.22em] text-sidebar-foreground/35 group-data-[collapsible=icon]:hidden">
-          {q ? `${visibleCount} of ${totalCount}` : `${totalCount} workspaces`}
+          {totalCount} workspaces
         </div>
       </SidebarFooter>
 

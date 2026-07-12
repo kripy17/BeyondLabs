@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { ResultBanner, SectionBar, Panel, SendToRow, Chip, EvidenceCard } from "@/components/soc/Workspace";
+import { SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
+import { ResultBanner, EvidenceCard } from "@/components/output";
 import { sendArtifact } from "@/lib/handoff";
 import { Target, ArrowRight, Database, ShieldAlert, RotateCcw, Search, StickyNote, Download } from "lucide-react";
 
@@ -306,7 +307,7 @@ function MitrePage() {
 
           <Panel title="Technique detail" icon={Target}>
             {!selected ? (
-              <p className="text-mono text-[11px] text-muted-foreground">Click any technique cell to cycle through coverage states (none → partial → full) or right-click to inspect.</p>
+              <p className="text-mono ba-text-sm text-muted-foreground">Click any technique cell to cycle through coverage states (none → partial → full) or right-click to inspect.</p>
             ) : (
               <div className="grid gap-3 grid-cols-[1fr_auto]">
                 <div>
@@ -317,7 +318,7 @@ function MitrePage() {
                     <span className="text-mono text-[10px] text-muted-foreground">click to toggle</span>
                   </div>
                   {notes[selected.tech.id] && (
-                    <div className="mt-2 rounded border border-border/50 bg-card/40 p-2 text-mono text-[11px] text-foreground/80">
+                    <div className="mt-2 rounded border border-border/50 bg-card/40 p-2 text-mono ba-text-sm text-foreground/80">
                       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">note</span>
                       <p className="mt-1">{notes[selected.tech.id]}</p>
                     </div>
@@ -342,7 +343,7 @@ function MitrePage() {
                       <button onClick={() => saveNote(selected.tech.id)} className="rounded border border-success/50 bg-success/10 px-1.5 py-1 text-mono text-[10px] text-success">ok</button>
                     </div>
                   )}
-                  <button onClick={() => { sendArtifact({ kind: "raw", value: `${selected.tech.id} — ${selected.tech.name}`, source: "/mitre" }); navigate({ to: "/detection" }); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[11px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                  <button onClick={() => { sendArtifact({ kind: "raw", value: `${selected.tech.id} — ${selected.tech.name}`, source: "/mitre" }); navigate({ to: "/detection" }); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono ba-text-sm uppercase tracking-widest text-primary hover:bg-primary/20">
                     <ShieldAlert className="h-3 w-3" /> send to detection
                   </button>
                 </div>
@@ -356,7 +357,7 @@ function MitrePage() {
         <>
           <SectionBar id="GP" label={`Gaps · ${gaps.length} uncovered`} meta="techniques with no coverage" />
           {filteredGaps.length === 0 ? (
-            <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono text-[11px] text-muted-foreground">No uncovered techniques match the filter.</div>
+            <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono ba-text-sm text-muted-foreground">No uncovered techniques match the filter.</div>
           ) : (
             <div className="grid gap-2 grid-cols-4">
               {filteredGaps.map((g) => (
@@ -377,7 +378,7 @@ function MitrePage() {
         <>
           <SectionBar id="NT" label={`Notes · ${Object.keys(notes).length}`} meta="per-technique observations" />
           {Object.keys(notes).length === 0 ? (
-            <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono text-[11px] text-muted-foreground">No notes yet. Click a technique in the matrix and add a note.</div>
+            <div className="rounded border border-border/50 bg-card/30 p-6 text-center text-mono ba-text-sm text-muted-foreground">No notes yet. Click a technique in the matrix and add a note.</div>
           ) : (
             <div className="grid gap-2 grid-cols-3">
               {Object.entries(notes).map(([techId, noteText]) => {

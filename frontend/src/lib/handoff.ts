@@ -2,6 +2,8 @@
  * Stores a "pending" payload in localStorage that the destination
  * page can pick up on mount (mirrors reference repo behaviour). */
 
+import { storageGet, storageSet, storageRemove } from "@/lib/storage";
+
 export type Handoff = {
   kind: string;            // ioc kind: url, domain, ip, hash, email, raw
   value: string;
@@ -12,26 +14,19 @@ export type Handoff = {
 const KEY = "beyondlabs.pendingArtifact";
 
 export function sendArtifact(h: Omit<Handoff, "ts">) {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify({ ...h, ts: Date.now() })); } catch {}
+  storageSet(KEY, { ...h, ts: Date.now() });
 }
 
 export function takePendingArtifact(): Handoff | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    localStorage.removeItem(KEY);
-    return JSON.parse(raw) as Handoff;
-  } catch { return null; }
+  const raw = storageGet<Handoff | null>(KEY, null);
+  if (!raw) return null;
+  storageRemove(KEY);
+  return raw;
 }
 
 export function peekPendingArtifact(): Handoff | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Handoff) : null;
-  } catch { return null; }
+  const raw = storageGet<Handoff | null>(KEY, null);
+  return raw;
 }
 
 /* ── Case notebook handoff ── */
@@ -39,16 +34,12 @@ export type CaseHandoff = { body: string; source: string; kind: string };
 const CASE_KEY = "ba.pendingCaseEntry";
 
 export function sendToCase(h: CaseHandoff) {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(CASE_KEY, JSON.stringify(h)); } catch {}
+  storageSet(CASE_KEY, h);
 }
 
 export function takePendingCaseEntry(): CaseHandoff | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(CASE_KEY);
-    if (!raw) return null;
-    localStorage.removeItem(CASE_KEY);
-    return JSON.parse(raw) as CaseHandoff;
-  } catch { return null; }
+  const raw = storageGet<CaseHandoff | null>(CASE_KEY, null);
+  if (!raw) return null;
+  storageRemove(CASE_KEY);
+  return raw;
 }

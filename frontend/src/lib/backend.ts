@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { storageGet, storageSet, storageRemove } from "@/lib/storage";
 
 const LS_KEY = "beyondlabs.backendUrl";
 const DEFAULT_URL =
@@ -6,25 +7,21 @@ const DEFAULT_URL =
   "http://localhost:8000";
 
 export function getBackendUrl(): string {
-  if (typeof window === "undefined") return DEFAULT_URL;
-  try {
-    return localStorage.getItem(LS_KEY) || DEFAULT_URL;
-  } catch {
-    return DEFAULT_URL;
-  }
+  return storageGet(LS_KEY, DEFAULT_URL);
 }
 
 export function setBackendUrl(url: string) {
-  try {
-    if (url && url.trim()) localStorage.setItem(LS_KEY, url.trim().replace(/\/+$/, ""));
-    else localStorage.removeItem(LS_KEY);
-  } catch {}
+  if (url && url.trim()) storageSet(LS_KEY, url.trim().replace(/\/+$/, ""));
+  else storageRemove(LS_KEY);
 }
 
 export type BackendStatus = "unknown" | "checking" | "online" | "offline";
 
-export async function pingBackend(signal?: AbortSignal): Promise<boolean> {
+export type BackendPingResult = { ok: boolean; ms: number };
+
+export async function pingBackend(signal?: AbortSignal): Promise<BackendPingResult> {
   const url = getBackendUrl();
+  const start = performance.now();
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 3500);
@@ -33,9 +30,11 @@ export async function pingBackend(signal?: AbortSignal): Promise<boolean> {
       signal: signal ?? ctl.signal,
     });
     clearTimeout(t);
-    return res.ok;
+    const ms = Math.round(performance.now() - start);
+    return { ok: res.ok, ms };
   } catch {
-    return false;
+    const ms = Math.round(performance.now() - start);
+    return { ok: false, ms };
   }
 }
 
@@ -52,10 +51,13 @@ export type RunToolResponse = {
 
 export function useBackendStatus() {
   const [status, setStatus] = useState<BackendStatus>("unknown");
+  const [latency, setLatency] = useState(0);
 
   const check = useCallback(async () => {
     setStatus("checking");
-    setStatus((await pingBackend()) ? "online" : "offline");
+    const result = await pingBackend();
+    setLatency(result.ms);
+    setStatus(result.ok ? "online" : "offline");
   }, []);
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export function useBackendStatus() {
     return () => clearInterval(id);
   }, [check]);
 
-  return { status, check };
+  return { status, latency, check, online: status === "online" };
 }
 
 export async function runToolRemote(input: {
@@ -72,12 +74,13 @@ export async function runToolRemote(input: {
   tool_id: string;
   target?: string;
   args?: string;
-}): Promise<RunToolResponse> {
+}, signal?: AbortSignal): Promise<RunToolResponse> {
   const url = getBackendUrl();
   const res = await fetch(`${url}/api/hackingtool/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+    signal,
   });
   if (!res.ok) {
     throw new Error(`backend ${res.status} ${res.statusText}`);

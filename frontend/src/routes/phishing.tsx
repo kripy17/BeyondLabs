@@ -1,15 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
-import { IntakeCard, KeyFields, SectionBar, Panel, Empty, EvidenceCard, ResultBanner, SendToRow, Chip, IocInventory } from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
+import { KeyFields, Empty, EvidenceCard, ResultBanner, PhishingVerdictSkeleton } from "@/components/output";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
-import { useLocker } from "@/lib/locker";
+import { useLocker, type LockerItem } from "@/lib/locker";
 import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
@@ -152,9 +154,9 @@ function AuthTile({ name, state }: { name: string; state: AuthState }) {
     <div className={"flex items-center justify-between gap-2 rounded-md border px-3 py-2 " + cls}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4" />
-        <span className="text-mono text-[11px] uppercase tracking-widest">{name}</span>
+        <span className="text-mono ba-text-sm uppercase tracking-widest">{name}</span>
       </div>
-      <span className="text-mono text-[11px] font-semibold tabular-nums">{label}</span>
+      <span className="text-mono ba-text-sm font-semibold tabular-nums">{label}</span>
     </div>
   );
 }
@@ -315,10 +317,10 @@ function EmptyPreview() {
     ["Case Findings", "Report-ready summary, limitations, next steps"],
   ];
   return (
-    <Panel title="Awaiting Analysis" icon={FlaskConical} meta="expected output structure">
+    <Panel title="Awaiting Analysis" icon={FlaskConical} meta="expected output structure" priority="secondary">
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
         {cards.map(([title, text]) => (
-          <div key={title} className="rounded-md border border-dashed border-border/60 bg-card/30 p-3">
+          <div key={title} className="rounded-md border border-dashed border-divider-strong bg-card/30 p-3">
             <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-foreground/80">{title}</div>
             <p className="mt-1 text-[11px] text-muted-foreground">{text}</p>
           </div>
@@ -339,7 +341,7 @@ function ScoreGauge({ score, maxScore, label }: { score: number; maxScore: numbe
       <div className="flex-1 h-2 rounded-full bg-card/60 overflow-hidden">
         <div className={"h-full transition-all " + color} style={{ width: `${pct}%` }} />
       </div>
-      <span className={"text-mono text-[11px] font-semibold tabular-nums " + (tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-warning" : "text-success")}>{score}/{maxScore}</span>
+      <span className={"text-mono ba-text-sm font-semibold tabular-nums " + (tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-warning" : "text-success")}>{score}/{maxScore}</span>
       <span className="text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
     </div>
   );
@@ -487,6 +489,14 @@ function PhishingPage() {
     return { spf, dkim, dmarc, replyMismatch, defangedUrl, urgency, findings, verdict, tone, breakdown, body, headers, hasForm, hasPasswordField, hasHtmlForm, hasAttachment, envelopeFlags, hasLookalike, iocs, secrets, urlAnalysis, mitre, fromDomain, fromLine, replyLine, pathLine, brandMatch };
   }, [committed, input, apiResult]);
 
+  const pushedPhishRef = useRef("");
+  useEffect(() => {
+    if (data?.verdict && pushedPhishRef.current !== data.verdict + runs) {
+      pushedPhishRef.current = data.verdict + runs;
+      pushTimelineEvent({ source: "phishing", verb: "analyzed", detail: `Phishing analysis: ${data.verdict} risk`, result: `${data.findings.length} findings` });
+    }
+  }, [data, runs]);
+
   const handoff = (kind: string, value: string, to: string) => {
     sendArtifact({ kind, value, source: "/phishing" });
     navigate({ to });
@@ -523,9 +533,9 @@ function PhishingPage() {
       }
       flashNotice("Analysis complete");
       toast.success("Phishing analysis complete");
-    } catch {
+    } catch (e: any) {
       flashNotice("Analysis completed (partial)");
-      toast.error("Phishing analysis completed with errors");
+      toast.error(e?.message || "Analysis completed with errors", { description: e?.suggestion });
     } finally {
       setLoading(null);
     }
@@ -582,13 +592,14 @@ function PhishingPage() {
           </>
         }
         output={
-          loading ? <LoadingSkeleton /> : !data ? (
+          loading ? <PhishingVerdictSkeleton /> : !data ? (
             has ? <Empty icon={ShieldAlert} title="Press analyse or paste to run" hint="Paste the full email source above to compute the risk verdict." /> : <EmptyPreview />
           ) : (
             <div className="space-y-4">
 
               <ResultBanner
                 sticky
+                tone={data.tone === "destructive" ? "destructive" : data.tone === "warning" ? "warning" : "default"}
                 badge={data.tone === "destructive" ? "likely phishing" : data.tone === "warning" ? "suspicious" : "inconclusive"}
                 caseId={`BA-PH-${String(data.findings.length).padStart(2, "0")}`}
                 title={data.verdict}
@@ -610,7 +621,7 @@ function PhishingPage() {
                 </div>
               </Panel>
 
-              <div className="flex items-center gap-2 rounded-md border border-border/40 bg-card/30 px-3 py-1.5">
+              <div className="flex items-center gap-2 rounded-md border border-divider-soft bg-card/30 px-3 py-1.5">
                 <span className="mr-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Auth Chain</span>
                 <Chip tone={data.spf === "pass" ? "success" : data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : "default"}>SPF: {data.spf.toUpperCase()}</Chip>
                 <Chip tone={data.dkim === "pass" ? "success" : data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : "default"}>DKIM: {data.dkim.toUpperCase()}</Chip>
@@ -633,14 +644,14 @@ function PhishingPage() {
               {data.body && (
                 <Panel title="Email Body" icon={FileText} meta={data.hasHtmlForm ? "contains HTML" : "plain text"}>
                   {data.hasHtmlForm ? (
-                    <pre className="max-h-[280px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
+                    <pre className="max-h-[280px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono ba-text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
                   ) : (
-                    <pre className="max-h-[200px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
+                    <pre className="max-h-[200px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono ba-text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.body}</pre>
                   )}
                   {data.hasHtmlForm && (
                     <details className="mt-1">
                       <summary className="cursor-pointer text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">plain text extract ({htmlToText(data.body).length} chars)</summary>
-                      <pre className="mt-1 max-h-[160px] overflow-auto rounded border border-border/40 bg-background/40 p-2 text-mono text-[11px] text-foreground/80 whitespace-pre-wrap">{htmlToText(data.body)}</pre>
+                      <pre className="mt-1 max-h-[160px] overflow-auto rounded border border-divider-soft bg-background/40 p-2 text-mono ba-text-sm text-foreground/80 whitespace-pre-wrap">{htmlToText(data.body)}</pre>
                     </details>
                   )}
                 </Panel>
@@ -650,17 +661,17 @@ function PhishingPage() {
               {(() => {
                 const hops = Array.from(input.matchAll(/Received:\s*from\s+([^\s]+)\s*(?:\(([^)]+)\))?/gi)).map((m) => ({ host: m[1], detail: m[2] ?? "" }));
                 return (
-                  <Panel title="Delivery Path" meta={`${hops.length} hop${hops.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.phish.delivery" defaultCollapsed>
+                  <Panel title="Delivery Path" meta={`${hops.length} hop${hops.length === 1 ? "" : "s"}`} priority="secondary" collapsible storageKey="ba.panel.phish.delivery" defaultCollapsed>
                     {hops.length === 0 ? (
-                      <p className="text-mono text-[11px] text-muted-foreground">No Received: hops found.</p>
+                      <p className="text-mono ba-text-sm text-muted-foreground">No Received: hops found.</p>
                     ) : (
-                      <ol className="relative space-y-2 border-l border-border/60 pl-3">
+                      <ol className="relative space-y-2 border-l border-divider-strong pl-3">
                         {hops.map((h, i) => (
                           <li key={i} className="relative">
                             <span className="absolute -left-[15px] top-1 grid h-2 w-2 place-items-center rounded-full bg-primary ring-2 ring-background" />
                             <div className="flex flex-wrap items-baseline gap-2">
                               <Chip tone="primary">hop {hops.length - i}</Chip>
-                              <code className="text-mono text-[11px] text-foreground/90">{h.host}</code>
+                              <code className="text-mono ba-text-sm text-foreground/90">{h.host}</code>
                               {h.detail && <code className="text-mono text-[10px] text-muted-foreground">{h.detail}</code>}
                             </div>
                           </li>
@@ -673,11 +684,11 @@ function PhishingPage() {
 
               {/* URL analysis */}
               {data.urlAnalysis.length > 0 && (
-                <Panel title="URL Deep Analysis" icon={Link2} meta={`${data.urlAnalysis.length} URL${data.urlAnalysis.length === 1 ? "" : "s"}`}>
+                <Panel title="URL Deep Analysis" icon={Link2} meta={`${data.urlAnalysis.length} URL${data.urlAnalysis.length === 1 ? "" : "s"}`} priority="secondary">
                   <div className="space-y-2">
                     {data.urlAnalysis.map((u: any, i: number) => (
                       <div key={i} className="flex flex-wrap items-center gap-2 rounded border border-border/50 bg-card/40 px-3 py-2">
-                        <code className="min-w-0 flex-1 truncate text-mono text-[11px] text-foreground/90">{defang(u.value)}</code>
+                        <code className="min-w-0 flex-1 truncate text-mono ba-text-sm text-foreground/90">{defang(u.value)}</code>
                         <div className="flex flex-wrap items-center gap-1">
                           {u.badges.length === 0 && <Chip tone="success">clean</Chip>}
                           {u.badges.map((b: any, j: number) => (
@@ -692,12 +703,12 @@ function PhishingPage() {
 
               {/* Secrets in body */}
               {data.secrets.length > 0 && (
-                <Panel title="Secrets Detected in Body" icon={Key} meta={`${data.secrets.length} potential exposure`}>
+                <Panel title="Secrets Detected in Body" icon={Key} meta={`${data.secrets.length} potential exposure`} priority="secondary">
                   <div className="space-y-1.5">
                     {data.secrets.map((s: any, i: number) => (
                       <div key={i} className="flex items-center justify-between gap-2 rounded border border-destructive/30 bg-destructive/5 px-2.5 py-1.5">
                         <span className="text-mono text-[10px] uppercase tracking-widest text-destructive">{s.type}</span>
-                        <code className="text-mono text-[11px] text-foreground/80">{s.value}</code>
+                        <code className="text-mono ba-text-sm text-foreground/80">{s.value}</code>
                       </div>
                     ))}
                   </div>
@@ -707,12 +718,12 @@ function PhishingPage() {
               {/* IOC inventory */}
               {data.iocs && (
                 <>
-                  <SectionBar id="IO" label="IOC inventory" meta="urls · domains · ips · hashes · emails · cve · attack" />
+                  <SectionBar id="IO" label="IOC inventory" meta="urls · domains · ips · hashes · emails · cve · attack" priority="secondary" />
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {(Object.entries(data.iocs) as [string, string[]][]).filter(([, v]) => v.length > 0).map(([k, v]) => (
                       <button
                         key={k}
-                        onClick={() => { const t = k === "urls" ? "url" : k === "ips" ? "ipv4" : k === "hashes" ? "sha256" : k === "domains" ? "domain" : k === "emails" ? "email" : k === "cve" ? "cve" : k === "attack" ? "mitre-attack" : "unknown"; v.forEach((item: string) => locker.add({ value: item, type: t, source: "/phishing", note: "" })); flashNotice(`Added ${v.length} ${k} to locker`); }}
+                        onClick={() => { const t = k === "urls" ? "url" : k === "ips" ? "ipv4" : k === "hashes" ? "sha256" : k === "domains" ? "domain" : k === "emails" ? "email" : k === "cve" ? "cve" : k === "attack" ? "mitre-attack" : "unknown"; v.forEach((item: string) => locker.add({ value: item, type: t as LockerItem["type"], source: "/phishing", note: "" })); flashNotice(`Added ${v.length} ${k} to locker`); }}
                         className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground transition-colors"
                       >
                         + {k} ({v.length})
@@ -739,7 +750,7 @@ function PhishingPage() {
 
               {/* MITRE */}
               {data.mitre.length > 0 && (
-                <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${data.mitre.length} technique${data.mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.phish.mitre" defaultCollapsed>
+                <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${data.mitre.length} technique${data.mitre.length === 1 ? "" : "s"}`} priority="secondary" collapsible storageKey="ba.panel.phish.mitre" defaultCollapsed>
                   <div className="grid gap-2 grid-cols-3">
                     {data.mitre.map((m: any, i: number) => (
                       <div key={i} className="flex items-center gap-2.5 rounded border border-border/50 bg-card/40 px-3 py-2">
@@ -748,7 +759,7 @@ function PhishingPage() {
                         </span>
                         <div>
                           <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-destructive">{m.id}</div>
-                          <div className="text-mono text-[11px] text-foreground/80">{m.name}</div>
+                          <div className="text-mono ba-text-sm text-foreground/80">{m.name}</div>
                         </div>
                         <Chip tone="info">{m.source}</Chip>
                       </div>
@@ -758,8 +769,8 @@ function PhishingPage() {
               )}
 
               {/* Scoring breakdown table */}
-              <SectionBar id="TA" label="Technical · scoring breakdown" meta={`score computed from ${data.breakdown.filter((b: any) => b.weight > 0).length} signal(s)`} />
-              <Panel icon={Activity} title="Signal weights" meta="how the risk score was assembled">
+              <SectionBar id="TA" label="Technical · scoring breakdown" meta={`score computed from ${data.breakdown.filter((b: any) => b.weight > 0).length} signal(s)`} priority="raw" />
+              <Panel icon={Activity} title="Signal weights" meta="how the risk score was assembled" priority="secondary">
                 {(() => { const totalScore = data.breakdown.reduce((a: number, b: any) => a + (b.state === "pass" ? 0 : b.weight), 0); const maxScore = data.breakdown.reduce((a: number, b: any) => a + b.weight, 0); return <ScoreGauge score={totalScore} maxScore={maxScore} label="risk score" />; })()}
                 <div className="mt-3 overflow-x-auto rounded border border-border/50">
                   <table className="w-full text-mono text-[11.5px]">
@@ -778,7 +789,7 @@ function PhishingPage() {
                         const pct = totalWt > 0 ? Math.round((wt / totalWt) * 100) : 0;
                         const tone = b.state === "fail" ? "destructive" : b.state === "softfail" ? "warning" : "default";
                         return (
-                          <tr key={i} className={"border-t border-border/40 " + (i % 2 ? "bg-background/20" : "")}>
+                          <tr key={i} className={"border-t border-divider-soft " + (i % 2 ? "bg-background/20" : "")}>
                             <td className="px-2 py-1.5 text-foreground/90">{b.signal}</td>
                             <td className="px-2 py-1.5"><Chip tone={tone as "destructive" | "warning" | "default"}>{b.state}</Chip></td>
                             <td className="px-2 py-1.5 text-foreground/90">+{wt}</td>
@@ -801,7 +812,7 @@ function PhishingPage() {
               {/* Evidence cards */}
               <SectionBar id="EV" label="Evidence cards" meta="reason · limitation · action" />
               <div className="grid gap-3 grid-cols-2">
-                {data.findings.length === 0 ? <Empty title="No suspicious patterns triggered" /> : data.findings.map((f: { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }, i: number) => (
+                {data.findings.length === 0 ? <Empty title="No suspicious patterns triggered" hint="Phishing Triage scans email headers and body for SPF/DKIM/DMARC failures, suspicious sender addresses, deceptive links, and urgency language. Try pasting a full email source (headers + body)." /> : data.findings.map((f: { sev: "destructive" | "warning" | "info"; t: string; r: string; a: string }, i: number) => (
                   <EvidenceCard key={i} severity={f.sev} title={f.t} reason={f.r} action={f.a} limitation="Heuristic — confirm against gateway logs and user report." />
                 ))}
               </div>
@@ -810,12 +821,12 @@ function PhishingPage() {
 
               {/* Raw panels */}
               <div className="grid gap-3 grid-cols-2">
-                <Panel icon={ShieldCheck} title="Authentication-Results · raw" meta="parsed verbatim" collapsible storageKey="ba.panel.phish.authraw" defaultCollapsed>
-                  <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[11px] text-foreground/85 whitespace-pre-wrap">
+                <Panel icon={ShieldCheck} title="Authentication-Results · raw" meta="parsed verbatim" priority="raw" collapsible storageKey="ba.panel.phish.authraw" defaultCollapsed>
+                  <pre className="overflow-x-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono ba-text-sm text-foreground/85 whitespace-pre-wrap">
                     {(input.match(/Authentication-Results:[^\n]*(?:\n\s+[^\n]+)*/gi) ?? ["— none found —"]).join("\n\n")}
                   </pre>
                 </Panel>
-                <Panel icon={Hash} title="Message identifiers" meta="for de-duplication & search" collapsible storageKey="ba.panel.phish.msgid" defaultCollapsed>
+                <Panel icon={Hash} title="Message identifiers" meta="for de-duplication & search" priority="secondary" collapsible storageKey="ba.panel.phish.msgid" defaultCollapsed>
                   <KeyFields items={[
                     { label: "Message-ID",     value: (input.match(/Message-ID:\s*<([^>]+)>/i)?.[1] ?? "—") },
                     { label: "X-Mailer",       value: (input.match(/X-Mailer:\s*(.+)/i)?.[1]?.trim() ?? "—") },
@@ -826,7 +837,7 @@ function PhishingPage() {
                 </Panel>
               </div>
 
-              <Panel icon={FileText} title="Raw headers" meta="everything before the first blank line" actions={<PreviewBadge label="verbatim" />} collapsible storageKey="ba.panel.phish.rawheaders" defaultCollapsed>
+              <Panel icon={FileText} title="Raw headers" meta="everything before the first blank line" priority="raw" actions={<PreviewBadge label="verbatim" />} collapsible storageKey="ba.panel.phish.rawheaders" defaultCollapsed>
                 <pre className="max-h-[320px] overflow-auto rounded border border-border/50 bg-background/60 p-2.5 text-mono text-[10.5px] leading-relaxed text-foreground/80 whitespace-pre-wrap">
                   {extractHeaders(input) || "— empty —"}
                 </pre>
@@ -834,7 +845,7 @@ function PhishingPage() {
 
               {/* Export + Handoff */}
               <div className="grid gap-3 grid-cols-[200px_1fr]">
-                <Panel title="Export" icon={Download}>
+                <Panel title="Export" icon={Download} priority="secondary">
                   <button
                     onClick={() => {
                       const md = genMarkdown(input, data, data.iocs);
@@ -855,7 +866,7 @@ function PhishingPage() {
                       const a = document.createElement("a"); a.href = url; a.download = `phishing-report-${Date.now()}.json`; a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="mt-1 group inline-flex w-full items-center justify-center gap-2 rounded border border-border/60 bg-card/40 px-3 py-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-all hover:bg-card/70 hover:text-foreground"
+                    className="mt-1 group inline-flex w-full items-center justify-center gap-2 rounded border border-divider-strong bg-card/40 px-3 py-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-all hover:bg-card/70 hover:text-foreground"
                   >
                     <Download className="h-3.5 w-3.5" /> JSON
                   </button>

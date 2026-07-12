@@ -1,0 +1,64 @@
+<svg width="1280" height="300" viewBox="0 0 1280 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="18%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#39ff14" stop-opacity="0.13"/>
+      <stop offset="100%" stop-color="#39ff14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="waveFade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#39ff14" stop-opacity="0"/>
+      <stop offset="12%" stop-color="#39ff14" stop-opacity="0.5"/>
+      <stop offset="88%" stop-color="#39ff14" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#39ff14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="waveFadeDim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#eaffea" stop-opacity="0"/>
+      <stop offset="12%" stop-color="#eaffea" stop-opacity="0.10"/>
+      <stop offset="88%" stop-color="#eaffea" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#eaffea" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#39ff14" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="300" fill="#020202"/>
+  <rect width="1280" height="300" fill="url(#dots)"/>
+  <rect width="1280" height="300" fill="url(#glow)"/>
+
+  <path d="M0,235 C40,232 60,222 80,235 C100,248 120,220 140,235 C160,250 180,215 200,235
+           C220,255 240,210 260,235 C280,260 300,205 320,235 C340,265 355,200 365,235
+           C372,258 378,175 385,235 C392,290 398,180 405,235 C412,270 420,220 440,235
+           C460,250 480,218 500,235 C520,252 540,222 560,235 C580,248 600,224 620,235
+           C660,255 700,215 740,235 C780,255 820,220 860,235 C900,250 940,222 980,235
+           C1020,248 1060,224 1100,235 C1140,246 1180,228 1220,235 C1240,238 1260,233 1280,235"
+        fill="none" stroke="url(#waveFadeDim)" stroke-width="1.4"/>
+
+  <path d="M0,258 C60,258 100,258 140,258 C170,258 185,258 195,258
+           C202,258 206,190 210,150 C213,118 217,258 222,258
+           C240,258 280,258 340,258 C420,258 500,258 580,258
+           C680,258 780,258 880,258 C980,258 1080,258 1180,258 C1220,258 1250,258 1280,258"
+        fill="none" stroke="url(#waveFade)" stroke-width="2"/>
+  <circle cx="210" cy="150" r="3.5" fill="#39ff14"/>
+
+  <rect x="64" y="90" width="64" height="64" fill="none" stroke="#1a3a1a" stroke-width="1.5"/>
+  <path d="M76 122 L92 122 L98 100 L108 144 L114 122 L116 122"
+        fill="none" stroke="#39ff14" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="148" y="115" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#eaffea" letter-spacing="0.5">BeyondLabs</text>
+  <text x="150" y="145" font-family="'Courier New', monospace" font-size="14" letter-spacing="2.5" fill="#39ff14">LOCAL-FIRST SOC WORKBENCH</text>
+
+  <text x="150" y="182" font-family="'Courier New', monospace" font-size="15" fill="#8a988a" letter-spacing="0.3">Artifact triage &#183; Phishing review &#183; SIEM log analysis &#183; Detection engineering</text>
+
+  <g font-family="'Courier New', monospace" font-size="12.5" letter-spacing="1" fill="#eaffea">
+    <rect x="150" y="204" width="141" height="30" fill="none" stroke="#1a3a1a" stroke-width="1"/>
+    <text x="165" y="223">16 WORKSPACES</text>
+
+    <rect x="303" y="204" width="98" height="30" fill="none" stroke="#1a3a1a" stroke-width="1"/>
+    <text x="318" y="223">8 THEMES</text>
+
+    <rect x="413" y="204" width="141" height="30" fill="none" stroke="#1a3a1a" stroke-width="1"/>
+    <text x="428" y="223">0 CLOUD CALLS</text>
+  </g>
+
+  <rect x="0" y="298" width="1280" height="2" fill="#1a3a1a" opacity="0.6"/>
+</svg>

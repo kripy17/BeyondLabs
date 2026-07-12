@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UrlRouteImport } from './routes/url'
+import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as TerminalRouteImport } from './routes/terminal'
 import { Route as SiemRouteImport } from './routes/siem'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -27,10 +28,16 @@ import { Route as ChefRouteImport } from './routes/chef'
 import { Route as CaseRouteImport } from './routes/case'
 import { Route as AttachmentRouteImport } from './routes/attachment'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReportCaseIdRouteImport } from './routes/report.$caseId'
 
 const UrlRoute = UrlRouteImport.update({
   id: '/url',
   path: '/url',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TimelineRoute = TimelineRouteImport.update({
+  id: '/timeline',
+  path: '/timeline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TerminalRoute = TerminalRouteImport.update({
@@ -118,6 +125,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportCaseIdRoute = ReportCaseIdRouteImport.update({
+  id: '/report/$caseId',
+  path: '/report/$caseId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -137,7 +149,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
   '/terminal': typeof TerminalRoute
+  '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
+  '/report/$caseId': typeof ReportCaseIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,7 +171,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
   '/terminal': typeof TerminalRoute
+  '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
+  '/report/$caseId': typeof ReportCaseIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,7 +194,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
   '/terminal': typeof TerminalRoute
+  '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
+  '/report/$caseId': typeof ReportCaseIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,7 +218,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/siem'
     | '/terminal'
+    | '/timeline'
     | '/url'
+    | '/report/$caseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -220,7 +240,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/siem'
     | '/terminal'
+    | '/timeline'
     | '/url'
+    | '/report/$caseId'
   id:
     | '__root__'
     | '/'
@@ -240,7 +262,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/siem'
     | '/terminal'
+    | '/timeline'
     | '/url'
+    | '/report/$caseId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -261,7 +285,9 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SiemRoute: typeof SiemRoute
   TerminalRoute: typeof TerminalRoute
+  TimelineRoute: typeof TimelineRoute
   UrlRoute: typeof UrlRoute
+  ReportCaseIdRoute: typeof ReportCaseIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -271,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/url'
       fullPath: '/url'
       preLoaderRoute: typeof UrlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/timeline': {
+      id: '/timeline'
+      path: '/timeline'
+      fullPath: '/timeline'
+      preLoaderRoute: typeof TimelineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terminal': {
@@ -392,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/report/$caseId': {
+      id: '/report/$caseId'
+      path: '/report/$caseId'
+      fullPath: '/report/$caseId'
+      preLoaderRoute: typeof ReportCaseIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -413,7 +453,9 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SiemRoute: SiemRoute,
   TerminalRoute: TerminalRoute,
+  TimelineRoute: TimelineRoute,
   UrlRoute: UrlRoute,
+  ReportCaseIdRoute: ReportCaseIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

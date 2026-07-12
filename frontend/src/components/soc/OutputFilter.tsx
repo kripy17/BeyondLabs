@@ -50,7 +50,7 @@ export function OutputFilterBar({
         onChange={(e) => onChange(e.target.value)}
         placeholder="Filter output panels and findings…"
         autoFocus
-        className="w-full rounded-lg border border-primary/40 bg-card/80 py-2 pl-9 pr-16 text-mono text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none shadow-sm"
+        className="w-full rounded-lg border border-primary/40 bg-card/80 py-2 pl-9 pr-16 text-mono text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none elevation-flat"
       />
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
         {filterText && (

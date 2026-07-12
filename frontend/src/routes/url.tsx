@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
-import { IntakeCard, StatusBar, KeyFields, SectionBar, Panel, EvidenceCard, ResultBanner, SendToRow, Empty, Chip } from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
+import { StatusBar, KeyFields, EvidenceCard, ResultBanner, Empty } from "@/components/output";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
 import { safeAnalyzeUrl } from "@/api/backend";
 import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network, Search } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
@@ -157,7 +160,7 @@ function genJsonExport(parsed: URL, findings: { sev: string; t: string; r: strin
 function renderEnrichment(er: Record<string, unknown> | null) {
   if (!er) return null;
   return (
-    <Panel title="Backend Enrichment" icon={Globe2} meta={er.verdict as string}>
+    <Panel title="Backend Enrichment" icon={Globe2} meta={er.verdict as string} priority="secondary">
       <KeyFields items={[
         { label: "Verdict", value: (er.verdict as string) ?? "\u2014", tone: er.verdict === "suspicious" ? "warning" : er.verdict === "high_risk" ? "destructive" : "default" },
         { label: "Confidence", value: (er.confidence as string) ?? "\u2014" },
@@ -167,10 +170,10 @@ function renderEnrichment(er: Record<string, unknown> | null) {
       ]} />
       {Array.isArray(er.recommended_actions) && (er.recommended_actions as string[]).length > 0 && (
         <div className="mt-3 space-y-1">
-          <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Recommended Actions</p>
+          <p className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">Recommended Actions</p>
           <ul className="space-y-1">
             {(er.recommended_actions as string[]).map((a, i) => (
-              <li key={i} className="flex items-start gap-2 text-mono text-[11px] text-foreground/85">
+              <li key={i} className="flex items-start gap-2 text-mono ba-text-sm text-foreground/85">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                 {a}
               </li>
@@ -180,9 +183,9 @@ function renderEnrichment(er: Record<string, unknown> | null) {
       )}
       {Array.isArray(er.limitations) && (er.limitations as string[]).length > 0 && (
         <div className="mt-3 rounded border border-border/50 bg-card/40 px-2 py-1.5">
-          <p className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Limitations</p>
+          <p className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">Limitations</p>
           {(er.limitations as string[]).map((l, i) => (
-            <p key={i} className="text-mono text-[10px] text-muted-foreground/80">{l}</p>
+            <p key={i} className="text-mono ba-text-2xs text-muted-foreground/80">{l}</p>
           ))}
         </div>
       )}
@@ -196,9 +199,12 @@ function UrlPage() {
   const [history, setHistory] = useState<string[]>([]);
   const [urlSearch, setUrlSearch] = useState("");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
-  const [enrichResult, setEnrichResult] = useState<Record<string, unknown> | null>(null);
-  const [enrichLoading, setEnrichLoading] = useState(false);
-  const er: Record<string, unknown> | null = enrichResult;
+
+  const enrichMutation = useMutation({
+    mutationFn: (url: string) => safeAnalyzeUrl({ url, allow_live_fetch: false }),
+  });
+
+  const er = enrichMutation.data as Record<string, unknown> | null;
   const locker = useLocker();
 
   useEffect(() => {
@@ -329,20 +335,14 @@ function UrlPage() {
 
   useEffect(() => {
     if (!committed || !analysis?.parsed || !enrichEnabled) return;
-    setEnrichLoading(true);
-    setEnrichResult(null);
-    const url = refang(trimmed);
-    safeAnalyzeUrl({ url, allow_live_fetch: false })
-      .then((res) => setEnrichResult(res as Record<string, unknown>))
-      .catch(() => setEnrichResult(null))
-      .finally(() => setEnrichLoading(false));
+    enrichMutation.mutate(refang(trimmed));
   }, [committed, enrichEnabled, trimmed, analysis?.parsed]);
 
   const state: ToolState = !has ? "idle" : !committed ? "idle" : analysis?.parsed ? "ready" : "error";
   const tone = !analysis ? "muted" : analysis.findings.some((f) => f.sev === "destructive") ? "destructive" : analysis.findings.some((f) => f.sev === "warning") ? "warning" : "success";
 
   const run = () => setRuns((r) => r + 1);
-  const clear = () => { setRaw(""); setRuns(0); setEnrichResult(null); };
+  const clear = () => { setRaw(""); setRuns(0); enrichMutation.reset(); };
 
   const iocs: { kind: string; value: string }[] = [];
 
@@ -397,22 +397,22 @@ function UrlPage() {
               { label: "Runs", value: runs, tone: "muted" },
             ]} />
             <div className="flex items-center gap-2 px-1">
-              <label className="flex items-center gap-1.5 text-mono text-[10px] cursor-pointer select-none">
+              <label className="flex items-center gap-1.5 text-mono ba-text-2xs cursor-pointer select-none">
                 <input type="checkbox" checked={enrichEnabled} onChange={(e) => setEnrichEnabled(e.target.checked)} className="accent-primary" />
                 backend enrichment
-                {enrichLoading && <Loader2 className="ml-0.5 inline h-3 w-3 animate-spin text-primary" />}
+                {enrichMutation.isPending && <Loader2 className="ml-0.5 inline h-3 w-3 animate-spin text-primary" />}
               </label>
-              {er && <span className="text-mono text-[10px] text-success">done</span>}
+              {er && <span className="text-mono ba-text-2xs text-success">done</span>}
             </div>
             {history.length > 0 && (
-              <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History} collapsible storageKey="ba.panel.url.history" defaultCollapsed>
+              <Panel title="Recent URLs" meta={`${history.length} \u00B7 local only`} icon={History} priority="secondary" collapsible storageKey="ba.panel.url.history" defaultCollapsed>
                 <div className="relative px-3 pb-1 pt-1">
                   <Search className="absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/50" />
                   <input
                     value={urlSearch}
                     onChange={e => setUrlSearch(e.target.value)}
                     placeholder="search history…"
-                    className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+                    className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono ba-text-2xs text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
                   />
                 </div>
                 <ul className="divide-y divide-border/40">
@@ -420,20 +420,20 @@ function UrlPage() {
                     <li key={i} className="flex items-center justify-between gap-2 py-1.5">
                       <button
                         onClick={() => { setRaw(h); setRuns((r) => r + 1); }}
-                        className="truncate text-left text-mono text-[11px] text-foreground/85 hover:text-primary"
+                        className="truncate text-left text-mono ba-text-sm text-foreground/85 hover:text-primary"
                       >
                         {defang(h)}
                       </button>
-                      <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">recall</span>
+                      <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">recall</span>
                     </li>
                   ))}
                   {urlSearch.trim() && history.filter(h => h.toLowerCase().includes(urlSearch.toLowerCase())).length === 0 && (
-                    <li className="px-3 py-2 text-center text-mono text-[10px] text-muted-foreground">no matches</li>
+                    <li className="px-3 py-2 text-center text-mono ba-text-2xs text-muted-foreground">no matches</li>
                   )}
                 </ul>
                 <button
                   onClick={() => { setHistory([]); try { localStorage.removeItem(HISTORY_KEY); } catch {} }}
-                  className="mt-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-destructive"
+                  className="mt-2 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-destructive"
                 >clear history</button>
               </Panel>
             )}
@@ -441,13 +441,14 @@ function UrlPage() {
         }
         output={
           !analysis ? (
-            <Empty icon={Globe2} title={has ? "Press analyse or paste to run" : "No URL loaded"} hint="Try a sample on the left, or paste any URL \u2014 defanged forms are accepted." />
+            <Empty icon={Globe2} title={has ? "Press analyse or paste to run" : "No URL loaded"} hint="URL Analyzer extracts IOCs, detects phishing indicators (typosquatting, defanged URLs), traces redirect chains, and checks TLS. Try a sample on the left or paste any URL \u2014 defanged forms are accepted." />
           ) : !analysis.parsed ? (
             <Empty icon={Globe2} title="Could not parse URL" hint="Check for stray spaces, missing scheme, or unbalanced brackets." />
           ) : (
             <div className="space-y-4">
               <ResultBanner
                 sticky
+                tone={tone === "destructive" ? "destructive" : tone === "warning" ? "warning" : "success"}
                 badge={tone === "destructive" ? "high risk" : tone === "warning" ? "suspicious" : "low risk"}
                 caseId={`BA-UR-${String(analysis.findings.length).padStart(2, "0")}`}
                 title={analysis.parsed.hostname}
@@ -463,7 +464,7 @@ function UrlPage() {
  
               {analysis.trackingParams.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 px-1">
-                  <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">tracking</span>
+                  <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground/60">tracking</span>
                   {analysis.trackingParams.map(([k]) => (
                     <Chip key={k}>{k}</Chip>
                   ))}
@@ -471,7 +472,7 @@ function UrlPage() {
               )}
  
               <Panel title="Hostname Segments" meta="registrable domain highlighted" icon={Globe2}>
-                <div className="flex flex-wrap items-center gap-1 text-mono text-[13px]">
+                <div className="flex flex-wrap items-center gap-1 text-mono ba-text-base">
                   <span className="rounded border border-border bg-background/60 px-1.5 py-0.5 text-foreground/70">{analysis.parsed.protocol.replace(":", "")}</span>
                   <span className="text-muted-foreground">://</span>
                   {analysis.parsed.hostname.split(".").map((seg, i, arr) => (
@@ -500,14 +501,14 @@ function UrlPage() {
                     {label:"Query", value: analysis.parsed.search || "\u2014"},
                     {label:"Fragment", value: analysis.parsed.hash || "\u2014"},
                     {label:"Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".")},
-                    {label:"Subdomains", value: analysis.parsed.hostname.split(".").length - 2},
+                    {label:"Subdomains", value: (analysis.parsed.hostname.split(".").length - 2).toString()},
                   ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between gap-2 py-1.5 text-mono text-[11px]">
+                    <div key={item.label} className="flex items-center justify-between gap-2 py-1.5 text-mono ba-text-sm">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0 text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                        <span className="shrink-0 ba-text-2xs uppercase tracking-widest text-muted-foreground">{item.label}</span>
                         <code className={`truncate ${item.tone === "warning" ? "text-warning" : item.tone === "destructive" ? "text-destructive" : "text-foreground/85"}`}>{item.value}</code>
                       </div>
-                      <button onClick={() => navigator.clipboard.writeText(item.value)} className="shrink-0 rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                      <button onClick={() => navigator.clipboard.writeText(item.value)} className="shrink-0 rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
                     </div>
                   ))}
                 </div>
@@ -530,7 +531,7 @@ function UrlPage() {
                       <div key={i} className="group relative flex items-start gap-3 px-4 py-2.5 hover:bg-card/30">
                         {/* Timeline rail */}
                         <div className="relative flex flex-col items-center pt-1">
-                          <div className={"z-10 grid h-5 w-5 place-items-center rounded-full border-2 text-mono text-[9px] font-bold " + (isRedirect ? "border-warning/60 bg-warning/10 text-warning" : "border-success/60 bg-success/10 text-success")}>
+                          <div className={"z-10 grid h-5 w-5 place-items-center rounded-full border-2 text-mono ba-text-3xs font-bold " + (isRedirect ? "border-warning/60 bg-warning/10 text-warning" : "border-success/60 bg-success/10 text-success")}>
                             {r.code}
                           </div>
                           {i < redirects.length - 1 && <div className="mt-0.5 h-full w-px bg-border/50" />}
@@ -538,10 +539,10 @@ function UrlPage() {
                         {/* Content */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="truncate text-mono text-[11px] text-foreground/85">{r.url}</span>
-                            <span className="shrink-0 text-mono text-[10px] text-muted-foreground">{ms}ms</span>
+                            <span className="truncate text-mono ba-text-sm text-foreground/85">{r.url}</span>
+                            <span className="shrink-0 text-mono ba-text-2xs text-muted-foreground">{ms}ms</span>
                           </div>
-                          {r.note && <span className="mt-0.5 block text-[10px] text-muted-foreground">{r.note}</span>}
+                          {r.note && <span className="mt-0.5 block ba-text-2xs text-muted-foreground">{r.note}</span>}
                           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-border/30">
                             <div
                               className={"h-full rounded-sm transition-all " + (isRedirect ? "bg-warning/60" : "bg-success/60")}
@@ -550,7 +551,7 @@ function UrlPage() {
                           </div>
                         </div>
                         {/* Hop number */}
-                        <span className="shrink-0 pt-1 text-mono text-[9px] text-muted-foreground/40 group-hover:text-muted-foreground/70">#{i + 1}</span>
+                        <span className="shrink-0 pt-1 text-mono ba-text-3xs text-muted-foreground/40 group-hover:text-muted-foreground/70">#{i + 1}</span>
                       </div>
                     );
                   })}
@@ -560,24 +561,24 @@ function UrlPage() {
               {/* Network / TLS / Geo intel */}
               {intel && (
                 <div className="grid gap-3 grid-cols-3">
-                  <Panel title="Network (simulated)" icon={Network} meta={intel.asn}>
-                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
+                  <Panel title="Network (simulated)" icon={Network} meta={intel.asn} priority="secondary">
+                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Resolved IP", value: intel.ip },
                       { label: "ASN", value: intel.asn },
                       { label: "Org", value: intel.org },
                     ]} />
                   </Panel>
-                  <Panel title="TLS (simulated)" icon={Lock} meta={`${intel.tlsAge}d old`}>
-                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
+                  <Panel title="TLS (simulated)" icon={Lock} meta={`${intel.tlsAge}d old`} priority="secondary">
+                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Issuer", value: intel.tlsIssuer },
                       { label: "Cert age", value: `${intel.tlsAge} days`, tone: intel.tlsAge < 30 ? "warning" : "default" },
                       { label: "Protocol", value: analysis.isHttp ? "none (HTTP)" : "TLS 1.3", tone: analysis.isHttp ? "destructive" : "default" },
                     ]} />
                   </Panel>
-                  <Panel title="Geo (simulated)" icon={MapPin} meta={intel.country}>
-                    <p className="px-1 pb-1 text-mono text-[9px] italic text-muted-foreground/50">data is simulated — for demo only</p>
+                  <Panel title="Geo (simulated)" icon={MapPin} meta={intel.country} priority="secondary">
+                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
                     <KeyFields items={[
                       { label: "Country", value: intel.country },
                       { label: "City", value: intel.city },
@@ -586,20 +587,20 @@ function UrlPage() {
                   </Panel>
                 </div>
               )}
-              <p className="text-mono text-[9px] text-muted-foreground/50 italic">* Network/TLS/Geo data is simulated for demo purposes</p>
+              <p className="text-mono ba-text-3xs text-muted-foreground/50 italic">* Network/TLS/Geo data is simulated for demo purposes</p>
 
               {/* Path Analysis */}
               <Panel title="Path Analysis" icon={CornerDownRight} meta={`${analysis.pathSignals.length} signal${analysis.pathSignals.length === 1 ? "" : "s"}`}>
                 <div className="space-y-3">
                   {analysis.pathSignals.length === 0 ? (
-                    <p className="text-mono text-[11px] text-muted-foreground">No suspicious path patterns detected.</p>
+                    <p className="text-mono ba-text-sm text-muted-foreground">No suspicious path patterns detected.</p>
                   ) : (
                     <ul className="space-y-1.5">
                       {analysis.pathSignals.map((s, i) => {
                         const sev = s.startsWith("File download") || s.startsWith("Suspicious TLD") ? "warning" :
                                     s.startsWith("Path traversal") || s.startsWith("Embedded") ? "destructive" : "info";
                         return (
-                          <li key={i} className="flex items-center gap-2 text-mono text-[11px]">
+                          <li key={i} className="flex items-center gap-2 text-mono ba-text-sm">
                             <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
                               sev === "destructive" ? "bg-destructive" : sev === "warning" ? "bg-warning" : "bg-primary"
                             }`} />
@@ -617,7 +618,7 @@ function UrlPage() {
                     </div>
                   )}
                   {analysis.fileExt && (
-                    <div className="rounded border border-border/50 bg-card/40 px-2 py-1.5 text-mono text-[11px]">
+                    <div className="rounded border border-border/50 bg-card/40 px-2 py-1.5 text-mono ba-text-sm">
                       <span className="text-muted-foreground">File extension: </span>
                       <span className="font-semibold text-warning">.{analysis.fileExt}</span>
                     </div>
@@ -627,7 +628,7 @@ function UrlPage() {
 
               {/* Domain Profile + Secrets grid */}
               <div className="grid gap-3 grid-cols-2">
-                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`} collapsible storageKey="ba.panel.url.domain" defaultCollapsed>
+                <Panel title="Domain Profile" icon={Globe2} meta={`entropy ${analysis.domainEnt.toFixed(2)}`} priority="secondary" collapsible storageKey="ba.panel.url.domain" defaultCollapsed>
                   <KeyFields items={[
                     { label: "TLD", value: `.${analysis.tld}`, tone: analysis.isSuspiciousTLD ? "warning" : "default" },
                     { label: "Domain entropy", value: analysis.domainEnt.toFixed(2), tone: analysis.domainEnt > 4.0 ? "warning" : "default" },
@@ -636,7 +637,7 @@ function UrlPage() {
                   ]} />
                   {analysis.suspiciousChars.length > 0 && (
                     <div className="mt-2">
-                      <p className="mb-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Suspicious characters</p>
+                      <p className="mb-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">Suspicious characters</p>
                       <div className="flex flex-wrap gap-1">
                         {analysis.suspiciousChars.map((c, i) => (
                           <Chip key={i}>{`'${c.char}' at ${c.pos}`}</Chip>
@@ -645,19 +646,19 @@ function UrlPage() {
                     </div>
                   )}
                   {analysis.hasNonStandardPort && (
-                    <p className="mt-2 rounded border border-warning/30 bg-warning/5 px-2 py-1 text-mono text-[10px] text-warning">
+                    <p className="mt-2 rounded border border-warning/30 bg-warning/5 px-2 py-1 text-mono ba-text-2xs text-warning">
                       Port {analysis.portNum}: {SUSPICIOUS_PORT_WARN[analysis.portNum!] || "non-standard port"}
                     </p>
                   )}
                 </Panel>
 
-                <Panel title="Secrets in URL" icon={Key} meta={`${analysis.secrets.length}`} collapsible storageKey="ba.panel.url.secrets">
+                <Panel title="Secrets in URL" icon={Key} meta={`${analysis.secrets.length}`} priority="secondary" collapsible storageKey="ba.panel.url.secrets">
                   {analysis.secrets.length === 0 ? (
-                    <p className="text-mono text-[11px] text-muted-foreground">No secrets detected in URL path or query.</p>
+                    <p className="text-mono ba-text-sm text-muted-foreground">No secrets detected in URL path or query.</p>
                   ) : (
                     <ul className="space-y-1.5">
                       {analysis.secrets.map((s, i) => (
-                        <li key={i} className="flex items-center gap-2 text-mono text-[11px]">
+                        <li key={i} className="flex items-center gap-2 text-mono ba-text-sm">
                           <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                           <span className="font-semibold text-destructive">{s.type}:</span>
                           <code className="text-foreground/85">{s.value}</code>
@@ -682,13 +683,13 @@ function UrlPage() {
                 const entPct = Math.min(100, Math.round((hrefEnt / 6) * 100));
                 return (
                   <div className="grid gap-3 grid-cols-2">
-                    <Panel title="Query Parameters" meta={`${params.length}`}>
+                    <Panel title="Query Parameters" meta={`${params.length}`} priority="secondary">
                       {params.length === 0 ? (
-                        <p className="text-mono text-[11px] text-muted-foreground">No query string.</p>
+                        <p className="text-mono ba-text-sm text-muted-foreground">No query string.</p>
                       ) : (
                         <ul className="divide-y divide-border/40">
                           {params.map(([k, v], i) => (
-                            <li key={i} className="grid grid-cols-[120px_1fr] items-start gap-2 py-1.5 text-mono text-[11px]">
+                            <li key={i} className="grid grid-cols-[120px_1fr] items-start gap-2 py-1.5 text-mono ba-text-sm">
                               <code className="truncate text-primary/90">{k}</code>
                               <code className="truncate text-foreground/85">{v || "\u2014"}</code>
                             </li>
@@ -696,10 +697,10 @@ function UrlPage() {
                         </ul>
                       )}
                     </Panel>
-                    <Panel title="String Profile" meta="length \u00B7 entropy">
+                    <Panel title="String Profile" meta="length \u00B7 entropy" priority="secondary">
                       <div className="space-y-3">
                         <div>
-                          <div className="mb-1 flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                          <div className="mb-1 flex items-center justify-between text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                             <span>Length</span><span className="text-foreground">{href.length} chars</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-card/60 overflow-hidden">
@@ -707,14 +708,14 @@ function UrlPage() {
                           </div>
                         </div>
                         <div>
-                          <div className="mb-1 flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                          <div className="mb-1 flex items-center justify-between text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                             <span>Shannon entropy</span><span className="text-foreground">{hrefEnt} bits</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-card/60 overflow-hidden">
                             <div className={"h-full transition-all " + (entPct > 70 ? "bg-destructive" : entPct > 50 ? "bg-warning" : "bg-success")} style={{ width: `${entPct}%` }} />
                           </div>
                         </div>
-                        <p className="text-mono text-[10px] text-muted-foreground">High entropy + long path often signals encoded payloads or session tokens.</p>
+                        <p className="text-mono ba-text-2xs text-muted-foreground">High entropy + long path often signals encoded payloads or session tokens.</p>
                       </div>
                     </Panel>
                   </div>
@@ -725,14 +726,14 @@ function UrlPage() {
               <Panel title="Artifact Summary" icon={Hash} meta="url · domain · ip">
                 <div className="space-y-2">
                   {[{label:"URL", value: defang(analysis.parsed.href)}, {label:"Domain", value: analysis.parsed.hostname}, {label:"Registrable", value: analysis.parsed.hostname.split(".").slice(-2).join(".")}].map(item => (
-                    <div key={item.label} className="flex items-center justify-between gap-2 rounded border border-border/40 bg-card/30 px-2 py-1">
+                    <div key={item.label} className="flex items-center justify-between gap-2 rounded border border-divider-soft bg-card/30 px-2 py-1">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</span>
-                        <code className="truncate text-mono text-[11px] text-foreground/90">{item.value}</code>
+                        <span className="shrink-0 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                        <code className="truncate text-mono ba-text-sm text-foreground/90">{item.value}</code>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => { navigator.clipboard.writeText(item.value); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
-                        <button onClick={() => { locker.add({ value: item.value, type: item.label === "URL" ? "url" : "domain", source: "/url" }); }} className="rounded border border-border/40 bg-card/30 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary">locker</button>
+                        <button onClick={() => { navigator.clipboard.writeText(item.value); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                        <button onClick={() => { locker.add({ value: item.value, type: item.label === "URL" ? "url" : "domain", source: "/url" }); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">locker</button>
                       </div>
                     </div>
                   ))}
@@ -743,10 +744,10 @@ function UrlPage() {
 
               {/* MITRE ATT&CK */}
               {analysis.mitre.length > 0 && (
-                <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${analysis.mitre.length} technique${analysis.mitre.length === 1 ? "" : "s"}`}>
+                <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${analysis.mitre.length} technique${analysis.mitre.length === 1 ? "" : "s"}`} priority="secondary">
                   <div className="flex flex-wrap gap-2">
                     {analysis.mitre.map((m, i) => (
-                      <span key={i} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
+                      <span key={i} className="inline-flex items-center gap-1.5 rounded border border-divider-strong bg-card/40 px-2 py-1 text-mono ba-text-sm text-foreground/85">
                         <Bug className="h-3 w-3 text-destructive" />
                         <span className="font-semibold">{m.id}</span>
                         <span className="text-muted-foreground">:</span>
@@ -758,9 +759,9 @@ function UrlPage() {
               )}
 
               {/* Risk Signals */}
-              <SectionBar id="EV" label="Risk signals" meta={`${analysis.findings.length} \u00B7 reason \u00B7 action`} />
+              <SectionBar id="EV" label="Risk signals" meta={`${analysis.findings.length} \u00B7 reason \u00B7 action`} priority="secondary" />
               <div className="grid gap-3 grid-cols-2">
-                {analysis.findings.length === 0 ? <Empty title="No suspicious patterns" /> : analysis.findings.map((f, i) => (
+                {analysis.findings.length === 0 ? <Empty title="No suspicious patterns" hint="URL Analyzer extracts IOCs, detects phishing indicators (typosquatting, defanged URLs), and traces redirect chains. Try a different URL or check the parsed components below." /> : analysis.findings.map((f, i) => (
                   <EvidenceCard key={i} severity={f.sev} title={f.t} reason={f.r} action={f.a} limitation="Heuristic \u2014 verify with passive DNS / TLS / WHOIS." />
                 ))}
               </div>
@@ -781,7 +782,7 @@ function UrlPage() {
 
               {/* Export + Handoff */}
               <div className="grid gap-4 grid-cols-[1fr_2fr]">
-                <Panel title="Export Report" icon={Download}>
+                <Panel title="Export Report" icon={Download} priority="secondary">
                   <button
                     onClick={() => {
                       const md = genMarkdownExport(analysis.parsed!, analysis.findings, analysis.secrets, analysis.mitre, analysis.pathSignals, analysis.fileExt, analysis.hasEmbeddedCreds, analysis.hasPathTraversal, analysis.isNumericDomain, analysis.hasNonStandardPort, analysis.portNum ?? "", analysis.suspiciousChars);
@@ -790,7 +791,7 @@ function UrlPage() {
                       const a = document.createElement("a"); a.href = url; a.download = `url-report-${Date.now()}.md`; a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
+                    className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Download Markdown
@@ -803,7 +804,7 @@ function UrlPage() {
                       const a = document.createElement("a"); a.href = url; a.download = `url-report-${Date.now()}.json`; a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="group inline-flex w-full items-center justify-center gap-2 rounded border border-border/50 bg-card/40 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-foreground/80 transition-all hover:border-primary/40 hover:text-primary"
+                    className="group inline-flex w-full items-center justify-center gap-2 rounded border border-border/50 bg-card/40 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 transition-all hover:border-primary/40 hover:text-primary"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Download JSON

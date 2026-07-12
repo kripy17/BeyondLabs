@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, SendToRow, Chip, KeyFields, EvidenceCard, IocInventory, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/soc/Workspace";
+import { SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
+import { KeyFields, EvidenceCard, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, StickyNote, Save, X, ListFilter, Info } from "lucide-react";
 import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule } from "@/api/detection";
@@ -313,7 +314,7 @@ function DetectionPage() {
       }) as any;
       setIdsRule(res.rule);
     } catch (e: any) {
-      toast.error(e?.message || "IDS build failed");
+      toast.error(e?.message || "IDS build failed", { description: e?.suggestion });
     } finally {
       setIdsBuildLoading(false);
     }
@@ -459,12 +460,12 @@ function DetectionPage() {
               }
             >
               <div className="flex items-center gap-2.5">
-                <span className={"grid h-7 w-7 place-items-center rounded border " + (active ? "border-primary/60 bg-primary/20 text-primary" : "border-border/60 bg-background/60 text-muted-foreground")}>
+                <span className={"grid h-7 w-7 place-items-center rounded border " + (active ? "border-primary/60 bg-primary/20 text-primary" : "border-divider-strong bg-background/60 text-muted-foreground")}>
                   {refIcon(f)}
                 </span>
                 <div>
-                  <div className={"text-mono text-[11px] uppercase tracking-widest " + (active ? "text-primary" : "text-foreground/90")}>{f}</div>
-                  <div className="text-[10px] text-muted-foreground">{desc}</div>
+                  <div className={"text-mono ba-text-sm uppercase tracking-widest " + (active ? "text-primary" : "text-foreground/90")}>{f}</div>
+                  <div className="ba-text-2xs text-muted-foreground">{desc}</div>
                 </div>
               </div>
               {active && <Chip tone="primary">active</Chip>}
@@ -481,8 +482,8 @@ function DetectionPage() {
                 <Wand2 className="h-3.5 w-3.5" strokeWidth={2.25} />
               </span>
               <div>
-                <div className="text-mono text-[11px] uppercase tracking-widest text-primary">generate</div>
-                <div className="text-[10px] text-muted-foreground">Sigma from description</div>
+                <div className="text-mono ba-text-sm uppercase tracking-widest text-primary">generate</div>
+                <div className="ba-text-2xs text-muted-foreground">Sigma from description</div>
               </div>
             </div>
           </button>
@@ -491,32 +492,32 @@ function DetectionPage() {
 
       {/* Sigma generate panel */}
       {fmt === "sigma" && genResult && genResult._show && (
-        <Panel title="Sigma generator" icon={Wand2} className="mb-4" actions={
+        <Panel title="Sigma generator" icon={Wand2} priority="secondary" className="mb-4" actions={
           genResult.sigma_yaml ? (
-            <button onClick={loadGenerated} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+            <button onClick={loadGenerated} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase text-primary hover:bg-primary/20">
               <Plus className="h-3 w-3" /> load into editor
             </button>
           ) : null
         }>
           {!genResult.sigma_yaml ? (
             <div className="space-y-3">
-              <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <label className="flex flex-col gap-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                 attack description
                 <textarea
                   value={genDescription}
                   onChange={(e) => setGenDescription(e.target.value)}
                   rows={3}
                   placeholder="e.g. PowerShell launching encoded command from可疑 IP..."
-                  className="rounded border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground placeholder:text-muted-foreground/40"
+                  className="rounded border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground placeholder:text-muted-foreground/40"
                 />
               </label>
               <div className="flex items-end gap-2">
-                <label className="flex flex-col gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <label className="flex flex-col gap-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                   severity
                   <select
                     value={genSeverity}
                     onChange={(e) => setGenSeverity(e.target.value)}
-                    className="rounded border border-border bg-background/60 px-2 py-1 text-mono text-[12px] text-foreground"
+                    className="rounded border border-border bg-background/60 px-2 py-1 text-mono ba-text-base text-foreground"
                   >
                     <option value="informational">informational</option>
                     <option value="low">low</option>
@@ -534,11 +535,11 @@ function DetectionPage() {
                   {genLoading ? "generating..." : "generate"}
                 </button>
               </div>
-              {genError && <p className="text-mono text-[11px] text-destructive">{genError}</p>}
+              {genError && <p className="text-mono ba-text-sm text-destructive">{genError}</p>}
             </div>
           ) : (
             <div className="space-y-3">
-              <pre className="max-h-60 overflow-auto rounded border border-border/50 bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{genResult.sigma_yaml}</pre>
+              <pre className="max-h-60 overflow-auto rounded border border-border/50 bg-background/60 p-3 text-mono ba-text-sm leading-relaxed text-foreground/90">{genResult.sigma_yaml}</pre>
               {genResult.mitre_mapping?.matches && genResult.mitre_mapping.matches.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {genResult.mitre_mapping.matches.map((m: MitreMatch) => (
@@ -553,7 +554,7 @@ function DetectionPage() {
 
       {/* Rule library button + panel */}
       <div className="mb-3">
-        <button onClick={() => setShowLib(s => !s)} className={"inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showLib ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+        <button onClick={() => setShowLib(s => !s)} className={"inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (showLib ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
           <BookMarked className="h-3 w-3" />
           rule library
           {savedRules.length > 0 && <Chip tone={showLib ? "primary" : "default"}>{savedRules.length}</Chip>}
@@ -561,26 +562,26 @@ function DetectionPage() {
       </div>
 
       {showLib && (
-        <Panel title="Rule library" icon={BookMarked} meta={`${savedRules.length} saved · ${fmtRules.length} in ${fmt}`} className="mb-4" actions={
-          <span className="flex items-center gap-1.5 text-mono text-[10px] text-muted-foreground">
+        <Panel title="Rule library" icon={BookMarked} priority="secondary" meta={`${savedRules.length} saved · ${fmtRules.length} in ${fmt}`} className="mb-4" actions={
+          <span className="flex items-center gap-1.5 text-mono ba-text-2xs text-muted-foreground">
             {libNotice && <span className="text-success">{libNotice}</span>}
           </span>
         }>
           {/* Save current */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-border/60 bg-background/30 p-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-divider-strong bg-background/30 p-2">
             <input
               value={libName}
               onChange={e => setLibName(e.target.value)}
               placeholder={`Rule name… (default: Rule ${savedRules.length + 1})`}
-              className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+              className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
             />
             <input
               value={libTags}
               onChange={e => setLibTags(e.target.value)}
               placeholder="tags (comma)"
-              className="w-32 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+              className="w-32 rounded border border-border bg-background/60 px-2 py-1 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
             />
-            <button onClick={saveCurrent} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-1 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+            <button onClick={saveCurrent} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-1 text-mono ba-text-2xs uppercase text-primary hover:bg-primary/20">
               <Save className="h-3 w-3" /> save current
             </button>
           </div>
@@ -591,46 +592,46 @@ function DetectionPage() {
               value={ruleSearch}
               onChange={e => setRuleSearch(e.target.value)}
               placeholder="search rules by name, tag, or content…"
-              className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+              className="w-full rounded border border-border/50 bg-background/40 py-1 pl-6 pr-2 text-mono ba-text-2xs text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
             />
           </div>
           {filteredSaved.length === 0 ? (
-            <div className="text-center text-mono text-[11px] text-muted-foreground py-4">{savedRules.length === 0 ? "No rules saved yet. Write a rule and save it above." : "No rules match your search."}</div>
+            <div className="text-center text-mono ba-text-sm text-muted-foreground py-4">{savedRules.length === 0 ? "No rules saved yet. Write a rule and save it above." : "No rules match your search."}</div>
           ) : (
             <div className="space-y-2 max-h-80 overflow-auto">
               {fmtRules.map(r => (
                 <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border/50 bg-background/30 px-3 py-2 hover:border-primary/30">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-mono text-[12px] font-semibold text-foreground/90">{r.name}</span>
+                      <span className="text-mono ba-text-base font-semibold text-foreground/90">{r.name}</span>
                       {r.tags.map(t => <Chip key={t} tone="info">{t}</Chip>)}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                    <div className="mt-0.5 flex items-center gap-2 text-mono ba-text-2xs text-muted-foreground">
                       <span className="uppercase tracking-widest">{r.format}</span>
                       <span>· {r.rule.length} chars</span>
                       <span>· saved {new Date(r.updated).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /> load</button>
-                    <button onClick={() => duplicateRule(r)} aria-label="Duplicate rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Copy className="inline h-3 w-3" /></button>
-                    <button onClick={() => deleteRule(r.id)} aria-label="Delete rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-destructive"><Trash2 className="inline h-3 w-3" /></button>
+                    <button onClick={() => loadRule(r)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /> load</button>
+                    <button onClick={() => duplicateRule(r)} aria-label="Duplicate rule" className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-primary"><Copy className="inline h-3 w-3" /></button>
+                    <button onClick={() => deleteRule(r.id)} aria-label="Delete rule" className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-destructive"><Trash2 className="inline h-3 w-3" /></button>
                   </div>
                 </div>
               ))}
               {otherRules.length > 0 && (
                 <details className="group">
-                  <summary className="cursor-pointer px-1 pt-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                  <summary className="cursor-pointer px-1 pt-2 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
                     other formats ({otherRules.length})
                   </summary>
                   <div className="mt-1 space-y-1">
                     {otherRules.map(r => (
-                      <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border/30 bg-background/20 px-2.5 py-1.5">
+                      <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-divider-soft bg-background/20 px-2.5 py-1.5">
                         <div className="min-w-0 flex-1">
-                          <span className="text-mono text-[11px] text-foreground/80">{r.name}</span>
-                          <span className="ml-2 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{r.format}</span>
+                          <span className="text-mono ba-text-sm text-foreground/80">{r.name}</span>
+                          <span className="ml-2 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">{r.format}</span>
                         </div>
-                        <button onClick={() => loadRule(r)} aria-label="Load rule" className="rounded border border-border px-1.5 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /></button>
+                        <button onClick={() => loadRule(r)} aria-label="Load rule" className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-primary"><Edit3 className="inline h-3 w-3" /></button>
                       </div>
                     ))}
                   </div>
@@ -652,20 +653,20 @@ function DetectionPage() {
             <>
               {/* Validation badge */}
               {rule.trim() && (hasErrors || hasWarnings) && (
-                <span className={"inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-mono text-[10px] " + (hasErrors ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-warning/40 bg-warning/10 text-warning")}>
+                <span className={"inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-mono ba-text-2xs " + (hasErrors ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-warning/40 bg-warning/10 text-warning")}>
                   {hasErrors ? `${validation.filter(v => v.type === "error").length} err` : `${validation.filter(v => v.type === "warning").length} warn`}
                 </span>
               )}
-              <button onClick={() => setShowAnalysis(s => !s)} className={"inline-flex items-center gap-1 rounded border px-2 py-0.5 text-mono text-[10px] uppercase " + (showAnalysis ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+              <button onClick={() => setShowAnalysis(s => !s)} className={"inline-flex items-center gap-1 rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase " + (showAnalysis ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
                 <Info className="h-3 w-3" /> analyze
               </button>
-              <button onClick={reset} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> reset</button>
-              <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">{copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}</button>
+              <button onClick={reset} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> reset</button>
+              <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">{copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}</button>
             </>
           }
         >
-          <div className="relative grid grid-cols-[2.5rem_1fr] overflow-hidden rounded border border-border/60 bg-background/60">
-            <div aria-hidden className="select-none border-r border-border/40 bg-card/40 py-2 text-right">
+          <div className="relative grid grid-cols-[2.5rem_1fr] overflow-hidden rounded border border-divider-strong bg-background/60">
+            <div aria-hidden className="select-none border-r border-divider-soft bg-card/40 py-2 text-right">
               {ruleLines.map((_, i) => (
                 <div key={i} className="px-2 text-mono text-[10.5px] leading-[1.5] text-muted-foreground/60">{i + 1}</div>
               ))}
@@ -673,7 +674,7 @@ function DetectionPage() {
             <div className="relative">
               <pre
                 aria-hidden
-                className="pointer-events-none m-0 whitespace-pre-wrap break-words p-2 text-mono text-[12px] leading-[1.5] text-foreground/90"
+                className="pointer-events-none m-0 whitespace-pre-wrap break-words p-2 text-mono ba-text-base leading-[1.5] text-foreground/90"
                 dangerouslySetInnerHTML={{ __html: highlight(rule, fmt, []) + "\n" }}
               />
               <textarea
@@ -685,7 +686,7 @@ function DetectionPage() {
                   if (detected && detected !== fmt) switchFmt(detected);
                 }}
                 spellCheck={false}
-                className="absolute inset-0 resize-none overflow-hidden bg-transparent p-2 text-mono text-[12px] leading-[1.5] text-transparent caret-primary outline-none"
+                className="absolute inset-0 resize-none overflow-hidden bg-transparent p-2 text-mono ba-text-base leading-[1.5] text-transparent caret-primary outline-none"
                 style={{ WebkitTextFillColor: "transparent" }}
               />
             </div>
@@ -695,7 +696,7 @@ function DetectionPage() {
           {rule.trim() && (hasErrors || hasWarnings) && (
             <div className="mt-2 space-y-1">
               {validation.map((v, i) => (
-                <div key={i} className={"flex items-start gap-2 rounded px-2 py-1 text-mono text-[10px] " + (v.type === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning")}>
+                <div key={i} className={"flex items-start gap-2 rounded px-2 py-1 text-mono ba-text-2xs " + (v.type === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning")}>
                   <span className="mt-0.5 shrink-0">{v.type === "error" ? <X className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}</span>
                   <span>{v.msg}{v.line != null ? ` (line ${v.line})` : ""}</span>
                 </div>
@@ -712,7 +713,7 @@ function DetectionPage() {
           className="col-span-2"
           actions={<Chip tone={result.hit ? "destructive" : "default"}>{result.hit ? "MATCH" : "no match"}</Chip>}
         >
-          <div className="relative overflow-hidden rounded border border-border/60 bg-background/60">
+          <div className="relative overflow-hidden rounded border border-divider-strong bg-background/60">
             <pre
               aria-hidden
               className="pointer-events-none m-0 max-h-40 whitespace-pre-wrap break-words p-2 text-mono text-[11.5px] leading-[1.5] text-foreground/90"
@@ -729,7 +730,7 @@ function DetectionPage() {
           </div>
 
           <div className="mt-3 space-y-2">
-            <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="flex items-center justify-between text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
               <span>token coverage</span>
               <span>{result.hits.length} / 2 conditions</span>
             </div>
@@ -741,7 +742,7 @@ function DetectionPage() {
             </div>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {(result.hits.length ? result.hits : ["—"]).map((h) => (
-                <span key={h} className="inline-flex items-center gap-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-mono text-[10px] text-warning"><Crosshair className="h-2.5 w-2.5" /> {h}</span>
+                <span key={h} className="inline-flex items-center gap-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-mono ba-text-2xs text-warning"><Crosshair className="h-2.5 w-2.5" /> {h}</span>
               ))}
             </div>
             <button
@@ -758,12 +759,12 @@ function DetectionPage() {
 
       {/* Structural analysis panel */}
       {showAnalysis && analysis.length > 0 && (
-        <Panel title={`Rule structure · ${fmt}`} icon={ListFilter} meta={`${analysis.length} fields`} className="mt-3">
+        <Panel title={`Rule structure · ${fmt}`} icon={ListFilter} priority="secondary" meta={`${analysis.length} fields`} className="mt-3">
           <div className="grid gap-1.5 grid-cols-3">
             {analysis.map((f) => (
-              <div key={f.key} className="rounded border border-border/40 bg-background/30 px-2.5 py-1.5">
+              <div key={f.key} className="rounded border border-divider-soft bg-background/30 px-2.5 py-1.5">
                 <div className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{f.key}</div>
-                <div className="mt-0.5 truncate text-mono text-[11px] text-foreground/90" title={f.value}>{f.value}</div>
+                <div className="mt-0.5 truncate text-mono ba-text-sm text-foreground/90" title={f.value}>{f.value}</div>
               </div>
             ))}
           </div>
@@ -775,7 +776,7 @@ function DetectionPage() {
         {hasRun && (
           <button
             onClick={toggleFilter}
-            className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+            className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-divider-strong text-muted-foreground hover:border-primary/40 hover:text-primary")}
             title="Toggle output filter (⌘F)"
           >
             <Search className="h-3 w-3" />
@@ -829,23 +830,23 @@ function DetectionPage() {
           ratio="1:1"
           left={
             <Panel title="MITRE ATT&CK mapping" icon={Crosshair} collapsible storageKey="ba.panel.detection.mitre" defaultCollapsed actions={
-              mitreResults ? <button onClick={clearMitre} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> clear</button> : undefined
+              mitreResults ? <button onClick={clearMitre} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> clear</button> : undefined
             }>
               {mitreLoading ? (
-                <div className="flex items-center gap-2 py-4 text-mono text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-2 py-4 text-mono ba-text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> mapping to MITRE ATT&CK...
                 </div>
               ) : mitreError ? (
-                <p className="text-mono text-[11px] text-destructive">{mitreError}</p>
+                <p className="text-mono ba-text-sm text-destructive">{mitreError}</p>
               ) : mitreResults && mitreResults.matches && mitreResults.matches.length > 0 ? (
                 <div className="space-y-3">
                   {mitreResults.matches.map((m: MitreMatch) => (
                     <div key={m.technique_id} className="rounded border border-border/50 bg-background/30 p-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-mono text-[11px] font-semibold text-foreground">{m.technique_id}</span>
+                        <span className="text-mono ba-text-sm font-semibold text-foreground">{m.technique_id}</span>
                         <Chip tone={m.confidence === "high" ? "destructive" : m.confidence === "medium" ? "warning" : "default"}>{m.confidence}</Chip>
                       </div>
-                      <p className="mt-0.5 text-[12px] text-foreground/90">{m.technique}</p>
+                      <p className="mt-0.5 ba-text-base text-foreground/90">{m.technique}</p>
                       <p className="text-[11px] text-muted-foreground">{m.tactic}</p>
                       {m.matched_keywords && m.matched_keywords.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
@@ -857,11 +858,11 @@ function DetectionPage() {
                     </div>
                   ))}
                   {mitreResults.note && (
-                    <p className="text-[10px] text-muted-foreground italic">{mitreResults.total_matches} technique(s) mapped · {mitreResults.note}</p>
+                    <p className="ba-text-2xs text-muted-foreground italic">{mitreResults.total_matches} technique(s) mapped · {mitreResults.note}</p>
                   )}
                 </div>
               ) : (
-                <p className="py-2 text-mono text-[11px] text-muted-foreground">Click "evaluate" to map rule + event text against MITRE ATT&CK.</p>
+                <p className="py-2 text-mono ba-text-sm text-muted-foreground">Click "evaluate" to map rule + event text against MITRE ATT&CK.</p>
               )}
             </Panel>
           }
@@ -875,7 +876,7 @@ function DetectionPage() {
         />
 
         {/* IOCs in event */}
-        <Panel title="IOCs in event" icon={Hash} meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`} collapsible storageKey="ba.panel.detection.iocs" defaultCollapsed>
+        <Panel title="IOCs in event" icon={Hash} priority="secondary" meta={`${iocs.ips.length + iocs.urls.length + iocs.hashes.length} total`} collapsible storageKey="ba.panel.detection.iocs" defaultCollapsed>
           <KeyFields items={[
             { label: "IPs", value: iocs.ips.length ? iocs.ips.join(", ") : "—" },
             { label: "URLs", value: iocs.urls.length ? iocs.urls.join(", ") : "—" },
@@ -893,41 +894,41 @@ function DetectionPage() {
           <div className="mt-2 flex flex-wrap gap-1.5">
             {iocs.ips.length > 0 && (
               <button onClick={() => { iocs.ips.forEach((v) => locker.add({ value: v, type: "ipv4", source: "/detection" })); toast(`Added ${iocs.ips.length} IPs to locker`); }}
-                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
               >+ IPs ({iocs.ips.length})</button>
             )}
             {iocs.urls.length > 0 && (
               <button onClick={() => { iocs.urls.forEach((v) => locker.add({ value: v, type: "url", source: "/detection" })); toast(`Added ${iocs.urls.length} URLs to locker`); }}
-                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
               >+ URLs ({iocs.urls.length})</button>
             )}
             {iocs.hashes.length > 0 && (
               <button onClick={() => { iocs.hashes.forEach((v) => locker.add({ value: v, type: v.length === 32 ? "md5" : v.length === 40 ? "sha1" : v.length === 64 ? "sha256" : "unknown", source: "/detection" })); toast(`Added ${iocs.hashes.length} hashes to locker`); }}
-                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
               >+ Hashes ({iocs.hashes.length})</button>
             )}
           </div>
         </CollapsibleSection>
 
         {/* Report */}
-        <Panel title="Report (markdown)" collapsible defaultCollapsed actions={
+        <Panel title="Report (markdown)" priority="secondary" collapsible defaultCollapsed actions={
           <div className="flex items-center gap-1">
-            <button onClick={() => { const md = genReport(tpl, result, rule); navigator.clipboard.writeText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
-            <button onClick={() => { const md = genReport(tpl, result, rule); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `detection-${tpl.technique.id}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
+            <button onClick={() => { const md = genReport(tpl, result, rule); navigator.clipboard.writeText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
+            <button onClick={() => { const md = genReport(tpl, result, rule); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `detection-${tpl.technique.id}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
           </div>
         }>
-          <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{genReport(tpl, result, rule)}</pre>
+          <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90">{genReport(tpl, result, rule)}</pre>
         </Panel>
 
           {/* IDS Rule Generator (from IdsBuilder essence) */}
-          <Panel title="IDS Rule Generator" icon={ShieldAlert} meta="Snort/Suricata" collapsible defaultCollapsed>
+          <Panel title="IDS Rule Generator" icon={ShieldAlert} priority="secondary" meta="Snort/Suricata" collapsible defaultCollapsed>
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">template</span>
+                <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">template</span>
                 <select
                   value={idsSelected || ""}
                   onChange={(e) => setIdsSelected(e.target.value)}
-                  className="rounded border border-border/60 bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+                  className="rounded border border-divider-strong bg-background/60 px-2 py-1 text-mono ba-text-sm text-foreground outline-none focus:border-primary/50"
                 >
                   {idsTemplates && Object.keys(idsTemplates).map((k) => (
                     <option key={k} value={k}>{k}</option>
@@ -935,24 +936,24 @@ function DetectionPage() {
                 </select>
               </div>
               <div className="grid gap-2 grid-cols-[1fr_2fr_80px_60px]">
-                <input value={idsMsg} onChange={(e) => setIdsMsg(e.target.value)} placeholder="msg: Trojan activity detected" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
-                <input value={idsContent} onChange={(e) => setIdsContent(e.target.value)} placeholder="content:|evil.exe|" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
-                <input value={idsSid} onChange={(e) => setIdsSid(e.target.value)} placeholder="sid" className="rounded border border-border/60 bg-background/40 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
-                <select value={idsPriority} onChange={(e) => setIdsPriority(e.target.value)} className="rounded border border-border/60 bg-background/60 px-2 py-1.5 text-mono text-[11px] text-foreground outline-none focus:border-primary/50">
+                <input value={idsMsg} onChange={(e) => setIdsMsg(e.target.value)} placeholder="msg: Trojan activity detected" className="rounded border border-divider-strong bg-background/40 px-2 py-1.5 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <input value={idsContent} onChange={(e) => setIdsContent(e.target.value)} placeholder="content:|evil.exe|" className="rounded border border-divider-strong bg-background/40 px-2 py-1.5 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <input value={idsSid} onChange={(e) => setIdsSid(e.target.value)} placeholder="sid" className="rounded border border-divider-strong bg-background/40 px-2 py-1.5 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/50" />
+                <select value={idsPriority} onChange={(e) => setIdsPriority(e.target.value)} className="rounded border border-divider-strong bg-background/60 px-2 py-1.5 text-mono ba-text-sm text-foreground outline-none focus:border-primary/50">
                   {["1","2","3","4"].map((p) => <option key={p} value={p}>prio {p}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={handleIdsBuild} disabled={idsBuildLoading || (!idsMsg && !idsContent)} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40">
+                <button onClick={handleIdsBuild} disabled={idsBuildLoading || (!idsMsg && !idsContent)} className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40">
                   {idsBuildLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
                   {idsBuildLoading ? "building..." : "generate"}
                 </button>
-                <button onClick={() => setIdsShowPanel(!idsShowPanel)} className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">{idsShowPanel ? "hide" : "show"} preview</button>
+                <button onClick={() => setIdsShowPanel(!idsShowPanel)} className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">{idsShowPanel ? "hide" : "show"} preview</button>
               </div>
               {idsShowPanel && idsRule && (
                 <div className="rounded border border-border/50 bg-background/60 p-3">
-                  <pre className="overflow-x-auto text-mono text-[11px] leading-relaxed text-foreground/90 whitespace-pre-wrap">{idsRule}</pre>
-                  <button onClick={() => { navigator.clipboard.writeText(idsRule); setIdsCopied(true); setTimeout(() => setIdsCopied(false), 1200); }} className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                  <pre className="overflow-x-auto text-mono ba-text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{idsRule}</pre>
+                  <button onClick={() => { navigator.clipboard.writeText(idsRule); setIdsCopied(true); setTimeout(() => setIdsCopied(false), 1200); }} className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
                     {idsCopied ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy rule</>}
                   </button>
                 </div>

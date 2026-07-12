@@ -103,7 +103,7 @@ export function TerminalOutput({ command, body, stderr, status, onClear, filenam
           <span className="h-2.5 w-2.5 rounded-full bg-warning/80 shadow-[0_0_0_1px_hsl(var(--warning)/0.4)_inset]" />
           <span className="h-2.5 w-2.5 rounded-full bg-success/80 shadow-[0_0_0_1px_hsl(var(--success)/0.4)_inset]" />
         </div>
-        <code className="min-w-0 flex-1 truncate rounded border border-border/60 bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground/85">
+        <code className="min-w-0 flex-1 truncate rounded border border-divider-strong bg-background/60 px-2 py-1 text-mono text-[11px] text-foreground/85">
           <span className="text-primary/70">$</span> {command}
         </code>
         {status && (
@@ -146,7 +146,7 @@ export function TerminalOutput({ command, body, stderr, status, onClear, filenam
                 const toks = tokenize(line);
                 return (
                   <tr key={i} className="group">
-                    <td className="sticky left-0 z-[1] w-10 select-none border-r border-border/40 bg-background/70 px-2 py-0.5 text-right align-top text-[10px] text-muted-foreground/60 group-hover:text-foreground/70">
+                    <td className="sticky left-0 z-[1] w-10 select-none border-r border-divider-soft bg-background/70 px-2 py-0.5 text-right align-top text-[10px] text-muted-foreground/60 group-hover:text-foreground/70">
                       {i + 1}
                     </td>
                     <td className={`px-3 py-0.5 align-top ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"}`}>

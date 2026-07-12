@@ -57,7 +57,7 @@ export function ToolShell({
 
   return (
     <div className="ba-fade-in space-y-4">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 pb-3">
+      <header className="flex flex-wrap items-center gap-3 border-b border-divider-strong pb-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_8%,transparent)]">
             <Icon className="h-4 w-4" />
@@ -71,7 +71,7 @@ export function ToolShell({
         <div className="flex items-center gap-2">
           <button
             onClick={toggleFilter}
-            className={"inline-flex items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+            className={"inline-flex items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-divider-strong text-muted-foreground hover:border-primary/40 hover:text-primary")}
             title="Toggle output filter (⌘F)"
           >
             <Search className="h-3 w-3" />
@@ -90,7 +90,7 @@ export function ToolShell({
         </div>
       </header>
 
-      <section className="rounded-lg border border-border/70 bg-card/35 p-4 shadow-[0_18px_70px_-55px_var(--primary)]">
+      <section className="rounded-lg border border-divider-strong bg-card/35 p-4 shadow-[0_18px_70px_-55px_var(--primary)]">
         <div className="space-y-3">{intake}</div>
       </section>
 
@@ -130,8 +130,8 @@ function RunBar({
   return (
     <div
       className={
-        "flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-card/70 px-3 py-2 backdrop-blur " +
-        (sticky ? "sticky top-2 z-10 shadow-sm" : "")
+        "flex flex-wrap items-center gap-2 rounded-md border border-divider-strong bg-card/70 px-3 py-2 backdrop-blur " +
+        (sticky ? "sticky top-2 z-10 elevation-flat" : "")
       }
     >
       <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">

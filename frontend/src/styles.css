@@ -64,12 +64,17 @@
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --divider-strong: color-mix(in oklab, var(--border) 65%, transparent);
+  --divider-soft: color-mix(in oklab, var(--border) 35%, transparent);
 }
 
 /* ============= DEFAULT: terminal-noir (pitch black + neon green CRT) ============= */
 :root,
 [data-theme="terminal-noir"] {
   --radius: 0.25rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", monospace;
   --background: oklch(0.08 0.005 150);
   --foreground: oklch(0.94 0.05 145);
   --card: oklch(0.12 0.01 150);
@@ -105,11 +110,16 @@
   --sidebar-accent-foreground: oklch(0.94 0.05 145);
   --sidebar-border: oklch(0.22 0.03 145);
   --sidebar-ring: oklch(0.86 0.24 145);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 /* ============= soc-console (deep slate + cyan signal) ============= */
 [data-theme="soc-console"] {
   --radius: 0.5rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "Inter", "system-ui", sans-serif;
   --background: oklch(0.16 0.03 245);
   --foreground: oklch(0.96 0.015 230);
   --card: oklch(0.21 0.035 245);
@@ -145,11 +155,16 @@
   --sidebar-accent-foreground: oklch(0.96 0.015 230);
   --sidebar-border: oklch(0.25 0.035 245);
   --sidebar-ring: oklch(0.82 0.16 210);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 /* ============= editorial-dark (warm dark + single red alert) ============= */
 [data-theme="editorial-dark"] {
   --radius: 0.5rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "Georgia", "Times New Roman", serif;
   --background: oklch(0.16 0.012 40);
   --foreground: oklch(0.95 0.012 60);
   --card: oklch(0.2 0.014 40);
@@ -185,11 +200,16 @@
   --sidebar-accent-foreground: oklch(0.95 0.012 60);
   --sidebar-border: oklch(0.26 0.018 40);
   --sidebar-ring: oklch(0.65 0.22 20);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 /* ============= solar-flare (near-black + amber glow) ============= */
 [data-theme="solar-flare"] {
   --radius: 0.5rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "Inter", "system-ui", sans-serif;
   --background: oklch(0.13 0.018 60);
   --foreground: oklch(0.96 0.025 80);
   --card: oklch(0.18 0.022 60);
@@ -225,11 +245,16 @@
   --sidebar-accent-foreground: oklch(0.96 0.025 80);
   --sidebar-border: oklch(0.24 0.025 60);
   --sidebar-ring: oklch(0.82 0.18 75);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 /* ============= brutalist-light — Broadsheet Brutalist: paper, ink, cobalt, signal red ============= */
 [data-theme="brutalist-light"] {
   --radius: 0rem;
+  --ba-border-width: 2px;
+  --ba-font-family: "Inter", "system-ui", sans-serif;
   --background: oklch(0.965 0.012 86);          /* clean paper */
   --foreground: oklch(0.145 0.008 55);          /* editorial ink */
   --card: oklch(0.992 0.006 86);                /* crisp poster surface */
@@ -265,11 +290,16 @@
   --sidebar-accent-foreground: oklch(0.965 0.012 86);
   --sidebar-border: oklch(0.53 0.22 30);
   --sidebar-ring: oklch(0.78 0.16 82);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 /* ============= newsprint-dark — Late Edition Brutalist: night press, bone, amber, cyan ============= */
 [data-theme="newsprint-dark"] {
   --radius: 0rem;
+  --ba-border-width: 2px;
+  --ba-font-family: "Georgia", "Times New Roman", serif;
   --background: oklch(0.125 0.008 250);         /* cool press-black */
   --foreground: oklch(0.94 0.012 84);           /* bone ink */
   --card: oklch(0.17 0.012 250);                /* night paper */
@@ -305,6 +335,9 @@
   --sidebar-accent-foreground: oklch(0.94 0.012 84);
   --sidebar-border: oklch(0.63 0.24 28);
   --sidebar-ring: oklch(0.80 0.16 82);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 
@@ -313,6 +346,8 @@
    over them with hex values via inline styles on :root. */
 [data-theme="custom"] {
   --radius: 0.5rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "Inter", "system-ui", sans-serif;
   --background: #0f172a;
   --foreground: #e2e8f0;
   --card: #131c2e;
@@ -348,6 +383,9 @@
   --sidebar-accent-foreground: #e2e8f0;
   --sidebar-border: #1f2a40;
   --sidebar-ring: #22d3ee;
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 
@@ -355,6 +393,8 @@
 
 [data-theme="synthwave-grid"] {
   --radius: 0.625rem;
+  --ba-border-width: 1px;
+  --ba-font-family: "Inter", "system-ui", sans-serif;
   --background: oklch(0.14 0.08 290);           /* deep indigo dusk */
   --foreground: oklch(0.96 0.02 320);
   --card: oklch(0.18 0.09 290);
@@ -390,6 +430,9 @@
   --sidebar-accent-foreground: oklch(0.96 0.02 320);
   --sidebar-border: oklch(0.32 0.10 290);
   --sidebar-ring: oklch(0.78 0.18 340);
+  --elevation-flat: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-raised: 0 4px 12px rgb(0 0 0 / 0.1);
+  --elevation-floating: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 
 
@@ -398,14 +441,46 @@
     border-color: var(--color-border);
   }
   html {
-    font-family: var(--font-sans);
+    font-family: var(--ba-font-family, var(--font-sans));
     font-size: calc(17px * var(--ba-font-scale, 1));
+  }
+
+  /* Cursor per element type — predictable interaction affordance */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a,
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="switch"],
+  [role="radio"],
+  [role="checkbox"],
+  select,
+  summary,
+  label {
+    cursor: pointer;
+  }
+  input:not([type="radio"]):not([type="checkbox"]):not([type="range"]):not([type="color"]),
+  textarea,
+  [contenteditable="true"] {
+    cursor: text;
+  }
+  [disabled],
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  [draggable="true"] {
+    cursor: grab;
+  }
+  [draggable="true"]:active {
+    cursor: grabbing;
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans);
+    font-family: var(--ba-font-family, var(--font-sans));
     font-feature-settings: "ss01", "cv11";
+    font-variant-numeric: tabular-nums;
     letter-spacing: var(--ba-letter-spacing, 0em);
   }
   code, pre, kbd, .font-mono, .text-mono {
@@ -416,6 +491,11 @@
   .ba-card,
   [data-card="surface"] {
     opacity: var(--ba-panel-opacity, 1);
+    border-width: var(--ba-border-width, 1px);
+  }
+
+  section.border {
+    border-width: var(--ba-border-width, 1px);
   }
 
   html[data-zebra="on"] tbody tr:nth-child(even),
@@ -472,6 +552,14 @@
   }
   html[data-contrast="high"] .text-muted-foreground {
     opacity: 0.85;
+  }
+
+  /* Mode override indicator — subtle hue shift when user pins mode independent of theme */
+  html[data-mode="light"]:not([data-theme="brutalist-light"]):not([data-theme="custom"]) {
+    --border: color-mix(in oklab, var(--foreground) 18%, var(--background)) !important;
+  }
+  html[data-mode="dark"]:not([data-theme="custom"]) {
+    --border: color-mix(in oklab, var(--foreground) 20%, var(--background)) !important;
   }
 }
 
@@ -679,70 +767,109 @@
   color: transparent;
 }
 
+@utility border-divider-strong {
+  border-color: var(--divider-strong);
+}
+@utility border-divider-soft {
+  border-color: var(--divider-soft);
+}
+
+@utility elevation-flat {
+  box-shadow: var(--elevation-flat);
+}
+@utility elevation-raised {
+  box-shadow: var(--elevation-raised);
+}
+@utility elevation-floating {
+  box-shadow: var(--elevation-floating);
+}
+
 /* ============================================================
  * Per-theme structural distinctiveness.
  * Each theme gets a different "feel" beyond colors:
  * surface texture, border weight, glow behavior, scrollbar.
  * ============================================================ */
 
-/* Global body backdrop — gives each theme an immediately recognizable canvas. */
+/* Global body backdrop — ambient canvas per theme. Opacity kept 2-5%. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.9;
 }
+
+/* Terminal Noir: animated scanlines + rare digital-rain flicker in corners */
 [data-theme="terminal-noir"] body::before {
   background-image: repeating-linear-gradient(
     to bottom, transparent 0 2px,
-    color-mix(in oklab, var(--foreground) 4%, transparent) 2px 3px);
-  opacity: 0.5;
+    color-mix(in oklab, var(--foreground) 3%, transparent) 2px 3px);
+  animation: ba-scroll-scanlines 8s linear infinite;
+  opacity: 0.6;
 }
 [data-theme="terminal-noir"] body::after {
   content: "";
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(120% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  background:
+    radial-gradient(80px 80px at 3% 5%, color-mix(in oklab, var(--primary) 6%, transparent), transparent 100%),
+    radial-gradient(60px 60px at 97% 12%, color-mix(in oklab, var(--primary) 4%, transparent), transparent 100%),
+    radial-gradient(120% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  animation: ba-flicker 12s step-end infinite;
 }
+
+/* soc-console: subtle grid */
 [data-theme="soc-console"] body::before {
   background-image:
     linear-gradient(to right, color-mix(in oklab, var(--border) 35%, transparent) 1px, transparent 1px),
     linear-gradient(to bottom, color-mix(in oklab, var(--border) 35%, transparent) 1px, transparent 1px);
   background-size: 40px 40px;
-  opacity: 0.4;
-}
-[data-theme="editorial-dark"] body::before {
-  background:
-    radial-gradient(70% 60% at 50% -10%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 60%);
-  opacity: 0.7;
-}
-[data-theme="solar-flare"] body::before {
-  background:
-    radial-gradient(60% 50% at 15% -5%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 60%),
-    radial-gradient(50% 60% at 95% 100%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 65%);
-}
-[data-theme="brutalist-light"] body::before {
-  background:
-    linear-gradient(to right, color-mix(in oklab, var(--foreground) 9%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px),
-    radial-gradient(70% 44% at 90% 0%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 62%);
-  background-size: 46px 46px, 46px 46px, auto;
-  opacity: 0.55;
-}
-[data-theme="newsprint-dark"] body::before {
-  background:
-    linear-gradient(to right, color-mix(in oklab, var(--foreground) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px),
-    radial-gradient(70% 44% at 88% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 62%);
-  background-size: 48px 48px, 48px 48px, auto;
-  opacity: 0.62;
+  opacity: 0.3;
 }
 
+/* editorial-dark: warm press glow */
+[data-theme="editorial-dark"] body::before {
+  background:
+    radial-gradient(70% 60% at 50% -10%, color-mix(in oklab, var(--primary) 6%, transparent), transparent 60%);
+}
+
+/* solar-flare: slow-moving gradient blobs at low opacity */
+[data-theme="solar-flare"] body::before {
+  background:
+    radial-gradient(55% 45% at 30% 20%, color-mix(in oklab, var(--primary) 5%, transparent), transparent 60%);
+  animation: ba-drift 24s ease-in-out infinite alternate;
+}
+[data-theme="solar-flare"] body::after {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(45% 55% at 80% 70%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 60%);
+  animation: ba-drift-alt 30s ease-in-out infinite alternate;
+}
+
+/* brutalist-light (Broadsheet): static paper grain */
+[data-theme="brutalist-light"] body::before {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+}
+
+/* newsprint-dark (Late Edition): ink diffusion at edges */
+[data-theme="newsprint-dark"] body::after {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(100% 25% at 50% 0%, transparent 40%, color-mix(in oklab, black 35%, transparent) 100%),
+    radial-gradient(100% 25% at 50% 100%, transparent 40%, color-mix(in oklab, black 35%, transparent) 100%),
+    radial-gradient(50% 100% at 0% 50%, transparent 40%, color-mix(in oklab, black 35%, transparent) 100%),
+    radial-gradient(50% 100% at 100% 50%, transparent 40%, color-mix(in oklab, black 35%, transparent) 100%);
+}
+
+/* synthwave-grid: dusk radials */
 [data-theme="synthwave-grid"] body::before {
   background:
-    radial-gradient(80% 60% at 50% -10%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 65%),
-    radial-gradient(60% 50% at 100% 100%, color-mix(in oklab, var(--info) 14%, transparent), transparent 65%);
+    radial-gradient(80% 60% at 50% -10%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 65%),
+    radial-gradient(60% 50% at 100% 100%, color-mix(in oklab, var(--info) 8%, transparent), transparent 65%);
 }
 
 /* Per-theme typography flair */
@@ -794,8 +921,18 @@ body::before {
   --br-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --br-display: "Archivo Black", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
-[data-theme="brutalist-light"] { --br-shadow-color: color-mix(in oklab, var(--foreground) 92%, var(--primary)); }
-[data-theme="newsprint-dark"] { --br-shadow-color: color-mix(in oklab, var(--primary) 58%, black); }
+[data-theme="brutalist-light"] {
+  --br-shadow-color: color-mix(in oklab, var(--foreground) 92%, var(--primary));
+  --elevation-flat: 0 1px 0 0 var(--border);
+  --elevation-raised: 3px 3px 0 0 var(--br-shadow-color);
+  --elevation-floating: 5px 5px 0 0 var(--br-shadow-color);
+}
+[data-theme="newsprint-dark"] {
+  --br-shadow-color: color-mix(in oklab, var(--primary) 58%, black);
+  --elevation-flat: 0 1px 0 0 var(--border);
+  --elevation-raised: 3px 3px 0 0 var(--br-shadow-color);
+  --elevation-floating: 5px 5px 0 0 var(--br-shadow-color);
+}
 
 /* Square out radii globally, preserve true pills (status dots, avatars). */
 [data-theme="brutalist-light"] :where(.rounded-sm, .rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl),
@@ -978,78 +1115,55 @@ body::before {
 }
 
 /* ============================================================
- * Custom scrollbar — themed via design tokens
+ * Custom scrollbar — thin, per-theme accent
  * ============================================================ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--primary) 45%, transparent) transparent;
+  scrollbar-color: color-mix(in oklab, var(--primary) 30%, transparent) transparent;
 }
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 *::-webkit-scrollbar-track {
-  background: color-mix(in oklab, var(--background) 92%, transparent);
-  border-left: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--primary) 55%, transparent),
-    color-mix(in oklab, var(--accent) 55%, transparent)
-  );
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  background: color-mix(in oklab, var(--primary) 30%, transparent);
   border-radius: 999px;
-  transition: background 200ms ease;
+  transition: background 150ms ease;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--primary) 85%, transparent),
-    color-mix(in oklab, var(--accent) 85%, transparent)
-  );
-  background-clip: padding-box;
-  box-shadow: 0 0 8px color-mix(in oklab, var(--primary) 60%, transparent);
-}
-*::-webkit-scrollbar-thumb:active {
-  background: var(--primary);
-  background-clip: padding-box;
+  background: color-mix(in oklab, var(--primary) 60%, transparent);
 }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-/* Sidebar gets a quieter rail */
-[data-sidebar] *::-webkit-scrollbar { width: 6px; }
-[data-sidebar] *::-webkit-scrollbar-track { background: transparent; border: 0; }
+/* Sidebar: quieter rail */
+[data-sidebar] *::-webkit-scrollbar { width: 4px; }
 [data-sidebar] *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--sidebar-foreground) 22%, transparent);
-  border: 0;
+  background: color-mix(in oklab, var(--sidebar-foreground) 18%, transparent);
 }
 [data-sidebar] *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--primary) 70%, transparent);
+  background: color-mix(in oklab, var(--primary) 50%, transparent);
 }
 
-/* Brutalist themes get a hard, squared scrollbar */
+/* Brutalist themes: squared, chunky */
 [data-theme="brutalist-light"] *::-webkit-scrollbar,
-[data-theme="newsprint-dark"]  *::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+[data-theme="newsprint-dark"] *::-webkit-scrollbar {
+  width: 8px;
 }
 [data-theme="brutalist-light"] *::-webkit-scrollbar-thumb,
-[data-theme="newsprint-dark"]  *::-webkit-scrollbar-thumb {
-  background: var(--foreground);
-  border: 2px solid var(--background);
+[data-theme="newsprint-dark"] *::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 50%, transparent);
   border-radius: 0;
-  box-shadow: none;
 }
 [data-theme="brutalist-light"] *::-webkit-scrollbar-thumb:hover,
-[data-theme="newsprint-dark"]  *::-webkit-scrollbar-thumb:hover {
+[data-theme="newsprint-dark"] *::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
 [data-theme="brutalist-light"] *::-webkit-scrollbar-track,
-[data-theme="newsprint-dark"]  *::-webkit-scrollbar-track {
-  background: var(--background);
-  border-left: 2px solid var(--foreground);
+[data-theme="newsprint-dark"] *::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--background) 80%, transparent);
 }
 
 /* Utility: hide scrollbar but keep scrolling */
@@ -1105,6 +1219,44 @@ body::before {
 .ba-fade-in:nth-child(8) { animation-delay: 280ms; }
 .ba-fade-in:nth-child(9) { animation-delay: 320ms; }
 .ba-fade-in:nth-child(10) { animation-delay: 360ms; }
+
+/* ── Slide-down for panel content reveal ── */
+@keyframes ba-slide-down {
+  from { opacity: 0; translate: 0 -4px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+.ba-slide-down {
+  animation: ba-slide-down 0.2s ease-out both;
+}
+
+/* ── Typography scale ── */
+.ba-text-3xs { font-size: 0.5625rem; }  /* 9px */
+.ba-text-2xs { font-size: 0.625rem; }   /* 10px */
+.ba-text-sm  { font-size: 0.6875rem; }  /* 11px */
+.ba-text-base { font-size: 0.8125rem; } /* 13px */
+.ba-text-lg  { font-size: 0.9375rem; }  /* 15px */
+
+/* Ambient animations — used by per-theme body backdrops */
+@keyframes ba-scroll-scanlines {
+  from { background-position: 0 0; }
+  to   { background-position: 0 6px; }
+}
+@keyframes ba-flicker {
+  0%, 3.9%, 4.1%, 11.9%, 12.1%, 12.3%, 18%, 21%, 21.2%, 100% { opacity: 0; }
+  4%,   12%,  21.1% { opacity: 1; }
+  3.95%, 12.05% { opacity: 0.3; }
+}
+@keyframes ba-drift {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  33%  { transform: translate(4%, -6%) scale(1.06); }
+  66%  { transform: translate(-3%, 4%) scale(0.96); }
+  100% { transform: translate(2%, -2%) scale(1.02); }
+}
+@keyframes ba-drift-alt {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  50%  { transform: translate(-5%, 5%) scale(1.04); }
+  100% { transform: translate(3%, -3%) scale(0.98); }
+}
 
 /* Skeleton pulse — smoother than default animate-pulse */
 .ba-skeleton {

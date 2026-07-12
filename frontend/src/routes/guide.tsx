@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip, SendToRow, VerdictBanner, MetricGrid } from "@/components/soc/Workspace";
+import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
+import { VerdictBanner, MetricGrid } from "@/components/output";
 import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
@@ -238,14 +239,14 @@ function GuidePage() {
         {/* Left rail: search + severity filter + playbook list */}
         <div className="space-y-2">
           <Panel>
-            <div className="flex items-center gap-2 rounded border border-border/60 bg-background/60 px-2">
+            <div className="flex items-center gap-2 rounded border border-divider-strong bg-background/60 px-2">
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search playbooks…" className="w-full bg-transparent py-1.5 text-mono text-[11px] outline-none placeholder:text-muted-foreground/60" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search playbooks…" className="w-full bg-transparent py-1.5 text-mono ba-text-sm outline-none placeholder:text-muted-foreground/60" />
             </div>
             <div className="mt-2 flex items-center gap-1">
               <Filter className="h-3 w-3 text-muted-foreground" />
               {(["ALL", "P1", "P2", "P3"] as const).map((s) => (
-                <button key={s} onClick={() => setSev(s)} className={"rounded border px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest " + (sev === s ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground")}>{s.toLowerCase()}</button>
+                <button key={s} onClick={() => setSev(s)} className={"rounded border px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest " + (sev === s ? "border-primary bg-primary/15 text-primary" : "border-divider-strong text-muted-foreground hover:text-foreground")}>{s.toLowerCase()}</button>
               ))}
             </div>
           </Panel>
@@ -268,10 +269,10 @@ function GuidePage() {
                       <Icon className={"mt-0.5 h-3.5 w-3.5 shrink-0 " + (isActive ? "text-primary" : "text-muted-foreground")} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-mono text-[11px] uppercase tracking-widest text-foreground/90">{p.title}</span>
+                          <span className="truncate text-mono ba-text-sm uppercase tracking-widest text-foreground/90">{p.title}</span>
                           <Chip tone={SEV_COLOR[p.severity]}>{p.severity}</Chip>
                         </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                        <div className="mt-0.5 flex items-center gap-2 text-mono ba-text-2xs text-muted-foreground">
                           <span>{p.category}</span>
                           <span>·</span>
                           <span>~{p.eta}</span>
@@ -298,14 +299,14 @@ function GuidePage() {
             meta={`${active.category} · ~${active.eta}`}
             actions={<Chip tone={SEV_COLOR[active.severity]}>{active.severity}</Chip>}
           >
-            <p className="mb-3 text-[12px] leading-relaxed text-foreground/80">{active.summary}</p>
+            <p className="mb-3 ba-text-base leading-relaxed text-foreground/80">{active.summary}</p>
 
             {active.attack.length > 0 && (
               <div className="mb-3 flex flex-wrap items-center gap-1.5">
                 <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">MITRE</span>
                 {active.attack.map((id) => (
                   <Link key={id} to="/mitre"
-                    className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20"
+                    className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20"
                   >
                     {id}
                   </Link>
@@ -317,7 +318,7 @@ function GuidePage() {
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/40">
                 <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
               </div>
-              <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{activeDone.size}/{active.steps.length} done · {progress}%</span>
+              <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">{activeDone.size}/{active.steps.length} done · {progress}%</span>
             </div>
 
             <ol className="space-y-1.5">
@@ -329,9 +330,9 @@ function GuidePage() {
                       {isDone ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground group-hover:text-primary" />}
                     </button>
                     <span className="mt-0.5 text-mono text-[10.5px] text-primary">{String(i + 1).padStart(2, "0")}</span>
-                    <span className={"flex-1 text-[12px] leading-snug " + (isDone ? "text-muted-foreground line-through" : "text-foreground/90")}>{s.text}</span>
+                    <span className={"flex-1 ba-text-base leading-snug " + (isDone ? "text-muted-foreground line-through" : "text-foreground/90")}>{s.text}</span>
                     {s.pivot && (
-                      <Link to={s.pivot.to} className="ml-2 inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary opacity-80 hover:opacity-100">
+                      <Link to={s.pivot.to} className="ml-2 inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary opacity-80 hover:opacity-100">
                         {s.pivot.label} <ArrowRight className="h-3 w-3" />
                       </Link>
                     )}
@@ -343,14 +344,14 @@ function GuidePage() {
 
           <div className="grid gap-3 grid-cols-2">
             <Panel title="Always" icon={CheckCircle2}>
-              <ul className="space-y-1.5 text-[12px] text-foreground/85">
+              <ul className="space-y-1.5 ba-text-base text-foreground/85">
                 <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" /> Preserve evidence before remediation.</li>
                 <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" /> Log decisions in the Case Notebook with timestamps.</li>
                 <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" /> Pivot IOCs across at least two independent sources.</li>
               </ul>
             </Panel>
             <Panel title="Never" icon={ShieldOff}>
-              <ul className="space-y-1.5 text-[12px] text-foreground/85">
+              <ul className="space-y-1.5 ba-text-base text-foreground/85">
                 <li className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /> Open or detonate unknown files on your workstation.</li>
                 <li className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /> Submit corporate samples to public sandboxes without approval.</li>
                 <li className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" /> Notify suspected insiders before evidence is preserved.</li>

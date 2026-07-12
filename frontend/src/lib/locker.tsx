@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { storageGet, storageSet } from "@/lib/storage";
 
 const STORAGE_KEY = "ba.locker.v1";
 
@@ -7,7 +8,7 @@ export type LockerItem = {
   value: string;
   type: "ipv4" | "ipv6" | "domain" | "url" | "sha256" | "sha1" | "md5" | "email" | "file" | "unknown";
   source: string;
-  note: string;
+  note?: string;
   ts: number;
 };
 
@@ -47,16 +48,14 @@ export function LockerProvider({ children }: { children: ReactNode }) {
   const loaded = useRef(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch { /* ignore */ }
+    const raw = storageGet<LockerItem[] | null>(STORAGE_KEY, null);
+    if (raw) setItems(raw);
     loaded.current = true;
   }, []);
 
   useEffect(() => {
     if (!loaded.current) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* ignore */ }
+    storageSet(STORAGE_KEY, items);
   }, [items]);
 
   const add = useCallback((item: Omit<LockerItem, "id" | "ts">) => {

@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { takePendingCaseEntry } from "@/lib/handoff";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip, ResultBanner, KeyFields, Empty, SendToRow } from "@/components/soc/Workspace";
+import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
+import { ResultBanner, KeyFields, Empty } from "@/components/output";
 import {
   Notebook, Plus, Copy, Download, Trash2, FileText, Tag, X,
   ArrowRight, Database, ShieldAlert, Pencil, Check, Search, FolderOpen, ClipboardList,
@@ -78,6 +79,9 @@ function CasePage() {
   const [copied, setCopied] = useState(false);
   const [entryFilter, setEntryFilter] = useState("");
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const active = cases.find(c => c.id === activeId);
 
   const filteredEntries = useMemo(() => {
     if (!active) return [];
@@ -94,24 +98,29 @@ function CasePage() {
 
   useEffect(() => {
     const list = loadCases();
+    let nextCases = list;
+    let nextActiveId = "";
+
     if (list.length === 0) {
       const c: Case = { id: newId("c"), title: newCaseTitle(), tags: [], createdAt: new Date().toISOString(), state: "active", entries: [] };
-      setCases([c]); setActiveId(c.id); saveCases([c]);
-      return;
+      nextCases = [c];
+      nextActiveId = c.id;
+    } else {
+      const remembered = localStorage.getItem(LS_ACTIVE);
+      nextActiveId = remembered && list.some(c => c.id === remembered) ? remembered : list[0].id;
     }
-    setCases(list);
-    const remembered = localStorage.getItem(LS_ACTIVE);
-    setActiveId(remembered && list.some(c => c.id === remembered) ? remembered : list[0].id);
-  }, []);
 
-  /* Auto-import from other tools */
-  useEffect(() => {
     const pending = takePendingCaseEntry();
-    if (!pending) return;
-    const ts = new Date().toISOString();
-    const body = pending.source ? `[from ${pending.source}] ${pending.body}` : pending.body;
-    const entry: Entry = { id: newId("e"), ts, kind: pending.kind as EntryKind, body };
-    updateActive(c => ({ ...c, entries: [...c.entries, entry] }));
+    if (pending) {
+      const ts = new Date().toISOString();
+      const body = pending.source ? `[from ${pending.source}] ${pending.body}` : pending.body;
+      const entry: Entry = { id: newId("e"), ts, kind: pending.kind as EntryKind, body };
+      nextCases = nextCases.map(c => c.id === nextActiveId ? { ...c, entries: [...c.entries, entry] } : c);
+    }
+
+    setCases(nextCases);
+    setActiveId(nextActiveId);
+    saveCases(nextCases);
   }, []);
 
   useEffect(() => { if (cases.length) saveCases(cases); }, [cases]);
@@ -120,8 +129,6 @@ function CasePage() {
   useEffect(() => {
     if (kindRef.current === "note") setKind(autoDetectKind(draft));
   }, [draft]);
-
-  const active = cases.find(c => c.id === activeId);
 
   const filteredCases = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -161,11 +168,27 @@ function CasePage() {
     setCases(prev => [c, ...prev]); setActiveId(c.id);
   }
   function deleteCase(id: string) {
-    if (!confirm("Delete this case? This cannot be undone.")) return;
+    const caseToDelete = cases.find(c => c.id === id);
+    if (!caseToDelete) return;
     const remaining = cases.filter(c => c.id !== id);
     setCases(remaining);
     if (remaining.length === 0) createCase();
     else if (id === activeId) setActiveId(remaining[0].id);
+
+    toast(`Case "${caseToDelete.title}" deleted`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setCases(prev => {
+            if (prev.some(c => c.id === caseToDelete.id)) return prev;
+            return [...prev, caseToDelete].sort((a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          });
+          setActiveId(caseToDelete.id);
+        },
+      },
+    });
   }
   function toggleClosed() {
     updateActive(c => ({ ...c, state: c.state === "active" ? "closed" : "active" }));
@@ -174,6 +197,15 @@ function CasePage() {
   const caseJson = useMemo(() => {
     if (!active) return "";
     return JSON.stringify({ version: "1.0", ts: new Date().toISOString(), case: active }, null, 2);
+  }, [active]);
+
+  const beyondcaseExport = useMemo(() => {
+    if (!active) return "";
+    return JSON.stringify({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      case: active,
+    }, null, 2);
   }, [active]);
 
   const markdown = useMemo(() => {
@@ -248,6 +280,33 @@ function CasePage() {
     URL.revokeObjectURL(a.href);
   }
 
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (!data.version || !data.case || !data.case.id || !data.case.title || !Array.isArray(data.case.entries)) {
+          toast.error("Invalid beyondcase file");
+          return;
+        }
+        setCases(prev => {
+          if (prev.some(c => c.id === data.case.id)) {
+            toast.warning("A case with this ID already exists");
+            return prev;
+          }
+          toast.success("Case imported");
+          return [data.case, ...prev];
+        });
+      } catch {
+        toast.error("Failed to parse file");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
   return (
     <PageShell
       eyebrow="CASE / NOTEBOOK"
@@ -259,7 +318,7 @@ function CasePage() {
         { label: "active", value: cases.filter(c => c.state === "active").length + "" },
       ]}
       actions={
-        <button onClick={createCase} className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+        <button onClick={createCase} className="inline-flex items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
           <Plus className="h-3 w-3" /> new case
         </button>
       }
@@ -282,7 +341,7 @@ function CasePage() {
 
       <div className="grid gap-4 grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div className="space-y-3 sticky top-16 self-start">
-          <Panel bodyClassName="p-0">
+          <Panel bodyClassName="p-0" priority="secondary">
             <div className="border-b border-border p-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -290,7 +349,7 @@ function CasePage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="search cases…"
-                  className="w-full rounded-md border border-border bg-background/60 py-1.5 pl-7 pr-2 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                  className="w-full rounded-md border border-border bg-background/60 py-1.5 pl-7 pr-2 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
                 />
               </div>
             </div>
@@ -313,10 +372,10 @@ function CasePage() {
                         <FolderOpen className={"mt-0.5 h-3.5 w-3.5 shrink-0 " + (isActive ? "text-primary" : "text-muted-foreground")} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-mono text-[11px] uppercase tracking-widest text-foreground/90">{c.title}</span>
+                            <span className="truncate text-mono ba-text-sm uppercase tracking-widest text-foreground/90">{c.title}</span>
                             <Chip tone={c.state === "active" ? "warning" : "default"}>{c.state}</Chip>
                           </div>
-                          <div className="mt-0.5 flex items-center gap-2 text-mono text-[10px] text-muted-foreground">
+                          <div className="mt-0.5 flex items-center gap-2 text-mono ba-text-2xs text-muted-foreground">
                             <span>{c.entries.length} entries</span>
                             {c.tags[0] && <><span>·</span><span className="truncate">{c.tags.slice(0, 2).join(", ")}</span></>}
                           </div>
@@ -338,7 +397,7 @@ function CasePage() {
               <Panel>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Case title</div>
+                    <div className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">Case title</div>
                     {editingTitle ? (
                       <div className="mt-1 flex items-center gap-2">
                         <input
@@ -346,9 +405,9 @@ function CasePage() {
                           value={titleDraft}
                           onChange={e => setTitleDraft(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter") { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); } if (e.key === "Escape") setEditingTitle(false); }}
-                          className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono text-[13px] text-foreground outline-none focus:border-primary/50"
+                          className="min-w-0 flex-1 rounded border border-border bg-background/60 px-2 py-1 text-mono ba-text-base text-foreground outline-none focus:border-primary/50"
                         />
-                        <button onClick={() => { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); }} aria-label="Confirm title" className="rounded border border-success/50 bg-success/10 px-2 py-1 text-mono text-[10px] uppercase text-success"><Check className="h-3 w-3" /></button>
+                        <button onClick={() => { updateActive(c => ({ ...c, title: titleDraft.trim() || c.title })); setEditingTitle(false); }} aria-label="Confirm title" className="rounded border border-success/50 bg-success/10 px-2 py-1 text-mono ba-text-2xs uppercase text-success"><Check className="h-3 w-3" /></button>
                       </div>
                     ) : (
                       <button onClick={() => { setTitleDraft(active.title); setEditingTitle(true); }} className="group mt-1 flex items-center gap-2 text-left">
@@ -358,7 +417,7 @@ function CasePage() {
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {active.tags.map(t => (
-                        <span key={t} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-foreground/85">
+                        <span key={t} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono ba-text-2xs text-foreground/85">
                           <Tag className="h-2.5 w-2.5 text-primary/70" /> {t}
                           <button onClick={() => removeTag(t)} aria-label="Remove tag" className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
                         </span>
@@ -368,15 +427,15 @@ function CasePage() {
                         onChange={e => setTagDraft(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
                         placeholder="add tag…"
-                        className="rounded border border-dashed border-border/70 bg-background/40 px-1.5 py-0.5 text-mono text-[10px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                        className="rounded border border-dashed border-divider-strong bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
                       />
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <button onClick={toggleClosed} className="inline-flex items-center gap-1 rounded border border-border bg-card/40 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/50 hover:text-primary">
+                    <button onClick={toggleClosed} className="inline-flex items-center gap-1 rounded border border-border bg-card/40 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:border-primary/50 hover:text-primary">
                       {active.state === "active" ? "close case" : "re-open"}
                     </button>
-                    <button onClick={() => deleteCase(active.id)} className="inline-flex items-center gap-1 rounded border border-border bg-card/40 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-destructive/50 hover:text-destructive">
+                    <button onClick={() => deleteCase(active.id)} className="inline-flex items-center gap-1 rounded border border-border bg-card/40 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:border-destructive/50 hover:text-destructive">
                       <Trash2 className="h-3 w-3" /> delete
                     </button>
                   </div>
@@ -390,7 +449,7 @@ function CasePage() {
                     <button
                       key={k}
                       onClick={() => setKind(k)}
-                      className={"rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest " + (kind === k ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
+                      className={"rounded border px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest " + (kind === k ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
                     >{k}</button>
                   ))}
                 </div>
@@ -400,14 +459,14 @@ function CasePage() {
                   onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addEntry(); } }}
                   rows={3}
                   placeholder="What did you observe / decide / do? (⌘/Ctrl + Enter to append)"
-                  className="w-full resize-y rounded border border-border/60 bg-background/60 p-2 text-mono text-[12px] text-foreground outline-none focus:border-primary/50"
+                  className="w-full resize-y rounded border border-divider-strong bg-background/60 p-2 text-mono ba-text-base text-foreground outline-none focus:border-primary/50"
                 />
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-mono text-[10px] text-muted-foreground">{draft.length} chars</span>
+                  <span className="text-mono ba-text-2xs text-muted-foreground">{draft.length} chars</span>
                   <button
                     onClick={addEntry}
                     disabled={!draft.trim()}
-                    className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2.5 py-1 text-mono text-[10px] uppercase text-primary disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2.5 py-1 text-mono ba-text-2xs uppercase text-primary disabled:opacity-40"
                   >
                     <Plus className="h-3 w-3" /> append
                   </button>
@@ -425,7 +484,7 @@ function CasePage() {
                         value={entryFilter}
                         onChange={e => setEntryFilter(e.target.value)}
                         placeholder="filter entries…"
-                        className="w-full rounded border border-border/70 bg-background/60 px-2 py-1 text-mono text-[10.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                        className="w-full rounded border border-divider-strong bg-background/60 px-2 py-1 text-mono text-[10.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
                       />
                     </div>
                     <ul className="divide-y divide-border/50">
@@ -434,9 +493,9 @@ function CasePage() {
                       const short = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
                       return (
                         <li key={e.id} className="group grid grid-cols-[70px_100px_1fr_auto_auto] items-start gap-3 px-4 py-2.5">
-                          <div className="text-mono text-[10px] text-muted-foreground" title={e.ts}>{short}</div>
+                          <div className="text-mono ba-text-2xs text-muted-foreground" title={e.ts}>{short}</div>
                           <div><Chip tone={KIND_TONE[e.kind]}>{e.kind}</Chip></div>
-                          <div className="whitespace-pre-wrap text-[12px] text-foreground/90">{e.body}</div>
+                          <div className="whitespace-pre-wrap ba-text-base text-foreground/90">{e.body}</div>
                           <button
                             onClick={() => copyEntryBody(e.id, e.body)}
                             className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary"
@@ -459,7 +518,7 @@ function CasePage() {
                 )}
               </Panel>
 
-              <Panel title="Case metadata">
+              <Panel title="Case metadata" priority="secondary">
                 <KeyFields items={[
                   { label: "ID", value: active.id, tone: "primary" },
                   { label: "Opened", value: new Date(active.createdAt).toLocaleString() },
@@ -469,23 +528,30 @@ function CasePage() {
               </Panel>
 
               <Panel
-                title="Report (markdown)"
+                title="Report (markdown)" priority="secondary"
                 icon={FileText}
                 actions={
                   <>
-                    <button onClick={copyMd} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">
+                    <button onClick={copyMd} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                       {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}
                     </button>
-                    <button onClick={download} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground">
+                    <button onClick={download} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                       <Download className="h-3 w-3" /> .md
                     </button>
-                    <button onClick={() => { const blob = new Blob([caseJson], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}.json`; a.click(); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase text-primary hover:bg-primary/20">
+                    <button onClick={() => { const blob = new Blob([caseJson], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}.json`; a.click(); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase text-primary hover:bg-primary/20">
                       <Download className="h-3 w-3" /> .json
+                    </button>
+                    <button onClick={() => { const blob = new Blob([beyondcaseExport], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}.beyondcase.json`; a.click(); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                      <Download className="h-3 w-3" /> .beyondcase
+                    </button>
+                    <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+                    <button onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                      <FolderOpen className="h-3 w-3" /> import
                     </button>
                   </>
                 }
               >
-                <pre className="max-h-80 overflow-auto rounded bg-background/60 p-3 text-mono text-[11px] text-foreground/90">{markdown}</pre>
+                <pre className="max-h-80 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90">{markdown}</pre>
               </Panel>
 
               <SendToRow targets={[

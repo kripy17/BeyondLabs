@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Eye, Palette, X } from "lucide-react";
-import { THEMES, useTheme, type ThemeId } from "@/lib/theme";
+import { Check, Eye, Moon, Palette, Sun, X } from "lucide-react";
+import { THEMES, useTheme, type ThemeId, type ThemeMode } from "@/lib/theme";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +12,11 @@ function applyPreview(id: ThemeId) {
   document.documentElement.classList.toggle("dark", !isLight);
 }
 
+const MODE_ICONS: Record<ThemeMode, typeof Sun> = { auto: Eye, light: Sun, dark: Moon };
+const MODE_LABELS: Record<ThemeMode, string> = { auto: "Auto", light: "Light", dark: "Dark" };
+
 export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, mode, setMode } = useTheme();
   const current = THEMES.find((t) => t.id === theme) ?? THEMES[0];
 
   const [open, setOpen] = useState(false);
@@ -74,7 +77,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
                 {current.swatch.map((c, i) => (
                   <span
                     key={i}
-                    className="h-3 w-1.5 rounded-[1px] border border-border/40"
+                    className="h-3 w-1.5 rounded-[1px] border border-divider-soft"
                     style={{ background: c }}
                   />
                 ))}
@@ -84,7 +87,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+        <div className="flex items-center justify-between border-b border-divider-strong px-3 py-2">
           <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             Theme · preview
           </div>
@@ -108,14 +111,14 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
                   "group flex w-full items-center gap-3 rounded-sm border px-2 py-2 text-left transition-colors",
                   isPreview
                     ? "border-primary/60 bg-primary/5"
-                    : "border-transparent hover:border-border/60 hover:bg-muted/40",
+                    : "border-transparent hover:border-divider-strong hover:bg-muted/40",
                 ].join(" ")}
               >
                 <div className="flex gap-0.5">
                   {t.swatch.map((c, i) => (
                     <span
                       key={i}
-                      className="h-7 w-2 rounded-[1px] border border-border/40"
+                      className="h-7 w-2 rounded-[1px] border border-divider-soft"
                       style={{ background: c }}
                     />
                   ))}
@@ -124,7 +127,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
                   <div className="text-mono flex items-center gap-1.5 text-xs font-semibold">
                     {t.name}
                     {isApplied && (
-                      <span className="text-mono rounded-sm border border-border/60 px-1 py-px text-[8px] uppercase tracking-widest text-muted-foreground">
+                      <span className="text-mono rounded-sm border border-divider-strong px-1 py-px text-[8px] uppercase tracking-widest text-muted-foreground">
                         active
                       </span>
                     )}
@@ -137,7 +140,25 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
           })}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-3 py-2">
+        <div className="flex items-center justify-between gap-2 border-t border-divider-strong bg-muted/20 px-3 py-2">
+          <div className="flex items-center gap-1 rounded-md border border-divider-soft bg-card/40 p-0.5">
+            {(["dark", "light", "auto"] as ThemeMode[]).map((m) => {
+              const Icon = MODE_ICONS[m];
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`grid h-6 w-6 place-items-center rounded text-[10px] transition-colors ${
+                    mode === m ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={MODE_LABELS[m]}
+                >
+                  <Icon className="h-3 w-3" />
+                </button>
+              );
+            })}
+          </div>
           <div className="text-mono text-[10px] text-muted-foreground">
             {dirty ? "Previewing — not saved" : "No changes"}
           </div>

@@ -1,0 +1,31 @@
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="500" fill="#020202"/>
+
+  <!-- sidebar rail -->
+  <rect x="0" y="0" width="172" height="500" fill="#0a0a0a"/>
+  <rect x="172" y="0" width="1" height="500" fill="#173317"/>
+  <g transform="translate(0,0)">
+    <rect x="16" y="16" width="24" height="24" fill="none" stroke="#4a5a4a" stroke-width="1"/>
+    <path d="M22 28 L28 28 L30 22 L33 34 L35 28 L36 28" fill="none" stroke="#39ff14" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="48" y="32" font-family="Courier New, monospace" font-size="11" font-weight="bold" fill="#eaffea" letter-spacing="0.5">beyondlabs</text>
+    <rect x="16" y="52" width="150" height="1" fill="#173317"/>
+    <circle cx="26" cy="94" r="3" fill="#4a5a4a"/><text x="38" y="98" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">INTAKE</text><circle cx="26" cy="128" r="3" fill="#4a5a4a"/><text x="38" y="132" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">PHISHING</text><rect x="10" y="148" width="150" height="28" fill="#39ff14" fill-opacity="0.10"/><rect x="10" y="148" width="2" height="28" fill="#39ff14"/><circle cx="26" cy="162" r="3" fill="#39ff14"/><text x="38" y="166" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#39ff14">SIEM</text><circle cx="26" cy="196" r="3" fill="#4a5a4a"/><text x="38" y="200" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">DETECTION</text><circle cx="26" cy="230" r="3" fill="#4a5a4a"/><text x="38" y="234" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">RECON</text><circle cx="26" cy="264" r="3" fill="#4a5a4a"/><text x="38" y="268" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">CASE</text><circle cx="26" cy="298" r="3" fill="#4a5a4a"/><text x="38" y="302" font-family="Courier New, monospace" font-size="10.5" letter-spacing="1" fill="#7a8f7a">SETTINGS</text>
+  </g>
+
+  <!-- topbar -->
+  <rect x="172" y="0" width="628" height="42" fill="#0a0a0a" fill-opacity="0.6"/>
+  <rect x="172" y="41" width="628" height="1" fill="#173317"/>
+  <text x="196" y="26" font-family="Courier New, monospace" font-size="10.5" fill="#7a8f7a" letter-spacing="0.5">beyondlabs / siem</text>
+  <rect x="700" y="11" width="80" height="20" fill="none" stroke="#173317" stroke-width="1"/>
+  <text x="712" y="25" font-family="Courier New, monospace" font-size="9.5" fill="#4a5a4a">search &#8984;k</text>
+
+  
+  <text x="196" y="66" font-family="'Courier New', monospace" font-size="11" fill="#4a5a4a" letter-spacing="1">SAMPLE: SSH AUTH LOG</text>
+  <rect x="196" y="76" width="580" height="1" fill="#173317"/>
+  <rect x="196" y="117" width="580" height="27" fill="none"/><text x="206" y="132" font-family="Courier New, monospace" font-size="10" fill="#4a5a4a">10:10:10</text><text x="280" y="132" font-family="Courier New, monospace" font-size="10" fill="#7a8f7a">sshd</text><text x="336" y="132" font-family="Courier New, monospace" font-size="10" fill="#ff4d4d">Failed password for root from 45.33.32.156 port 22 ssh2</text><rect x="196" y="147" width="580" height="27" fill="none"/><text x="206" y="162" font-family="Courier New, monospace" font-size="10" fill="#4a5a4a">10:10:14</text><text x="280" y="162" font-family="Courier New, monospace" font-size="10" fill="#7a8f7a">sshd</text><text x="336" y="162" font-family="Courier New, monospace" font-size="10" fill="#ff4d4d">Failed password for root from 45.33.32.156 port 22 ssh2</text><rect x="196" y="177" width="580" height="27" fill="#0a0a0a"/><text x="206" y="192" font-family="Courier New, monospace" font-size="10" fill="#4a5a4a">10:10:42</text><text x="280" y="192" font-family="Courier New, monospace" font-size="10" fill="#7a8f7a">sshd</text><text x="336" y="192" font-family="Courier New, monospace" font-size="10" fill="#ff4d4d">Failed password for svc_db from 45.33.32.156 port 22 ssh2</text><rect x="196" y="207" width="580" height="27" fill="none"/><text x="206" y="222" font-family="Courier New, monospace" font-size="10" fill="#4a5a4a">10:11:00</text><text x="280" y="222" font-family="Courier New, monospace" font-size="10" fill="#7a8f7a">sshd</text><text x="336" y="222" font-family="Courier New, monospace" font-size="10" fill="#ff4d4d">Failed password for ubuntu from 185.94.188.22 port 22 ssh2</text><rect x="196" y="237" width="580" height="27" fill="#0a0a0a"/><text x="206" y="252" font-family="Courier New, monospace" font-size="10" fill="#4a5a4a">10:12:50</text><text x="280" y="252" font-family="Courier New, monospace" font-size="10" fill="#7a8f7a">sshd</text><text x="336" y="252" font-family="Courier New, monospace" font-size="10" fill="#8fd19e">Accepted password for svc from 185.94.188.22 port 22 ssh2</text>
+  <rect x="196" y="284" width="580" height="1" fill="#173317"/>
+  <text x="196" y="310" font-family="'Courier New', monospace" font-size="10.5" fill="#39ff14">&#9679; 4 failed auths from 45.33.32.156 &#183; brute-force pattern flagged</text>
+
+
+  <text x="486" y="480" text-anchor="middle" font-family="'Courier New', monospace" font-size="10.5" fill="#4a5a4a" letter-spacing="1.5">ILLUSTRATIVE PLACEHOLDER &#183; REAL CAPTURE PENDING</text>
+</svg>

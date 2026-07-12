@@ -85,7 +85,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
             }
           }}
           placeholder="Search workspaces…"
-          className="text-mono h-8 w-full rounded-md border border-border/70 bg-card/50 pl-8 pr-[88px] text-[12px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-primary/60 focus:bg-card focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
+          className="text-mono h-8 w-full rounded-md border border-divider-strong bg-card/50 pl-8 pr-[88px] ba-text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-primary/60 focus:bg-card focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
           aria-label="Global search"
           aria-expanded={open}
           aria-controls="topsearch-listbox"
@@ -103,7 +103,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
               <X className="h-3 w-3" />
             </button>
           )}
-          <kbd className="text-mono pointer-events-none inline-flex items-center gap-0.5 rounded border border-border/60 bg-background/60 px-1 py-0.5 text-[10px] text-muted-foreground/70">
+          <kbd className="text-mono pointer-events-none inline-flex items-center gap-0.5 rounded border border-divider-strong bg-background/60 px-1 py-0.5 text-[10px] text-muted-foreground/70">
             <CmdIcon className="h-2.5 w-2.5" />K
           </kbd>
         </div>
@@ -113,7 +113,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
         <div
           id="topsearch-listbox"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 origin-top overflow-hidden rounded-md border border-border bg-popover shadow-lg duration-150 animate-in fade-in-0 zoom-in-95 slide-in-from-top-1"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 origin-top overflow-hidden rounded-md border border-border bg-popover elevation-raised duration-150 animate-in fade-in-0 zoom-in-95 slide-in-from-top-1"
         >
           {/* Results */}
           {needle && hits.length > 0 && (
@@ -125,7 +125,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
                     onClick={closeAndClear}
                     onMouseEnter={() => setActive(i)}
                     className={
-                      "flex items-center gap-2 px-2.5 py-2 text-mono text-[12px] transition-colors " +
+                      "flex items-center gap-2 px-2.5 py-2 text-mono ba-text-base transition-colors " +
                       (i === active ? "bg-accent/15 text-foreground" : "text-foreground/90 hover:bg-muted/60")
                     }
                   >
@@ -142,7 +142,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
           {/* Empty results for an active query */}
           {needle && !loading && hits.length === 0 && (
             <div className="px-3 py-6 text-center">
-              <div className="text-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+              <div className="text-mono ba-text-sm uppercase tracking-widest text-muted-foreground">
                 no matches for "{debounced}"
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground/80">
@@ -164,7 +164,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
                     <Link
                       to={h.url}
                       onClick={closeAndClear}
-                      className="flex items-center gap-2 px-2.5 py-1.5 text-mono text-[12px] text-foreground/90 transition-colors hover:bg-muted/60"
+                      className="flex items-center gap-2 px-2.5 py-1.5 text-mono ba-text-base text-foreground/90 transition-colors hover:bg-muted/60"
                     >
                       <h.icon className="h-3.5 w-3.5 text-primary" />
                       <span className="flex-1 truncate">{h.title}</span>
@@ -186,7 +186,7 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
               open command palette
               <ArrowRight className="h-3 w-3 -translate-x-0.5 opacity-0 transition-all group-hover/cta:translate-x-0 group-hover/cta:opacity-100" />
             </span>
-            <kbd className="rounded border border-border/60 bg-background/60 px-1 py-px text-[10px]">
+            <kbd className="rounded border border-divider-strong bg-background/60 px-1 py-px text-[10px]">
               <CmdIcon className="inline h-2.5 w-2.5" /> K
             </kbd>
           </button>

@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
-import {
-  Panel, SectionBar, Chip, Field, Empty, ResultBanner, SendToRow, EvidenceCard,
-} from "@/components/soc/Workspace";
+import { Panel, SectionBar, Chip, Field, SendToRow } from "@/components/soc";
+import { Empty, ResultBanner, EvidenceCard } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
@@ -279,7 +278,7 @@ function buildArgsFromSchema(toolId: string, fields: Record<string, any>): strin
     } else if (f.type === "number" || f.type === "text") {
       parts.push(`${f.flag} ${val}`);
     } else if (f.type === "toggle") {
-      if (val) parts.push(f.flag);
+      if (val) parts.push(f.flag ?? "");
     }
   });
   return parts.join(" ");
@@ -563,10 +562,10 @@ function HackingToolkitPage() {
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
             </span>
-            <div className="min-w-0 text-[12px] leading-relaxed text-foreground/85">
+            <div className="min-w-0 ba-text-base leading-relaxed text-foreground/85">
               <span className="font-semibold text-warning">Cannot reach backend.</span>{" "}
               No cached catalog available. Start the FastAPI server to use toolkit features.{" "}
-              <code className="text-mono text-[11px] text-foreground">cd backend && uvicorn app.main:app --reload</code>
+              <code className="text-mono ba-text-sm text-foreground">cd backend && uvicorn app.main:app --reload</code>
             </div>
           </div>
         </Panel>
@@ -578,10 +577,10 @@ function HackingToolkitPage() {
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
             </span>
-            <div className="min-w-0 text-[12px] leading-relaxed text-foreground/85">
+            <div className="min-w-0 ba-text-base leading-relaxed text-foreground/85">
               <span className="font-semibold text-warning">Offline mode.</span>{" "}
               Backend unreachable — showing cached tool catalog. Tool execution requires the backend.{" "}
-              <code className="text-mono text-[11px] text-foreground">cd backend && uvicorn app.main:app --reload</code>
+              <code className="text-mono ba-text-sm text-foreground">cd backend && uvicorn app.main:app --reload</code>
             </div>
           </div>
         </Panel>
@@ -595,10 +594,10 @@ function HackingToolkitPage() {
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded border border-warning/40 bg-warning/15 text-warning">
                   <AlertTriangle className="h-3.5 w-3.5" />
                 </span>
-                <div className="min-w-0 text-[12px] leading-relaxed text-foreground/85">
+                <div className="min-w-0 ba-text-base leading-relaxed text-foreground/85">
                   <span className="font-semibold text-warning">hackingtool directory not found.</span>{" "}
                   The catalog is shown but binaries are not checked. Clone into{" "}
-                  <code className="text-mono text-[11px] text-foreground">~/Projects/hackingtool</code> to enable installed-tool detection.
+                  <code className="text-mono ba-text-sm text-foreground">~/Projects/hackingtool</code> to enable installed-tool detection.
                 </div>
               </div>
             </Panel>
@@ -616,7 +615,7 @@ function HackingToolkitPage() {
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="search tools, binaries…"
                       spellCheck={false}
-                      className="w-full rounded-md border border-border bg-background/60 py-1.5 pl-7 pr-7 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+                      className="w-full rounded-md border border-border bg-background/60 py-1.5 pl-7 pr-7 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
                     />
                     {search && (
                       <button onClick={() => setSearch("")} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground" aria-label="clear">
@@ -627,8 +626,8 @@ function HackingToolkitPage() {
                 </div>
 
                 {pinnedCount > 0 && (
-                  <div className="border-b border-border/70 p-2">
-                    <div className="mb-1.5 flex items-center gap-1.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                  <div className="border-b border-divider-strong p-2">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">
                       <Pin className="h-3 w-3 text-primary" /> pinned
                     </div>
                     <ul className="space-y-0.5">
@@ -641,10 +640,10 @@ function HackingToolkitPage() {
                           <li key={tid}>
                             <button
                               onClick={() => selectTool(cat.id, t.id)}
-                              className={"flex w-full items-center gap-2 rounded px-2 py-1 text-left text-mono text-[11px] transition-colors " + (active ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-accent/40 hover:text-foreground")}
+                              className={"flex w-full items-center gap-2 rounded px-2 py-1 text-left text-mono ba-text-sm transition-colors " + (active ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-accent/40 hover:text-foreground")}
                             >
                               <span className="truncate">{t.name}</span>
-                              <span className="ml-auto truncate text-[9px] text-muted-foreground">{cat.name}</span>
+                              <span className="ml-auto truncate ba-text-3xs text-muted-foreground">{cat.name}</span>
                             </button>
                           </li>
                         );
@@ -655,7 +654,7 @@ function HackingToolkitPage() {
 
                 <nav className="max-h-[calc(100vh-22rem)] overflow-auto p-2">
                   {filteredCats.length === 0 && (
-                    <div className="px-2 py-6 text-center text-mono text-[11px] text-muted-foreground">
+                    <div className="px-2 py-6 text-center text-mono ba-text-sm text-muted-foreground">
                       no tools match <span className="text-foreground">{search}</span>
                     </div>
                   )}
@@ -677,10 +676,10 @@ function HackingToolkitPage() {
                           <span className={"grid h-6 w-6 place-items-center rounded border border-border bg-background/60 " + toneCls}>
                             <Icon className="h-3.5 w-3.5" />
                           </span>
-                          <span className="flex-1 truncate text-mono text-[11px] font-semibold uppercase tracking-widest text-foreground/90">
+                          <span className="flex-1 truncate text-mono ba-text-sm font-semibold uppercase tracking-widest text-foreground/90">
                             {cat.name}
                           </span>
-                          <span className="text-mono text-[9px] text-muted-foreground">{cat.tools.length}</span>
+                          <span className="text-mono ba-text-3xs text-muted-foreground">{cat.tools.length}</span>
                           <ChevronRight className={"h-3 w-3 text-muted-foreground transition-transform " + (open ? "rotate-90" : "")} />
                         </button>
                         {open && (
@@ -691,14 +690,14 @@ function HackingToolkitPage() {
                                 <li key={t.id}>
                                   <button
                                     onClick={() => selectTool(cat.id, t.id)}
-                                    className={"group/r relative flex w-full items-center gap-2 rounded px-2 py-1 text-left text-mono text-[11px] transition-colors " + (active ? "bg-primary/10 text-primary" : "text-foreground/75 hover:bg-accent/40 hover:text-foreground")}
+                                    className={"group/r relative flex w-full items-center gap-2 rounded px-2 py-1 text-left text-mono ba-text-sm transition-colors " + (active ? "bg-primary/10 text-primary" : "text-foreground/75 hover:bg-accent/40 hover:text-foreground")}
                                   >
                                     <span aria-hidden className={"h-1.5 w-1.5 shrink-0 rounded-full " + (active ? "bg-primary shadow-[0_0_8px_var(--primary)]" : "bg-muted-foreground/30")} />
                                     <span className="truncate">{t.name}</span>
                                     {t.installed && (
                                       <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-success" title="installed" />
                                     )}
-                                    <span className="ml-1 truncate text-[9px] text-muted-foreground/80">{t.binary}</span>
+                                    <span className="ml-1 truncate ba-text-3xs text-muted-foreground/80">{t.binary}</span>
                                     {pinned.has(t.id) && <Pin className="h-2.5 w-2.5 fill-primary text-primary" />}
                                   </button>
                                 </li>
@@ -732,7 +731,7 @@ function HackingToolkitPage() {
                             <Chip tone="default">{activeCat?.name ?? ""}</Chip>
                             <Chip tone={activeTool.installed ? "success" : "warning"}>{activeTool.installed ? "installed" : "not detected"}</Chip>
                           </div>
-                          <div className="mt-1.5 inline-flex items-center gap-1.5 rounded border border-border/60 bg-background/40 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground">
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 rounded border border-divider-strong bg-background/40 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground">
                             <Terminal className="h-3 w-3 text-primary/70" />
                             <span className="text-foreground/80">{activeTool.binary}</span>
                           </div>
@@ -763,7 +762,7 @@ function HackingToolkitPage() {
                                 {f.type === "toggle" ? (
                                   <button
                                     onClick={() => setFieldVal(activeTool.id, f.key, !val)}
-                                    className={"inline-flex items-center gap-1.5 rounded border px-2 py-1 text-mono text-[11px] transition-colors " + (val ? "border-primary/50 bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
+                                    className={"inline-flex items-center gap-1.5 rounded border px-2 py-1 text-mono ba-text-sm transition-colors " + (val ? "border-primary/50 bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
                                   >
                                     <span className={"h-3 w-3 rounded border " + (val ? "border-primary bg-primary" : "border-border")}>
                                       {val && <Check className="h-2.5 w-2.5 text-background" />}
@@ -774,7 +773,7 @@ function HackingToolkitPage() {
                                   <select
                                     value={String(val)}
                                     onChange={e => setFieldVal(activeTool.id, f.key, e.target.value)}
-                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground outline-none focus:border-primary/50"
+                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none focus:border-primary/50"
                                   >
                                     {f.options?.map(o => (
                                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -787,7 +786,7 @@ function HackingToolkitPage() {
                                     onChange={e => setFieldVal(activeTool.id, f.key, f.type === "number" ? Number(e.target.value) : e.target.value)}
                                     placeholder={f.placeholder}
                                     spellCheck={false}
-                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
                                   />
                                 )}
                               </div>
@@ -796,14 +795,14 @@ function HackingToolkitPage() {
                         </div>
                       ) : (
                         <div className="grid gap-0 grid-cols-[1fr_1fr]">
-                          <div className="border-b border-border/60 p-3 border-b-0 border-r">
+                          <div className="border-b border-divider-strong p-3 border-b-0 border-r">
                             <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Target</label>
                             <input
                               value={target}
                               onChange={(e) => setTargets((p) => ({ ...p, [activeTool.id]: e.target.value }))}
                               placeholder="example.com · 10.0.0.1 · https://app"
                               spellCheck={false}
-                              className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+                              className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
                             />
                           </div>
                           <div className="p-3">
@@ -813,7 +812,7 @@ function HackingToolkitPage() {
                               onChange={(e) => setArgsMap((p) => ({ ...p, [activeTool.id]: e.target.value }))}
                               placeholder="-sV -p 22,80,443 (optional)"
                               spellCheck={false}
-                              className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono text-[12px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+                              className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
                             />
                           </div>
                         </div>
@@ -838,7 +837,7 @@ function HackingToolkitPage() {
 
                       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background/40 px-3 py-2">
                         <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">cmd</span>
-                        <code className="min-w-0 flex-1 truncate rounded border border-border/70 bg-background/70 px-2 py-1 text-mono text-[11px] text-foreground/90">
+                        <code className="min-w-0 flex-1 truncate rounded border border-divider-strong bg-background/70 px-2 py-1 text-mono ba-text-sm text-foreground/90">
                           <span className="text-primary/70">$</span> {cmd || activeTool.binary}
                         </code>
                         <button
@@ -851,12 +850,12 @@ function HackingToolkitPage() {
                         <button
                           onClick={run}
                           disabled={running === activeTool.id || offline}
-                          className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono text-[11px] font-semibold uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono ba-text-sm font-semibold uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                         >
                           {running === activeTool.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bug className="h-3 w-3" />}
                           {running === activeTool.id ? "running…" : "run"}
                         </button>
-                        {offline && <span className="text-mono text-[9px] text-muted-foreground">(offline — cannot run)</span>}
+                        {offline && <span className="text-mono ba-text-3xs text-muted-foreground">(offline — cannot run)</span>}
                       </div>
                     </Panel>
                   </div>
@@ -867,14 +866,14 @@ function HackingToolkitPage() {
                       <SectionBar id="OT" label="Output" meta={output ? output.status : "no run yet"} />
                       <button
                         onClick={toggleFilter}
-                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-divider-strong text-muted-foreground hover:border-primary/40 hover:text-primary")}
                       >
                         <Search className="h-3 w-3" />
                         filter
                       </button>
                       <button
                         onClick={() => setShowHistory(s => !s)}
-                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showHistory ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+                        className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showHistory ? "border-primary/50 bg-primary/10 text-primary" : "border-divider-strong text-muted-foreground hover:border-primary/40 hover:text-primary")}
                       >
                         <History className="h-3 w-3" />
                         history
@@ -909,20 +908,20 @@ function HackingToolkitPage() {
                           />
                         </div>
                         {filteredHistory.length === 0 ? (
-                          <div className="py-4 text-center text-mono text-[11px] text-muted-foreground">{history.length === 0 ? "No runs yet. Run a tool to see history here." : "No entries match the filter."}</div>
+                          <div className="py-4 text-center text-mono ba-text-sm text-muted-foreground">{history.length === 0 ? "No runs yet. Run a tool to see history here." : "No entries match the filter."}</div>
                         ) : (
                           <div className="max-h-80 space-y-1 overflow-auto">
                             {filteredHistory.map(h => (
-                              <div key={h.id} className="group flex items-start justify-between gap-2 rounded border border-border/40 bg-background/30 px-2.5 py-1.5 hover:border-primary/30">
+                              <div key={h.id} className="group flex items-start justify-between gap-2 rounded border border-divider-soft bg-background/30 px-2.5 py-1.5 hover:border-primary/30">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-mono text-[11px] font-semibold text-foreground/85">{h.toolName}</span>
+                                    <span className="text-mono ba-text-sm font-semibold text-foreground/85">{h.toolName}</span>
                                     <Chip tone={h.status === "completed" ? "success" : h.status === "error" ? "destructive" : "warning"}>{h.status}</Chip>
                                   </div>
                                   <div className="mt-0.5 truncate text-mono text-[10px] text-muted-foreground">
                                     <span className="text-primary/70">$</span> {h.command}
                                   </div>
-                                  <div className="flex items-center gap-2 text-mono text-[9px] text-muted-foreground">
+                                  <div className="flex items-center gap-2 text-mono ba-text-3xs text-muted-foreground">
                                     <Clock className="inline h-2.5 w-2.5" />
                                     <span>{new Date(h.ts).toLocaleString()}</span>
                                     <span>· {h.catName}</span>
@@ -930,8 +929,8 @@ function HackingToolkitPage() {
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                  <button onClick={() => replayHistory(h)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[9px] uppercase text-muted-foreground hover:text-primary" title="Replay">replay</button>
-                                  <button onClick={() => copyText(h.id, h.body)} className="rounded border border-border px-1.5 py-0.5 text-mono text-[9px] uppercase text-muted-foreground hover:text-primary" title="Copy output">{copied === h.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}</button>
+                                  <button onClick={() => replayHistory(h)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-3xs uppercase text-muted-foreground hover:text-primary" title="Replay">replay</button>
+                                  <button onClick={() => copyText(h.id, h.body)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-3xs uppercase text-muted-foreground hover:text-primary" title="Copy output">{copied === h.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}</button>
                                 </div>
                               </div>
                             ))}
@@ -945,7 +944,7 @@ function HackingToolkitPage() {
                       <Empty
                         icon={Terminal}
                         title="No execution recorded"
-                        hint="Choose a tool, set a target, and press run. Output comes from locally installed binaries via the backend."
+                        hint="Hacking Toolkit wraps local CLI tools (nmap, whois, dig, curl, jq, and more) via the backend. Pick a tool from the left rail and set a target to run."
                       />
                     ) : (
                       <>

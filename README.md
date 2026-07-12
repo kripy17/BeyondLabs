@@ -105,7 +105,7 @@ BeyondLabs handles artifact intake, phishing triage, SIEM log review, and detect
 </tr>
 </table>
 
-<sub>Illustrative placeholders sketching each workspace's layout — swap in real captures once the UI is ready to show.</sub>
+<sub>Illustrative placeholders built from the real sidebar layout, default Terminal Noir theme, and actual sample data in the codebase — not final UI. Swap in real captures once ready.</sub>
 
 ---
 
@@ -155,7 +155,7 @@ BeyondLabs handles artifact intake, phishing triage, SIEM log review, and detect
 
 | Feature | Details |
 |---------|---------|
-| **Theme Gallery** | 7 themes: Aurora Tactical, Terminal Noir, SOC Console, Editorial Dark, Solar Flare, Brutalist Light, Custom |
+| **Theme Gallery** | 8 themes: Terminal Noir (default), SOC Console, Editorial Dark, Solar Flare, Synthwave Grid, Late Edition, Broadsheet, Custom |
 | **Custom Theme Builder** | Tweak every color token — background, foreground, card, border, accent, surface — with live preview |
 | **Accent Presets** | 16+ accent colors across amber, cyan, emerald, fuchsia, indigo, lime, pink, rose, sky, violet, etc. |
 | **Typography** | 12+ mono/UI font pairs — JetBrains Mono, Space Grotesk, Inter, Outfit, Geist, IBM Plex Mono, Fira Code, DM Sans, Manrope, Plus Jakarta Sans, Sora, Source Code Pro, Space Mono |

@@ -213,6 +213,19 @@ def run_custom_nmap_command(command: str, allow_private: bool = False) -> dict:
     except Exception as exc:
         return {"success": False, "error": str(exc), "command": " ".join(quote(part) for part in tokens), "targets": targets}
 
+def build_nmap_command(target: str, mode: str, flags: str = "") -> str:
+    if mode == "custom":
+        return flags
+    if mode not in ALLOWED_SCAN_MODES:
+        mode = "quick_tcp"
+    scan_config = ALLOWED_SCAN_MODES[mode]
+    command = ["nmap", *scan_config["args"], target]
+    cmd = shlex.join(command)
+    if flags:
+        cmd = f"{cmd} {flags}"
+    return cmd
+
+
 def run_nmap_scan(target: str, mode: str, allow_private: bool = False) -> dict:
     if shutil.which("nmap") is None:
         return {

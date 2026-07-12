@@ -2,10 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { analyzeSiemText } from "@/api/backend";
 import { PageShell } from "@/components/PageShell";
-import {
-  IntakeCard, StatusBar, ResultBanner, SectionBar, Panel, SendToRow,
-  Empty, Chip, EvidenceCard, IocInventory,
-} from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
+import { StatusBar, ResultBanner, Empty, EvidenceCard } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import {
   Database, Search, ArrowRight, Zap, ShieldAlert, Activity, Filter,
@@ -14,6 +12,7 @@ import {
 } from "lucide-react";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/siem")({ component: SiemPage });
 
@@ -454,9 +453,9 @@ function SiemPage() {
       <SectionBar id="IN" label="Intake · query + paste" meta={`${filtered.length} / ${activeEvents.length} events`} action={
         has ? (
           <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-destructive">{filtered.filter((e: any) => e.sev === "high").length}</span>
-            <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-warning">{filtered.filter((e: any) => e.sev === "med" || e.sev === "medium").length}</span>
-            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{filtered.filter((e: any) => e.sev === "low").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-destructive">{filtered.filter((e: any) => e.sev === "high").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-warning">{filtered.filter((e: any) => e.sev === "med" || e.sev === "medium").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">{filtered.filter((e: any) => e.sev === "low").length}</span>
           </div>
         ) : undefined
       } />
@@ -508,43 +507,43 @@ function SiemPage() {
       {notice && (
         <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-          <span className="flex-1 text-mono text-[11px] text-primary">{notice}</span>
+          <span className="flex-1 text-mono ba-text-sm text-primary">{notice}</span>
           <button onClick={() => setNotice("")} className="text-primary/60 hover:text-primary" aria-label="dismiss"><X className="h-3 w-3" /></button>
         </div>
       )}
 
-      <Panel title="Filter strip" icon={ListFilter} meta={`${chips.length} chip(s)`} actions={
+      <Panel title="Filter strip" icon={ListFilter} meta={`${chips.length} chip(s)`} priority="secondary" actions={
         <div className="flex items-center gap-1.5">
-          <button onClick={exportReport} disabled={!has} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
+          <button onClick={exportReport} disabled={!has} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
             <Hash className="h-3 w-3" /> MD
           </button>
-          <button onClick={exportCsv} disabled={!has} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
+          <button onClick={exportCsv} disabled={!has} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
             <Download className="h-3 w-3" /> CSV
           </button>
         </div>
       }>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground"><Clock className="h-3 w-3" /> range</span>
+          <span className="inline-flex items-center gap-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground"><Clock className="h-3 w-3" /> range</span>
           {(["15m", "1h", "24h", "all"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={"rounded border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest " + (range === r ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
+              className={"rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest " + (range === r ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
             >{r}</button>
           ))}
           <span className="mx-2 h-3 w-px bg-border" />
-          <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">filters</span>
+          <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">filters</span>
           {chips.length === 0 ? (
-            <span className="text-mono text-[10px] text-muted-foreground/70">click any value to pin a filter</span>
+            <span className="text-mono ba-text-2xs text-muted-foreground/70">click any value to pin a filter</span>
           ) : (
             chips.map((c, i) => (
-              <span key={i} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] text-primary">
+              <span key={i} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs text-primary">
                 <span className="text-primary/70">{c.field}=</span>{c.value}
                 <button onClick={() => removeChip(i)} className="ml-0.5 hover:text-foreground" aria-label="remove filter"><X className="h-3 w-3" /></button>
               </span>
             ))
           )}
-          {chips.length > 0 && <button onClick={() => setChips([])} className="ml-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-destructive">clear all</button>}
+          {chips.length > 0 && <button onClick={() => setChips([])} className="ml-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-destructive">clear all</button>}
         </div>
       </Panel>
 
@@ -559,14 +558,14 @@ function SiemPage() {
       {has && (
         <div className="mb-4">
           <div className="inline-flex flex-wrap items-center gap-2 rounded-md border border-border/50 bg-card/40 px-3 py-2">
-            <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">format</span>
+            <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">format</span>
             <Chip tone="primary">{logFmt}</Chip>
             <span className="mx-2 h-3 w-px bg-border/60" />
-            <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">entities</span>
-            <button onClick={() => { classifyIps.forEach((ip) => addChip("src", ip)); }} className="inline-flex items-center gap-1 rounded border border-info/30 bg-info/10 px-1.5 py-0.5 text-mono text-[9px] text-info hover:bg-info/20 hover:border-info/50 cursor-pointer transition-colors" title="Filter all IPs as src">{classifyIps.length} IPs</button>
-            {classifyUsers.length > 0 && <button onClick={() => { classifyUsers.forEach((u) => addChip("user", u)); }} className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono text-[9px] text-warning hover:bg-warning/20 hover:border-warning/50 cursor-pointer transition-colors" title="Filter all users">{classifyUsers.length} users</button>}
-            {classifyProcs.length > 0 && <button onClick={() => { classifyProcs.forEach((p) => addChip("sig", p)); }} className="inline-flex items-center gap-1 rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-mono text-[9px] text-accent hover:bg-accent/20 hover:border-accent/50 cursor-pointer transition-colors" title="Filter all processes">{classifyProcs.length} processes</button>}
-            {classifyHashes.length > 0 && <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono text-[9px] text-destructive">{classifyHashes.length} hashes</span>}
+            <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">entities</span>
+            <button onClick={() => { classifyIps.forEach((ip) => addChip("src", ip)); }} className="inline-flex items-center gap-1 rounded border border-info/30 bg-info/10 px-1.5 py-0.5 text-mono ba-text-3xs text-info hover:bg-info/20 hover:border-info/50 cursor-pointer transition-colors" title="Filter all IPs as src">{classifyIps.length} IPs</button>
+            {classifyUsers.length > 0 && <button onClick={() => { classifyUsers.forEach((u) => addChip("user", u)); }} className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono ba-text-3xs text-warning hover:bg-warning/20 hover:border-warning/50 cursor-pointer transition-colors" title="Filter all users">{classifyUsers.length} users</button>}
+            {classifyProcs.length > 0 && <button onClick={() => { classifyProcs.forEach((p) => addChip("sig", p)); }} className="inline-flex items-center gap-1 rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-mono ba-text-3xs text-accent hover:bg-accent/20 hover:border-accent/50 cursor-pointer transition-colors" title="Filter all processes">{classifyProcs.length} processes</button>}
+            {classifyHashes.length > 0 && <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono ba-text-3xs text-destructive">{classifyHashes.length} hashes</span>}
           </div>
         </div>
       )}
@@ -604,7 +603,7 @@ function SiemPage() {
 
       {/* SIEM Summary Narrative toggle */}
       {has && (
-        <Panel title="SIEM Summary Narrative" icon={FileText} actions={
+        <Panel title="SIEM Summary Narrative" icon={FileText} priority="secondary" actions={
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
@@ -614,7 +613,7 @@ function SiemPage() {
                 const a = document.createElement("a"); a.href = url; a.download = `siem-report-${Date.now()}.md`; a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"
               title="Export as Markdown"
             ><Download className="h-3 w-3" /> MD</button>
             <button
@@ -625,23 +624,23 @@ function SiemPage() {
                 const a = document.createElement("a"); a.href = url; a.download = `siem-export-${Date.now()}.csv`; a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
               title="Export as CSV"
             ><Download className="h-3 w-3" /> CSV</button>
           </div>
         }>
           <button
             onClick={() => setShowNarrative(!showNarrative)}
-            className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"
+            className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20"
           >
             {showNarrative ? "Hide" : "Generate"} SIEM Summary
           </button>
           {showNarrative && (
-            <div className="mt-3 rounded border border-border/60 bg-background/60 p-3">
-              <pre className="whitespace-pre-wrap text-mono text-[11px] leading-relaxed text-foreground/90">{narrative}</pre>
+            <div className="mt-3 rounded border border-divider-strong bg-background/60 p-3">
+              <pre className="whitespace-pre-wrap text-mono ba-text-sm leading-relaxed text-foreground/90">{narrative}</pre>
               <button
                 onClick={() => { copy(narrative); flash("Summary copied"); }}
-                className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
               >Copy Summary</button>
             </div>
           )}
@@ -658,15 +657,15 @@ function SiemPage() {
               const total = b.high + b.med + b.low;
               return (
                 <div key={b.min} className="flex flex-1 flex-col items-center gap-1">
-                  <div className="flex h-28 w-full items-end overflow-hidden rounded border border-border/40 bg-background/40">
+                  <div className="flex h-28 w-full items-end overflow-hidden rounded border border-divider-soft bg-background/40">
                     <div className="flex w-full flex-col-reverse" style={{ height: `${(total / maxBin) * 100}%` }}>
                       {b.high > 0 && <div className="bg-destructive/80" style={{ flex: b.high }} title={`high: ${b.high}`} />}
                       {b.med  > 0 && <div className="bg-warning/80"     style={{ flex: b.med  }} title={`med:  ${b.med}`} />}
                       {b.low  > 0 && <div className="bg-success/70"     style={{ flex: b.low  }} title={`low:  ${b.low}`} />}
                     </div>
                   </div>
-                  <div className="text-mono text-[10px] text-muted-foreground">t+{b.min}m</div>
-                  <div className="text-mono text-[10px] text-foreground/80">{total}</div>
+                  <div className="text-mono ba-text-2xs text-muted-foreground">t+{b.min}m</div>
+                  <div className="text-mono ba-text-2xs text-foreground/80">{total}</div>
                 </div>
               );
             })}
@@ -676,9 +675,9 @@ function SiemPage() {
 
       <div className="grid gap-3 grid-cols-[2fr_1fr]">
         <Panel title="Events" icon={Activity} actions={<Chip tone="primary"><Filter className="h-3 w-3" /> {q || `${filtered.length} rows`}</Chip>}>
-          <div className="max-h-[600px] overflow-auto rounded border border-border/40">
-            <table className="w-full text-mono text-[11px]">
-              <thead className="sticky top-0 z-10 bg-background/95 text-[10px] uppercase tracking-widest text-muted-foreground backdrop-blur">
+          <div className="max-h-[600px] overflow-auto rounded border border-divider-soft">
+            <table className="w-full text-mono ba-text-sm">
+              <thead className="sticky top-0 z-10 bg-background/95 ba-text-2xs uppercase tracking-widest text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="w-5 px-1 py-1.5" />
                   <th className="px-2 py-1.5 text-left">ts</th>
@@ -695,7 +694,7 @@ function SiemPage() {
                   return (
                     <Fragment key={i}>
                       <tr
-                        className={"border-t border-border/40 transition-colors hover:bg-primary/[0.06] cursor-pointer " + (i % 2 === 1 ? "bg-background/30" : "") + (isExpanded ? " bg-primary/5" : "")}
+                        className={"border-t border-divider-soft transition-colors hover:bg-primary/[0.06] cursor-pointer " + (i % 2 === 1 ? "bg-background/30" : "") + (isExpanded ? " bg-primary/5" : "")}
                         onClick={() => setExpanded(isExpanded ? null : i)}
                       >
                         <td className="px-1 py-1.5 text-muted-foreground/60">
@@ -711,7 +710,7 @@ function SiemPage() {
                       {/* Expanded event detail */}
                       {isExpanded && (
                         <tr className="bg-card/30">
-                          <td colSpan={7} className="border-t border-border/30 px-3 py-3">
+                          <td colSpan={7} className="border-t border-divider-soft px-3 py-3">
                             <EventExpanded event={e} onFilter={addChip} onSendTo={handleSendTo} onShowJson={() => setModal({ title: "Event Detail", subtitle: `${e.ts} | ${e.sig}`, data: e })} />
                           </td>
                         </tr>
@@ -727,22 +726,22 @@ function SiemPage() {
           </div>
         </Panel>
 
-        <Panel title="Field summary" icon={ListFilter} meta="top values per field">
+        <Panel title="Field summary" icon={ListFilter} priority="secondary" meta="top values per field">
           <div className="space-y-3">
             {fieldSummary.map((f) => (
               <div key={f.field}>
-                <div className="flex items-center justify-between text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <div className="flex items-center justify-between text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                   <span>{f.field}</span>
                   <span>{f.unique} unique</span>
                 </div>
                 <ul className="mt-1 space-y-1">
                   {f.top.length === 0 ? (
-                    <li className="text-mono text-[11px] text-muted-foreground/60">—</li>
+                    <li className="text-mono ba-text-sm text-muted-foreground/60">—</li>
                   ) : f.top.map(([v, n]) => (
                     <li key={v} className="space-y-0.5">
                       <div className="flex items-center justify-between gap-2">
-                        <button onClick={() => addChip(f.field, v)} className="truncate text-mono text-[11px] text-foreground/90 hover:text-primary" title={v}>{v}</button>
-                        <span className="text-mono text-[10px] text-muted-foreground tabular-nums">{n}</span>
+                        <button onClick={() => addChip(f.field, v)} className="truncate text-mono ba-text-sm text-foreground/90 hover:text-primary" title={v}>{v}</button>
+                        <span className="text-mono ba-text-2xs text-muted-foreground tabular-nums">{n}</span>
                       </div>
                       <div className="h-1 overflow-hidden rounded-sm bg-border/40">
                         <div className="h-full bg-primary/70" style={{ width: `${(n / f.top[0][1]) * 100}%` }} />
@@ -767,17 +766,17 @@ function SiemPage() {
 
       {/* MITRE ATT&CK — grouped by tactic */}
       {tacticCoverage.length > 0 && (
-        <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.siem.mitre-tactics" defaultCollapsed>
+        <Panel title="MITRE ATT&CK Tactic Coverage" icon={Crosshair} priority="secondary" meta={`${tacticCoverage.length} tactic(s) · ${mitre.length} technique(s)`} collapsible storageKey="ba.panel.siem.mitre-tactics" defaultCollapsed>
           <div className="grid gap-3 grid-cols-3">
             {tacticCoverage.map((t) => (
-              <div key={t.tactic} className="rounded border border-border/60 bg-card/40 px-3 py-2.5">
+              <div key={t.tactic} className="rounded border border-divider-strong bg-card/40 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-mono text-[11px] font-semibold text-foreground/90">{t.tactic}</span>
+                  <span className="text-mono ba-text-sm font-semibold text-foreground/90">{t.tactic}</span>
                   <Chip tone={t.count >= 3 ? "destructive" : t.count >= 2 ? "warning" : "info"}>{t.count}</Chip>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {t.techniques.map((tid) => (
-                    <span key={tid} className="rounded border border-border/50 bg-background/40 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground">{tid}</span>
+                    <span key={tid} className="rounded border border-border/50 bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground">{tid}</span>
                   ))}
                 </div>
               </div>
@@ -788,10 +787,10 @@ function SiemPage() {
 
       {/* MITRE flat list (kept for full reference) */}
       {mitre.length > 0 && (
-        <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.siem.mitre-techniques" defaultCollapsed>
+        <Panel title="MITRE ATT&CK Techniques" icon={Crosshair} priority="secondary" meta={`${mitre.length} technique${mitre.length === 1 ? "" : "s"}`} collapsible storageKey="ba.panel.siem.mitre-techniques" defaultCollapsed>
           <div className="flex flex-wrap gap-2">
             {mitre.map((m) => (
-              <span key={m} className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85">
+              <span key={m} className="inline-flex items-center gap-1.5 rounded border border-divider-strong bg-card/40 px-2 py-1 text-mono ba-text-sm text-foreground/85">
                 <Bug className="h-3 w-3 text-destructive" />
                 <span className="font-semibold">{m.split(" ")[0]}</span>
                 <span className="text-muted-foreground">:</span>
@@ -804,12 +803,12 @@ function SiemPage() {
 
       {/* IOC Inventory */}
       {iocs.length > 0 && (
-        <Panel title="IOC Inventory" icon={Database} collapsible storageKey="ba.panel.siem.iocs" defaultCollapsed>
+        <Panel title="IOC Inventory" icon={Database} priority="secondary" collapsible storageKey="ba.panel.siem.iocs" defaultCollapsed>
           <IocInventory groups={iocs} onSendTo={() => {}} />
           <div className="mt-2 flex flex-wrap gap-1.5">
             {iocs.map((g) => (
               <button key={g.kind} onClick={() => { const t = g.kind === "URLs" ? "url" : g.kind === "IPs" ? "ipv4" : g.kind === "Emails" ? "email" : g.kind === "Domains" ? "domain" : "unknown"; g.items.forEach((v) => locker.add({ value: v, type: t, source: "/siem" })); toast(`Added ${g.items.length} ${g.kind} to locker`); }}
-                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
               >+ {g.kind} ({g.items.length})</button>
             ))}
           </div>
@@ -826,19 +825,19 @@ function SiemPage() {
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm" onMouseDown={() => setModal(null)}>
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-5 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-5 elevation-floating" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-mono text-[10px] uppercase tracking-widest text-primary">Details</div>
+                <div className="text-mono ba-text-2xs uppercase tracking-widest text-primary">Details</div>
                 <h2 className="text-mono text-[14px] font-semibold text-foreground">{modal.title}</h2>
-                {modal.subtitle && <p className="text-mono text-[11px] text-muted-foreground">{modal.subtitle}</p>}
+                {modal.subtitle && <p className="text-mono ba-text-sm text-muted-foreground">{modal.subtitle}</p>}
               </div>
               <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground" aria-label="Close"><X className="h-4 w-4" /></button>
             </div>
-            <pre className="mt-4 overflow-x-auto rounded border border-border/60 bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(modal.data, null, 2)}</pre>
+            <pre className="mt-4 overflow-x-auto rounded border border-divider-strong bg-background/60 p-3 text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(modal.data, null, 2)}</pre>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => { copy(JSON.stringify(modal.data, null, 2)); flash("JSON copied"); }} className="rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy JSON</button>
-              <button onClick={() => setModal(null)} className="rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Close</button>
+              <button onClick={() => { copy(JSON.stringify(modal.data, null, 2)); flash("JSON copied"); }} className="rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy JSON</button>
+              <button onClick={() => setModal(null)} className="rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Close</button>
             </div>
           </div>
         </div>
@@ -866,10 +865,10 @@ function EventExpanded({ event, onFilter, onSendTo, onShowJson }: {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
-        <button onClick={onShowJson} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
-        <button onClick={() => onSendTo("logs-alerts")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Raw Logs</button>
-        <button onClick={() => onSendTo("detection-mitre")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">Detection & MITRE</button>
-        <button onClick={() => onSendTo("soc-guide")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">SOC Guide</button>
+        <button onClick={onShowJson} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">JSON</button>
+        <button onClick={() => onSendTo("logs-alerts")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Raw Logs</button>
+        <button onClick={() => onSendTo("detection-mitre")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Detection & MITRE</button>
+        <button onClick={() => onSendTo("soc-guide")} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">SOC Guide</button>
       </div>
       <div className="grid gap-2 grid-cols-3">
         {entries.map(({ field, label, value }) => (
@@ -878,8 +877,8 @@ function EventExpanded({ event, onFilter, onSendTo, onShowJson }: {
             onClick={() => onFilter(field, value)}
             className="group flex flex-col items-start gap-0.5 rounded border border-border/50 bg-background/40 px-2.5 py-1.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"
           >
-            <span className="text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
-            <span className="w-full truncate text-mono text-[11px] text-foreground/90 group-hover:text-primary">{value}</span>
+            <span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">{label}</span>
+            <span className="w-full truncate text-mono ba-text-sm text-foreground/90 group-hover:text-primary">{value}</span>
           </button>
         ))}
       </div>

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { GROUPS } from "./workspaces";
 import { useTheme } from "./theme";
+import { storageGet, storageSet } from "@/lib/storage";
 
 export const BRAND_ICONS: { key: string; icon: LucideIcon }[] = [
   { key: "shield-half", icon: ShieldHalf },
@@ -293,21 +294,18 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const lastTheme = useRef<string | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<Prefs>;
-        const merged: Prefs = {
-          ...DEFAULT,
-          ...parsed,
-          brandName: !parsed.brandName || parsed.brandName === "BeyondArch" ? DEFAULT.brandName : parsed.brandName,
-          sidebar: { ...DEFAULT.sidebar, ...(parsed.sidebar ?? {}) },
-        };
-        const known = new Set(merged.sidebar.order);
-        for (const g of GROUPS) if (!known.has(g.label)) merged.sidebar.order.push(g.label);
-        setState(merged);
-      }
-    } catch { /* ignore */ }
+    const loaded = storageGet<Partial<Prefs> | null>(STORAGE_KEY, null);
+    if (loaded) {
+      const merged: Prefs = {
+        ...DEFAULT,
+        ...loaded,
+        brandName: !loaded.brandName || loaded.brandName === "BeyondArch" ? DEFAULT.brandName : loaded.brandName,
+        sidebar: { ...DEFAULT.sidebar, ...(loaded.sidebar ?? {}) },
+      };
+      const known = new Set(merged.sidebar.order);
+      for (const g of GROUPS) if (!known.has(g.label)) merged.sidebar.order.push(g.label);
+      setState(merged);
+    }
     setLoaded(true);
   }, []);
 
@@ -328,7 +326,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyToDOM(prefs);
     if (!loaded) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+    storageSet(STORAGE_KEY, prefs);
   }, [prefs, theme, loaded]);
 
 

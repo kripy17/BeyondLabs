@@ -1,10 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, useCallback } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
-import {
-  IntakeCard, StatusBar, ResultBanner, SendToRow, SectionBar, Panel, Chip,
-  EvidenceCard,
-} from "@/components/soc/Workspace";
+import { IntakeCard, SendToRow, SectionBar, Panel, Chip } from "@/components/soc";
+import { StatusBar, ResultBanner, EvidenceCard } from "@/components/output";
 import {
   Zap, Terminal, ArrowRight, Database, Mail, Link2,
   FileWarning, Activity, Globe, Hash, AtSign, Bug, Crosshair, Network, Copy, Check,
@@ -12,9 +11,19 @@ import {
   Scan, Loader2,
 } from "lucide-react";
 import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS, refang, defang, entropy, scanSecrets, type Secret } from "@/lib/ioc-patterns";
-import { useLocker } from "@/lib/locker";
+import { useLocker, type LockerItem } from "@/lib/locker";
+import { IocChip } from "@/components/IocChip";
+import { AttachButton } from "@/components/AttachButton";
+import { usePanelNav } from "@/lib/usePanelNav";
+import { sendToCase } from "@/lib/handoff";
+
+const IOC_KIND_MAP: Record<string, string> = {
+  URL: "url", Domain: "domain", IPv4: "ip", Email: "email",
+  MD5: "hash", SHA256: "hash", CVE: "raw", ATTACK: "raw", MAC: "raw", Base64: "raw",
+};
 import { analyzeFullEmail } from "@/api/phishing";
 import { passiveRecon } from "@/api/recon";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { mapMitre } from "@/api/detection";
 import { OsintTools } from "@/components/OsintTools";
 import { toast } from "sonner";
@@ -253,8 +262,27 @@ function ParserPage() {
   const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
-  const [deepLoading, setDeepLoading] = useState(false);
-  const [deepResults, setDeepResults] = useState<Record<string, unknown> | null>(null);
+  const deepScanMutation = useMutation({
+    mutationFn: async ({ inputText, hasDomains, hasIps, hasEmails }: { inputText: string; hasDomains: boolean; hasIps: boolean; hasEmails: boolean }) => {
+      const r: Record<string, unknown> = {};
+      const run = async (label: string, fn: () => Promise<unknown>) => {
+        try { r[label] = await fn(); } catch { r[label] = { error: "unavailable" }; }
+      };
+      const promises: Promise<void>[] = [];
+      if (hasDomains || hasIps) promises.push(run("recon", () => passiveRecon(inputText)));
+      if (hasEmails) {
+        const lines = inputText.trim().split("\n");
+        const headerEnd = lines.findIndex((l) => l.trim() === "");
+        const headers = headerEnd > 0 ? lines.slice(0, headerEnd).join("\n") : inputText.trim();
+        const body = headerEnd > 0 ? lines.slice(headerEnd).join("\n") : "";
+        promises.push(run("phishing", () => analyzeFullEmail(headers, body, true)));
+      }
+      promises.push(run("mitre", () => mapMitre(inputText)));
+      await Promise.all(promises);
+      return r;
+    },
+    onSuccess: () => { toast.success("Deep scan complete"); },
+  });
   const locker = useLocker();
 
   const inputType = useMemo(() => autoDetectInputType(input), [input]);
@@ -304,42 +332,58 @@ function ParserPage() {
     return { family, primary, reasons, lines, total, iocs, secrets, cmds, signals, mitre, urlAnalysis };
   }, [input]);
 
+  const pushedRef = useRef(0);
+  useEffect(() => {
+    if (result && result.total > 0 && pushedRef.current !== result.total + result.lines) {
+      pushedRef.current = result.total + result.lines;
+      pushTimelineEvent({ source: "parser", verb: "extracted", detail: `Extracted ${result.total} IOCs from ${result.family}`, result: `${result.total} indicators` });
+    }
+  }, [result]);
+
   const copy = (k: string, txt: string) => { try { navigator.clipboard.writeText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
 
   const kinds = result ? Object.entries(result.iocs).filter(([, v]) => v.length) : [];
   const visible = result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [];
   const transform = defanged ? defang : refang;
 
+  const flatIocs = useMemo(() => {
+    return visible.flatMap(([kind, items]) =>
+      (items as string[]).map((value) => ({ value, kind }))
+    );
+  }, [visible]);
+
+  const navigate = useNavigate();
+  const { index: iocIndex, selected: selectedIoc } = usePanelNav(flatIocs, {
+    onCopy: (item) => {
+      navigator.clipboard.writeText(transform(item.value));
+      toast.success("Copied");
+    },
+    onEnrich: (item) => {
+      navigate({ to: "/recon", search: { q: item.value } });
+    },
+    onAttach: (item) => {
+      const kind = IOC_KIND_MAP[item.kind] ?? "raw";
+      sendToCase({ body: item.value, source: "/parser", kind });
+      toast.success("Sent to case");
+    },
+    onContext: (item) => {
+      toast(`Context: ${item.value}`);
+    },
+  });
+
   const hasIps = (result?.iocs.IPv4.length ?? 0) > 0;
   const hasDomains = (result?.iocs.Domain.length ?? 0) > 0;
   const hasEmails = (result?.iocs.Email.length ?? 0) > 0;
   const canDeepScan = hasIps || hasDomains || hasEmails;
 
-  const handleDeepScan = useCallback(async () => {
+  const handleDeepScan = useCallback(() => {
     if (!result) return;
-    setDeepLoading(true);
-    setDeepResults(null);
-
-    const r: Record<string, unknown> = {};
-    const run = async (label: string, fn: () => Promise<unknown>) => {
-      try { r[label] = await fn(); } catch { r[label] = { error: "unavailable" }; }
-    };
-
-    const promises: Promise<void>[] = [];
-    if (hasDomains || hasIps) promises.push(run("recon", () => passiveRecon(input.trim())));
-    if (hasEmails) {
-      const lines = input.trim().split("\n");
-      const headerEnd = lines.findIndex((l) => l.trim() === "");
-      const headers = headerEnd > 0 ? lines.slice(0, headerEnd).join("\n") : input.trim();
-      const body = headerEnd > 0 ? lines.slice(headerEnd).join("\n") : "";
-      promises.push(run("phishing", () => analyzeFullEmail(headers, body, true)));
-    }
-    promises.push(run("mitre", () => mapMitre(input.trim())));
-
-    await Promise.all(promises);
-    setDeepResults(r);
-    setDeepLoading(false);
-    toast.success("Deep scan complete");
+    deepScanMutation.mutate({
+      inputText: input.trim(),
+      hasDomains,
+      hasIps,
+      hasEmails,
+    });
   }, [result, input, hasDomains, hasIps, hasEmails]);
 
   function quickLookups(): { label: string; url: string }[] {
@@ -380,16 +424,16 @@ function ParserPage() {
       if (items.length) lines.push(`## ${kind} (${items.length})`, ...items.map((i: string) => `- ${i}`), "");
     }
     if (result.signals.length) lines.push("## Signals", ...result.signals.map((s: any) => `- [${s.severity.toUpperCase()}] ${s.title}${s.reason ? " — " + s.reason : ""}`));
-    if (deepResults?.recon) {
-      const r = deepResults.recon as Record<string, unknown>;
+    if (deepScanMutation.data?.recon) {
+      const r = deepScanMutation.data.recon as Record<string, unknown>;
       lines.push("", "## Reconnaissance", `- Target: ${(r.target as Record<string, string>)?.hostname ?? "—"}`);
     }
-    if (deepResults?.phishing) {
-      const p = deepResults.phishing as Record<string, unknown>;
+    if (deepScanMutation.data?.phishing) {
+      const p = deepScanMutation.data.phishing as Record<string, unknown>;
       lines.push("", "## Phishing Analysis", `- Verdict: ${(p as Record<string, string>).verdict ?? "—"}`);
     }
     return lines.join("\n");
-  }, [result, deepResults]);
+  }, [result, deepScanMutation.data]);
 
   return (
     <PageShell
@@ -403,7 +447,7 @@ function ParserPage() {
         icon={Terminal}
         title="Input Terminal"
         value={input}
-        onChange={(t) => { setInput(t); setDeepResults(null); }}
+        onChange={(t) => { setInput(t); deepScanMutation.reset(); }}
         onPaste={(t) => setInput(t)}
         samples={[
           { key: "phishing", label: "Phishing email", hint: "headers + suspicious link" },
@@ -436,21 +480,21 @@ function ParserPage() {
         ]}
       />
 
-      <SectionBar id="OT" label="Output · detected" meta={result ? `${result.total} indicators · ${result.signals.length} signals` : "awaiting input"} />
+      <SectionBar id="OT" label="Output · detected" meta={result ? `${result.total} indicators · ${result.signals.length} signals` : "awaiting input"} action={result ? <AttachButton body={JSON.stringify(result.iocs, null, 2)} kind="evidence" source="/parser" /> : undefined} />
       {!result ? (
         <div className="grid gap-4 grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Panel title="What the parser recovers" icon={Sparkles} meta="11 samples · 11 IOC families">
+          <Panel title="What the parser recovers" icon={Sparkles} meta="11 samples · 11 IOC families" priority="secondary">
             <ul className="grid grid-cols-2 gap-1.5">
               {Object.entries(KIND_META).map(([k, m]) => (
                 <li key={k} className="flex items-center gap-2 rounded border border-border/50 bg-card/40 px-2 py-1.5">
                   <m.icon className="h-3.5 w-3.5 text-primary/80 shrink-0" />
-                  <span className="text-mono text-[11px] text-foreground/85">{k}</span>
+                  <span className="text-mono ba-text-sm text-foreground/85">{k}</span>
                   {m.pivot && <span className="ml-auto text-mono text-[9px] uppercase tracking-widest text-muted-foreground">→ {m.pivot.slice(1)}</span>}
                 </li>
               ))}
             </ul>
           </Panel>
-          <Panel title="How analysts use it" icon={Workflow} meta="3-step flow">
+          <Panel title="How analysts use it" icon={Workflow} meta="3-step flow" priority="secondary">
             <ol className="space-y-2.5">
               {[
                 { i: "01", t: "Paste anything", d: "Email headers, log lines, IOC dumps, Sigma rules, EVE JSON — the parser auto-classifies the family." },
@@ -458,10 +502,10 @@ function ParserPage() {
                 { i: "03", t: "Pivot or hand off", d: "One-click pivots to URL, Phishing, Attachment, Recon, MITRE, or the Case Notebook." },
               ].map((s) => (
                 <li key={s.i} className="flex gap-3">
-                  <span className="text-mono text-[10px] font-semibold text-primary/80">{s.i}</span>
+                  <span className="text-mono ba-text-2xs font-semibold text-primary/80">{s.i}</span>
                   <div>
-                    <div className="text-mono text-[11px] uppercase tracking-widest text-foreground">{s.t}</div>
-                    <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{s.d}</p>
+                    <div className="text-mono ba-text-sm uppercase tracking-widest text-foreground">{s.t}</div>
+                    <p className="mt-0.5 ba-text-base leading-snug text-muted-foreground">{s.d}</p>
                   </div>
                 </li>
               ))}
@@ -487,8 +531,8 @@ function ParserPage() {
           {/* Summary one-liner */}
           <div className="flex items-start gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
             <FileText className="mt-0.5 h-3.5 w-3.5 text-primary shrink-0" />
-            <p className="text-[12px] leading-snug text-foreground/90">
-              <span className="text-mono text-[10px] uppercase tracking-widest text-primary">summary · </span>
+            <p className="ba-text-base leading-snug text-foreground/90">
+              <span className="text-mono ba-text-2xs uppercase tracking-widest text-primary">summary · </span>
               Parsed a <strong className="text-foreground">{result.family.toLowerCase()}</strong> artifact across {result.lines} line{result.lines === 1 ? "" : "s"}. Recovered <strong className="text-foreground">{result.total}</strong> indicator{result.total === 1 ? "" : "s"} across {kinds.length} famil{kinds.length === 1 ? "y" : "ies"}.
               {result.signals.length ? ` ${result.signals.length} signal${result.signals.length === 1 ? "" : "s"} generated.` : ""}
               {result.secrets.length ? ` ${result.secrets.length} potential secret${result.secrets.length === 1 ? "" : "s"} redacted.` : ""}
@@ -501,7 +545,7 @@ function ParserPage() {
               <div className="flex items-center gap-2.5">
                 <Scan className="h-4 w-4 text-primary/70" />
                 <div>
-                  <span className="text-mono text-[10px] uppercase tracking-widest text-primary">deep scan available</span>
+                  <span className="text-mono ba-text-2xs uppercase tracking-widest text-primary">deep scan available</span>
                   <p className="text-[11px] text-muted-foreground/80 mt-0.5">
                     {hasDomains && hasIps ? "Domains and IPs" : hasDomains ? "Domains" : hasIps ? "IPs" : ""}
                     {hasEmails ? `${hasDomains || hasIps ? " and " : ""}Email headers` : ""} detected — run passive recon, phishing check, and MITRE enrichment.
@@ -510,11 +554,11 @@ function ParserPage() {
               </div>
               <button
                 onClick={handleDeepScan}
-                disabled={deepLoading}
-                className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1.5 text-mono text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 shrink-0"
+                disabled={deepScanMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded border border-primary/50 bg-primary/10 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 shrink-0"
               >
-                {deepLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Scan className="h-3 w-3" />}
-                {deepLoading ? "scanning..." : "deep scan"}
+                {deepScanMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Scan className="h-3 w-3" />}
+                {deepScanMutation.isPending ? "scanning..." : "deep scan"}
               </button>
             </div>
           )}
@@ -538,8 +582,8 @@ function ParserPage() {
                       <meta.icon className="h-3.5 w-3.5 text-primary" />
                     </span>
                     <span className="flex flex-col min-w-0">
-                      <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{k}</span>
-                      <span className="text-mono text-[13px] font-semibold text-foreground">{v.length}</span>
+                      <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">{k}</span>
+                      <span className="text-mono ba-text-base font-semibold text-foreground">{v.length}</span>
                     </span>
                     <ArrowRight className="ml-auto h-3 w-3 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                   </button>
@@ -548,9 +592,9 @@ function ParserPage() {
             </div>
             {kinds.length < 8 && (
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-2.5">
-                <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">no hits:</span>
+                <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">no hits:</span>
                 {Object.entries(result.iocs).filter(([, v]) => !v.length).map(([k]) => (
-                  <span key={k} className="rounded border border-border/60 bg-card/40 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">{k}</span>
+                  <span key={k} className="rounded border border-divider-strong bg-card/40 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground/70">{k}</span>
                 ))}
               </div>
             )}
@@ -571,26 +615,26 @@ function ParserPage() {
                 meta={`${items.length} item${items.length === 1 ? "" : "s"}`}
                 actions={
                   <button onClick={() => setFocusedKind(null)}
-                    className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                    className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                     zoom out
                   </button>
                 }
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    <div className="flex items-center gap-2 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">
                       <span>{k}</span>
                       <Chip tone={meta.tone}>{items.length}</Chip>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => copy(k, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                      <button onClick={() => copy(k, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
                         {copied === k ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
                       </button>
-                      <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: k.toLowerCase(), source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/60 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+                      <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: k.toLowerCase() as LockerItem["type"], source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-primary">
                         <Hash className="h-3 w-3" /> locker
                       </button>
                       {meta.pivot && (
-                        <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                        <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                           pivot <ArrowRight className="h-3 w-3" />
                         </Link>
                       )}
@@ -598,12 +642,13 @@ function ParserPage() {
                   </div>
                   <div className="max-h-[50vh] overflow-y-auto rounded border border-border/50 bg-background/40">
                     {items.map((it: string, idx: number) => (
-                      <div key={idx} className="group flex items-center justify-between gap-2 border-b border-border/30 px-3 py-2 hover:bg-primary/[0.03]">
-                        <code className="flex-1 truncate text-mono text-[11px] text-foreground/90">{transform(it)}</code>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => copy(it, transform(it))} className="rounded border border-border/60 bg-card/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
-                            {copied === it ? "copied" : "copy"}
-                          </button>
+                      <div key={idx} className={`flex items-center justify-between gap-2 border-b border-divider-soft px-3 py-1.5 transition-colors ${
+                        selectedIoc && selectedIoc.value === it && selectedIoc.kind === k
+                          ? "bg-primary/5 ring-1 ring-primary/30"
+                          : "hover:bg-primary/[0.03]"
+                      }`}>
+                        <IocChip kind={(IOC_KIND_MAP[k] ?? "raw") as any} value={transform(it)} />
+                        <div className="flex items-center gap-1">
                           {k === "URL" && (
                             <Link to="/url" className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-primary hover:bg-primary/20">analyze</Link>
                           )}
@@ -620,7 +665,7 @@ function ParserPage() {
           <div className="grid gap-4 grid-cols-[280px_minmax(0,1fr)]">
             <Panel title="Findings & Signals" icon={AlertTriangle} meta={`${result.signals.length} total`}>
               {result.signals.length === 0 ? (
-                <p className="text-mono text-[11px] text-muted-foreground">No signals generated for this artifact.</p>
+                <p className="text-mono ba-text-sm text-muted-foreground">No signals generated for this artifact.</p>
               ) : (
                 <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                   {result.signals.map((sig, i) => (
@@ -635,25 +680,25 @@ function ParserPage() {
           {result.secrets.length > 0 || result.cmds.length > 0 ? (
             <div className="grid gap-4 grid-cols-2">
               {result.secrets.length > 0 && (
-                <Panel title="Secrets Detected" icon={Key} meta={`${result.secrets.length} potential exposure`}>
+                <Panel title="Secrets Detected" icon={Key} meta={`${result.secrets.length} potential exposure`} priority="secondary">
                   <div className="space-y-1.5">
                     {result.secrets.map((s, i) => (
                       <div key={i} className="flex items-center justify-between gap-2 rounded border border-destructive/30 bg-destructive/5 px-2.5 py-1.5">
-                        <span className="text-mono text-[10px] uppercase tracking-widest text-destructive">{s.type}</span>
-                        <code className="text-mono text-[11px] text-foreground/80">{s.value}</code>
+                        <span className="text-mono ba-text-2xs uppercase tracking-widest text-destructive">{s.type}</span>
+                        <code className="text-mono ba-text-sm text-foreground/80">{s.value}</code>
                       </div>
                     ))}
                   </div>
                 </Panel>
               )}
               {result.cmds.length > 0 && (
-                <Panel title="Command Line Analysis" icon={Terminal} meta={`${result.cmds.length} findings`}>
+                <Panel title="Command Line Analysis" icon={Terminal} meta={`${result.cmds.length} findings`} priority="secondary">
                   <div className="space-y-1.5">
                     {result.cmds.map((c, i) => (
                       <div key={i} className="flex items-center gap-2 rounded border border-warning/30 bg-warning/5 px-2.5 py-1.5">
                         <ShieldAlert className="h-3.5 w-3.5 text-warning shrink-0" />
-                        <span className="text-mono text-[10px] uppercase tracking-widest text-warning">{c.type}</span>
-                        <span className="text-mono text-[11px] text-foreground/80">{c.detail}</span>
+                        <span className="text-mono ba-text-2xs uppercase tracking-widest text-warning">{c.type}</span>
+                        <span className="text-mono ba-text-sm text-foreground/80">{c.detail}</span>
                       </div>
                     ))}
                   </div>
@@ -664,11 +709,11 @@ function ParserPage() {
 
           {/* URL analysis */}
           {result.urlAnalysis.length > 0 && (
-            <Panel title="URL Deep Analysis" icon={Link2} meta={`${result.urlAnalysis.length} URLs`}>
+            <Panel title="URL Deep Analysis" icon={Link2} meta={`${result.urlAnalysis.length} URLs`} priority="secondary">
               <div className="space-y-2">
                 {result.urlAnalysis.map((u: any, i: number) => (
                   <div key={i} className="flex flex-wrap items-center gap-2 rounded border border-border/50 bg-card/40 px-3 py-2">
-                    <code className="min-w-0 flex-1 truncate text-mono text-[11px] text-foreground/90">{defang ? defang(u.value) : refang(u.value)}</code>
+                    <code className="min-w-0 flex-1 truncate text-mono ba-text-sm text-foreground/90">{defang ? defang(u.value) : refang(u.value)}</code>
                     <div className="flex flex-wrap items-center gap-1">
                       {u.suspiciousTld && <Chip tone="warning">suspicious TLD</Chip>}
                       {u.shortener && <Chip tone="warning">shortener</Chip>}
@@ -685,7 +730,7 @@ function ParserPage() {
 
           {/* MITRE Mapping */}
           {result.mitre.length > 0 && (
-            <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${result.mitre.length} techniques`}>
+            <Panel title="MITRE ATT&CK Mapping" icon={Crosshair} meta={`${result.mitre.length} techniques`} priority="secondary">
               <div className="grid gap-2 grid-cols-3">
                 {result.mitre.map((m: any, i: number) => (
                   <div key={i} className="flex items-center gap-2.5 rounded border border-border/50 bg-card/40 px-3 py-2">
@@ -693,8 +738,8 @@ function ParserPage() {
                       <Crosshair className="h-3.5 w-3.5 text-destructive" />
                     </span>
                     <div>
-                      <div className="text-mono text-[10px] font-semibold uppercase tracking-widest text-destructive">{m.id}</div>
-                      <div className="text-mono text-[11px] text-foreground/80">{m.name}</div>
+                      <div className="text-mono ba-text-2xs font-semibold uppercase tracking-widest text-destructive">{m.id}</div>
+                      <div className="text-mono ba-text-sm text-foreground/80">{m.name}</div>
                     </div>
                     <Chip tone="info">{m.source}</Chip>
                   </div>
@@ -707,10 +752,10 @@ function ParserPage() {
           {result && (hasDomains || hasIps || result.iocs.URL.length || result.iocs.MD5.length || result.iocs.SHA256.length) && (() => {
             const lookups = quickLookups();
             return (
-              <Panel title="External Lookups" icon={Globe} meta={`${lookups.length} source(s)`} collapsible storageKey="ba.panel.parser.lookups">
+              <Panel title="External Lookups" icon={Globe} meta={`${lookups.length} source(s)`} priority="secondary" collapsible storageKey="ba.panel.parser.lookups">
                 <div className="flex flex-wrap gap-1.5">
                   {lookups.map((l) => (
-                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/40 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
+                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/40 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
                       <Globe className="h-3 w-3" /> {l.label}
                     </a>
                   ))}
@@ -720,42 +765,42 @@ function ParserPage() {
           })()}
 
           {/* Deep Scan Results */}
-          {deepResults && (
+          {deepScanMutation.data && (
             <>
-              {deepResults.phishing && !(deepResults.phishing as Record<string, string>).error && (
-                <Panel title="Phishing Analysis" icon={Mail} meta="from deep scan">
+              {deepScanMutation.data.phishing && !(deepScanMutation.data.phishing as Record<string, string>).error && (
+                <Panel title="Phishing Analysis" icon={Mail} meta="from deep scan" priority="secondary">
                   <div className="space-y-1">
-                    {[["Verdict", (deepResults.phishing as Record<string, string>).verdict], ["SPF", (deepResults.phishing as any)?.authentication?.spf], ["DKIM", (deepResults.phishing as any)?.authentication?.dkim], ["DMARC", (deepResults.phishing as any)?.authentication?.dmarc]].filter(([, v]) => v).map(([k, v]) => (
-                      <div key={k} className="flex items-center gap-2 text-mono text-[11px]">
-                        <span className="text-muted-foreground uppercase tracking-widest text-[10px]">{k}</span>
+                    {[["Verdict", (deepScanMutation.data.phishing as Record<string, string>).verdict], ["SPF", (deepScanMutation.data.phishing as any)?.authentication?.spf], ["DKIM", (deepScanMutation.data.phishing as any)?.authentication?.dkim], ["DMARC", (deepScanMutation.data.phishing as any)?.authentication?.dmarc]].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 text-mono ba-text-sm">
+                        <span className="text-muted-foreground uppercase tracking-widest ba-text-2xs">{k}</span>
                         <span className="text-foreground/90">{v}</span>
                       </div>
                     ))}
                   </div>
                 </Panel>
               )}
-              {deepResults.recon && !(deepResults.recon as Record<string, string>).error && (
-                <Panel title="Recon Results" icon={Globe} meta="from deep scan">
+              {deepScanMutation.data.recon && !(deepScanMutation.data.recon as Record<string, string>).error && (
+                <Panel title="Recon Results" icon={Globe} meta="from deep scan" priority="secondary">
                   <div className="space-y-1">
-                    {[["Target", (deepResults.recon as any)?.target?.hostname], ["Type", (deepResults.recon as any)?.target?.type], ["HTTP Status", (deepResults.recon as any)?.http?.status_code], ["TLS", (deepResults.recon as any)?.ssl ? "Present" : null]].filter(([, v]) => v).map(([k, v]) => (
-                      <div key={k} className="flex items-center gap-2 text-mono text-[11px]">
-                        <span className="text-muted-foreground uppercase tracking-widest text-[10px]">{k}</span>
+                    {[["Target", (deepScanMutation.data.recon as any)?.target?.hostname], ["Type", (deepScanMutation.data.recon as any)?.target?.type], ["HTTP Status", (deepScanMutation.data.recon as any)?.http?.status_code], ["TLS", (deepScanMutation.data.recon as any)?.ssl ? "Present" : null]].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 text-mono ba-text-sm">
+                        <span className="text-muted-foreground uppercase tracking-widest ba-text-2xs">{k}</span>
                         <span className="text-foreground/90">{v}</span>
                       </div>
                     ))}
                   </div>
                 </Panel>
               )}
-              {deepResults.mitre && !(deepResults.mitre as Record<string, string>).error && (
-                <Panel title="MITRE ATT&CK Mapping (API)" icon={Crosshair} meta="from deep scan">
-                  {(deepResults.mitre as any)?.matches?.length > 0 ? (
+              {deepScanMutation.data.mitre && !(deepScanMutation.data.mitre as Record<string, string>).error && (
+                <Panel title="MITRE ATT&CK Mapping (API)" icon={Crosshair} meta="from deep scan" priority="secondary">
+                  {(deepScanMutation.data.mitre as any)?.matches?.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {((deepResults.mitre as any).matches as any[]).map((m: any) => (
+                      {((deepScanMutation.data.mitre as any).matches as any[]).map((m: any) => (
                         <Chip key={m.technique_id} tone="warning">{m.technique_id} — {m.technique}</Chip>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-mono text-[11px] text-muted-foreground">No MITRE techniques matched.</p>
+                    <p className="text-mono ba-text-sm text-muted-foreground">No MITRE techniques matched.</p>
                   )}
                 </Panel>
               )}
@@ -772,12 +817,13 @@ function ParserPage() {
                 ))}
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">render</span>
+                <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">render</span>
                 <button onClick={() => setDefanged(true)} className={toggleBtn(defanged)}>defang</button>
                 <button onClick={() => setDefanged(false)} className={toggleBtn(!defanged)}>raw</button>
               </div>
             </div>
 
+            <div className="mb-2 text-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">j/k navigate · y copy · c attach · e enrich · . context</div>
             <div className="space-y-4">
               {visible.map(([kind, items]) => {
                 const meta = KIND_META[kind];
@@ -788,18 +834,18 @@ function ParserPage() {
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Icon className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-mono text-[11px] uppercase tracking-widest text-foreground">{kind}</span>
+                        <span className="text-mono ba-text-sm uppercase tracking-widest text-foreground">{kind}</span>
                         <Chip tone={meta.tone}>{items.length}</Chip>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => copy(kind, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                        <button onClick={() => copy(kind, allText)} className="inline-flex items-center gap-1 rounded border border-border bg-card/60 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
                           {copied === kind ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
                         </button>
-                        <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: kind.toLowerCase(), source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-border/60 bg-card/60 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+                        <button onClick={() => { items.forEach((v: string) => locker.add({ value: v, type: kind.toLowerCase() as LockerItem["type"], source: "/parser" })); }} className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/60 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-primary">
                           <Hash className="h-3 w-3" /> locker
                         </button>
                         {meta.pivot && (
-                          <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20">
+                          <Link to={meta.pivot} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                             pivot <ArrowRight className="h-3 w-3" />
                           </Link>
                         )}
@@ -807,8 +853,12 @@ function ParserPage() {
                     </div>
                     <ul className="grid gap-1 grid-cols-2">
                       {items.map((it) => (
-                        <li key={it} className="group flex items-center justify-between gap-2 rounded border border-border/50 bg-card/40 px-2 py-1 hover:border-primary/40 hover:bg-card/70">
-                          <code className="truncate text-mono text-[11px] text-foreground/90">{transform(it)}</code>
+                        <li key={it} className={`group flex items-center justify-between gap-2 rounded border px-2 py-1 transition-colors ${
+                          selectedIoc && selectedIoc.value === it && selectedIoc.kind === kind
+                            ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                            : "border-border/50 bg-card/40 hover:border-primary/40 hover:bg-card/70"
+                        }`}>
+                          <code className="truncate text-mono ba-text-sm text-foreground/90">{transform(it)}</code>
                           <button onClick={() => copy(it, transform(it))} className="opacity-0 transition-opacity group-hover:opacity-100">
                             {copied === it ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />}
                           </button>
@@ -823,7 +873,7 @@ function ParserPage() {
 
           {/* Export + Handoff */}
           <div className="grid gap-4 grid-cols-[1fr_2fr]">
-            <Panel title="Export Report" icon={Download}>
+            <Panel title="Export Report" icon={Download} priority="secondary">
               <button
                 onClick={() => {
                   const md = genMarkdownExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre);
@@ -832,15 +882,15 @@ function ParserPage() {
                   const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.md`; a.click();
                   URL.revokeObjectURL(url);
                 }}
-                className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
+                className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20"
               >
                 <Download className="h-3.5 w-3.5" />
                 Download Markdown
               </button>
-              <button onClick={() => { const json = genJsonExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/20">
+              <button onClick={() => { const json = genJsonExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20">
                 <Download className="h-3.5 w-3.5" /> Download JSON
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(reportMd); toast.success("Report copied"); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono text-[10px] uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
+              <button onClick={() => { navigator.clipboard.writeText(reportMd); toast.success("Report copied"); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
                 <Copy className="h-3.5 w-3.5" /> Copy Summary
               </button>
               <p className="mt-2 text-[11px] text-muted-foreground">Includes all indicators, signals, secrets, and MITRE mapping.</p>
@@ -856,7 +906,7 @@ function ParserPage() {
           </div>
         </div>
       )}
-      <div className="mt-8 border-t border-border/60 pt-6">
+      <div className="mt-8 border-t border-divider-strong pt-6">
         <OsintTools showSectionBars />
       </div>
     </PageShell>
@@ -864,9 +914,9 @@ function ParserPage() {
 }
 
 const tabBtn = (active: boolean) =>
-  "rounded border px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest transition-colors " +
-  (active ? "border-primary/60 bg-primary/15 text-primary" : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground");
+  "rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " +
+  (active ? "border-primary/60 bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground");
 
 const toggleBtn = (active: boolean) =>
-  "rounded border px-1.5 py-0.5 text-mono text-[10px] uppercase tracking-widest " +
-  (active ? "border-primary/60 bg-primary/15 text-primary" : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground");
+  "rounded border px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest " +
+  (active ? "border-primary/60 bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground");

@@ -141,12 +141,12 @@ function SettingsPage() {
 
     >
       {/* Section quick-jump */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 bg-card/30 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-divider-strong bg-card/30 px-3 py-2">
         <input
           value={sectionFilter}
           onChange={(e) => setSectionFilter(e.target.value)}
           placeholder="Filter settings…"
-          className="text-mono h-7 min-w-0 flex-1 rounded border border-border/60 bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 max-w-[200px]"
+          className="text-mono h-7 min-w-0 flex-1 rounded border border-divider-strong bg-background/60 px-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/50 max-w-[200px]"
         />
         <div className="flex flex-wrap gap-1">
           {SECTION_JUMP.filter((s) => !sectionFilter || s.label.toLowerCase().includes(sectionFilter.toLowerCase())).map((s) => (
@@ -154,7 +154,7 @@ function SettingsPage() {
               key={s.id}
               href={`#panel-${s.id}`}
               onClick={(e) => { e.preventDefault(); document.getElementById(`panel-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-              className="rounded border border-border/50 bg-background/40 px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="rounded border border-border/50 bg-background/40 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               {s.label}
             </a>
@@ -164,7 +164,7 @@ function SettingsPage() {
 
       {/* BRAND */}
       <Panel id="BR" label="brand" icon={Tag}
-        right={<span className="text-mono text-[10px] text-muted-foreground">name · tagline · icon</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">name · tagline · icon</span>}>
         <div className="grid gap-5 grid-cols-[1fr_auto]">
           <div className="space-y-3">
             <div>
@@ -212,21 +212,21 @@ function SettingsPage() {
             </div>
           </div>
           {/* Live preview chip */}
-          <div className="flex flex-col items-stretch gap-2 rounded-md border border-border/70 bg-card/40 p-3 w-56">
+          <div className="flex flex-col items-stretch gap-2 rounded-md border border-divider-strong bg-card/40 p-3 w-56">
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">preview</div>
             <div className="flex items-center gap-2.5 rounded-md border border-border bg-background/60 p-2.5">
               <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-md bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-glow">
                 {(() => { const I = getBrandIcon(prefs.brandIcon); return <I className="h-4 w-4" />; })()}
               </div>
               <div className="min-w-0">
-                <div className="text-mono text-[13px] font-bold leading-tight truncate">{prefs.brandName || "BeyondLabs"}</div>
+                <div className="text-mono ba-text-base font-bold leading-tight truncate">{prefs.brandName || "BeyondLabs"}</div>
                 <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground truncate">
                   {prefs.brandTagline || "—"}
                 </div>
               </div>
             </div>
             <Button
-              variant="ghost" size="sm" className="text-mono text-[11px]"
+              variant="ghost" size="sm" className="text-mono ba-text-sm"
               onClick={() => setPrefs({ brandName: "BeyondLabs", brandTagline: "soc · workbench", brandIcon: "shield-half" })}
             >
               reset brand
@@ -244,7 +244,7 @@ function SettingsPage() {
                 <Eye className="h-2.5 w-2.5" /> previewing
               </span>
             )}
-            <span className="text-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="text-mono ba-text-2xs uppercase tracking-[0.2em] text-muted-foreground">
               active · <span className="text-foreground">{theme}</span>
             </span>
           </div>
@@ -281,21 +281,21 @@ function SettingsPage() {
                 <Eye className="h-2.5 w-2.5" /> unsaved
               </span>
             )}
-            <Button variant="ghost" size="sm" className="text-mono text-[10px] h-6 gap-1"
+            <Button variant="ghost" size="sm" className="text-mono ba-text-2xs h-6 gap-1"
               onClick={() => setDraftAndPreview(DEFAULT_CUSTOM_THEME)}>
               <RotateCcw className="h-3 w-3" /> reset colors
             </Button>
           </div>
         }>
         {/* Live draft strip — compact summary so the preview lives in the gallery above */}
-        <div className="mb-4 flex items-center gap-3 rounded-md border border-border/70 bg-background/40 px-3 py-2">
-          <div className="flex h-8 overflow-hidden rounded-sm border border-border/70 shadow-inner">
+        <div className="mb-4 flex items-center gap-3 rounded-md border border-divider-strong bg-background/40 px-3 py-2">
+          <div className="flex h-8 overflow-hidden rounded-sm border border-divider-strong shadow-inner">
             {(["background", "card", "muted", "border", "foreground", "primary", "accent", "destructive"] as const).map((k) => (
               <span key={k} className="h-full w-3" style={{ background: draftCustom[k] as string }} title={k} />
             ))}
           </div>
           <div className="min-w-0">
-            <div className="text-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">draft · {draftCustom.isLight ? "light" : "dark"}</div>
+            <div className="text-mono ba-text-2xs uppercase tracking-[0.22em] text-muted-foreground">draft · {draftCustom.isLight ? "light" : "dark"}</div>
             <div className="text-[11px] text-muted-foreground">
               Live preview renders in <span className="text-mono text-foreground/80">theme · gallery</span> above when <span className="text-mono text-foreground/80">Custom</span> is selected.
             </div>
@@ -333,14 +333,14 @@ function SettingsPage() {
                         "group flex items-center gap-2.5 rounded-md border px-3 py-2 text-left transition-all " +
                         (active
                           ? "border-primary/60 bg-primary/10 shadow-glow"
-                          : "border-border/70 bg-card/40 hover:border-primary/40")
+                          : "border-divider-strong bg-card/40 hover:border-primary/40")
                       }
                     >
                       <span className={"grid h-7 w-7 place-items-center rounded-sm border " + (active ? "border-primary/50 bg-primary/15 text-primary" : "border-border bg-background/60 text-muted-foreground")}>
                         <I className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0">
-                        <div className="text-mono text-[11px] uppercase tracking-[0.22em] text-foreground/90">{lbl}</div>
+                        <div className="text-mono ba-text-sm uppercase tracking-[0.22em] text-foreground/90">{lbl}</div>
                         <div className="text-[10.5px] text-muted-foreground truncate">{hint}</div>
                       </div>
                       {active && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
@@ -364,10 +364,10 @@ function SettingsPage() {
                         "group flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all " +
                         (matches
                           ? "border-primary/60 bg-primary/10"
-                          : "border-border/70 bg-card/40 hover:border-primary/40 hover:-translate-y-0.5")
+                          : "border-divider-strong bg-card/40 hover:border-primary/40 hover:-translate-y-0.5")
                       }
                     >
-                      <span className="flex h-8 overflow-hidden rounded-sm border border-border/70 shadow-inner">
+                      <span className="flex h-8 overflow-hidden rounded-sm border border-divider-strong shadow-inner">
                         <span className="h-full w-2.5" style={{ background: p.theme.background }} />
                         <span className="h-full w-2.5" style={{ background: p.theme.card }} />
                         <span className="h-full w-2.5" style={{ background: p.theme.primary }} />
@@ -375,7 +375,7 @@ function SettingsPage() {
                         <span className="h-full w-2.5" style={{ background: p.theme.destructive }} />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="text-mono text-[11px] text-foreground/90 truncate">{p.name}</div>
+                        <div className="text-mono ba-text-sm text-foreground/90 truncate">{p.name}</div>
                         <div className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">
                           {p.theme.isLight ? "light" : "dark"}
                         </div>
@@ -440,7 +440,7 @@ function SettingsPage() {
       {/* ACCENT */}
 
       <Panel id="AC" label="accent override" icon={Sparkles}
-        right={<span className="text-mono text-[10px] text-muted-foreground">applies to primary · ring · charts</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">applies to primary · ring · charts</span>}>
         <div className="flex flex-wrap items-center gap-2">
           {ACCENT_PRESETS.map((hex) => (
             <button
@@ -466,11 +466,11 @@ function SettingsPage() {
             />
           </label>
           {prefs.accent && (
-            <Button variant="ghost" size="sm" className="text-mono text-[11px]" onClick={() => setPrefs({ accent: null })}>
+            <Button variant="ghost" size="sm" className="text-mono ba-text-sm" onClick={() => setPrefs({ accent: null })}>
               clear
             </Button>
           )}
-          <span className="text-mono ml-auto text-[10px] text-muted-foreground">
+          <span className="text-mono ml-auto ba-text-2xs text-muted-foreground">
             {prefs.accent ? `active · ${prefs.accent}` : "theme default"}
           </span>
         </div>
@@ -505,7 +505,7 @@ function SettingsPage() {
                 min={0} max={1} step={0.05}
                 className="flex-1"
               />
-              <div className="grid h-10 w-14 place-items-center border border-border bg-card/60 text-mono text-[10px] text-muted-foreground" style={{ borderRadius: `${prefs.radius}rem` }}>
+              <div className="grid h-10 w-14 place-items-center border border-border bg-card/60 text-mono ba-text-2xs text-muted-foreground" style={{ borderRadius: `${prefs.radius}rem` }}>
                 preview
               </div>
             </div>
@@ -515,7 +515,7 @@ function SettingsPage() {
 
       {/* TYPOGRAPHY */}
       <Panel id="TY" label="typography" icon={Type}
-        right={<span className="text-mono text-[10px] text-muted-foreground">sans · mono</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">sans · mono</span>}>
         <div className="space-y-5">
           <Row label="Monospace ligatures" desc="Turn on programming ligatures (&rarr;, !=, ===, ...) in code/data.">
             <Switch checked={prefs.monoLigatures} onCheckedChange={(v) => setPrefs({ monoLigatures: v })} />
@@ -544,22 +544,22 @@ function SettingsPage() {
 
       {/* SIDEBAR LAYOUT */}
       <Panel id="SB" label="sidebar layout" icon={Layers}
-        right={<span className="text-mono text-[10px] text-muted-foreground">drag-free reorder</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">drag-free reorder</span>}>
         <div className="space-y-2">
           {prefs.sidebar.order.map((label, i) => {
             const grp = GROUPS.find((g) => g.label === label);
             if (!grp) return null;
             const hidden = prefs.sidebar.hiddenGroups.includes(label);
             return (
-              <div key={label} className="rounded-md border border-border/70 bg-card/40">
+              <div key={label} className="rounded-md border border-divider-strong bg-card/40">
                 <div className="flex items-center gap-2 px-3 py-2">
                   {(() => { const GIcon = grp.items[0]?.icon; return GIcon ? (
                     <span className="grid h-5 w-5 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
                       <GIcon className="h-3 w-3" strokeWidth={2.25} />
                     </span>
                   ) : null; })()}
-                  <span className="text-mono text-[12px] font-semibold tracking-tight">{label}</span>
-                  <span className="text-mono text-[10px] text-muted-foreground">{grp.items.length} items</span>
+                  <span className="text-mono ba-text-base font-semibold tracking-tight">{label}</span>
+                  <span className="text-mono ba-text-2xs text-muted-foreground">{grp.items.length} items</span>
                   <div className="ml-auto flex items-center gap-1">
                     <IconBtn label="up" disabled={i === 0} onClick={() => moveGroup(label, -1)}><ArrowUp className="h-3 w-3" /></IconBtn>
                     <IconBtn label="down" disabled={i === prefs.sidebar.order.length - 1} onClick={() => moveGroup(label, 1)}><ArrowDown className="h-3 w-3" /></IconBtn>
@@ -569,7 +569,7 @@ function SettingsPage() {
                   </div>
                 </div>
                 {!hidden && (
-                  <ul className="divide-y divide-border/50 border-t border-border/60">
+                  <ul className="divide-y divide-border/50 border-t border-divider-strong">
                     {grp.items.map((it) => {
                       const pinned = prefs.sidebar.pinned.includes(it.url);
                       return (
@@ -580,8 +580,8 @@ function SettingsPage() {
                           <button
                             onClick={() => togglePin(it.url)}
                             className={
-                              "ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-px text-mono text-[10px] uppercase tracking-widest transition-colors " +
-                              (pinned ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground")
+                              "ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-px text-mono ba-text-2xs uppercase tracking-widest transition-colors " +
+                              (pinned ? "border-primary/50 bg-primary/15 text-primary" : "border-divider-strong text-muted-foreground hover:text-foreground")
                             }
                           >
                             <Pin className="h-2.5 w-2.5" /> {pinned ? "pinned" : "pin"}
@@ -599,7 +599,7 @@ function SettingsPage() {
 
       {/* ACCESSIBILITY */}
       <Panel id="ACY" label="accessibility" icon={Eye}
-        right={<span className="text-mono text-[10px] text-muted-foreground">motion · contrast · scale</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">motion · contrast · scale</span>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Row label="Reduce motion" desc="Disable mount fades, hover micro-anim and pulses.">
             <Switch checked={prefs.reduceMotion} onCheckedChange={(v) => setPrefs({ reduceMotion: v })} />
@@ -624,30 +624,30 @@ function SettingsPage() {
           </Row>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <div className="rounded-md border border-divider-strong bg-card/40 px-3 py-3">
             <Label>font scale &middot; {prefs.fontScale.toFixed(2)}x</Label>
             <div className="mt-2 flex items-center gap-3">
-              <span className="text-mono text-[10px] text-muted-foreground">85%</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">85%</span>
               <Slider
                 value={[prefs.fontScale]}
                 onValueChange={(v) => setPrefs({ fontScale: v[0] })}
                 min={0.85} max={1.15} step={0.01}
                 className="flex-1"
               />
-              <span className="text-mono text-[10px] text-muted-foreground">115%</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">115%</span>
             </div>
           </div>
-          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <div className="rounded-md border border-divider-strong bg-card/40 px-3 py-3">
             <Label>letter spacing &middot; {prefs.letterSpacing > 0 ? "+" : ""}{prefs.letterSpacing.toFixed(2)}em</Label>
             <div className="mt-2 flex items-center gap-3">
-              <span className="text-mono text-[10px] text-muted-foreground">-0.02</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">-0.02</span>
               <Slider
                 value={[prefs.letterSpacing]}
                 onValueChange={(v) => setPrefs({ letterSpacing: v[0] })}
                 min={-0.02} max={0.06} step={0.005}
                 className="flex-1"
               />
-              <span className="text-mono text-[10px] text-muted-foreground">+0.06</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">+0.06</span>
             </div>
           </div>
         </div>
@@ -659,25 +659,25 @@ function SettingsPage() {
           <Row label="Show breadcrumb" desc="Hide for the cleanest topbar.">
             <Switch checked={prefs.showBreadcrumb} onCheckedChange={(v) => setPrefs({ showBreadcrumb: v })} />
           </Row>
-          <div className="rounded-md border border-border/70 bg-card/40 px-3 py-3">
+          <div className="rounded-md border border-divider-strong bg-card/40 px-3 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-mono text-[12px] font-medium text-foreground">Panel opacity &middot; {Math.round(prefs.panelOpacity * 100)}%</div>
+                <div className="text-mono ba-text-base font-medium text-foreground">Panel opacity &middot; {Math.round(prefs.panelOpacity * 100)}%</div>
                 <div className="text-[11px] text-muted-foreground">Blend workspace cards with the theme backdrop.</div>
               </div>
-              <Button variant="ghost" size="sm" className="text-mono text-[11px]" onClick={() => setPrefs({ panelOpacity: 1 })}>
+              <Button variant="ghost" size="sm" className="text-mono ba-text-sm" onClick={() => setPrefs({ panelOpacity: 1 })}>
                 reset
               </Button>
             </div>
             <div className="mt-3 flex items-center gap-3">
-              <span className="text-mono text-[10px] text-muted-foreground">75%</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">75%</span>
               <Slider
                 value={[prefs.panelOpacity]}
                 onValueChange={(v) => setPrefs({ panelOpacity: v[0] })}
                 min={0.75} max={1} step={0.01}
                 className="flex-1"
               />
-              <span className="text-mono text-[10px] text-muted-foreground">100%</span>
+              <span className="text-mono ba-text-2xs text-muted-foreground">100%</span>
             </div>
           </div>
         </div>
@@ -685,7 +685,7 @@ function SettingsPage() {
 
       {/* DASHBOARD LAYOUT */}
       <Panel id="DB" label="dashboard layout" icon={LayoutGrid}
-        right={<span className="text-mono text-[10px] text-muted-foreground">toggle sections</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">toggle sections</span>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Row label="Command strip" desc="Session ID, clock, live signal ticker.">
             <Switch checked={prefs.dashboardSections.commandStrip} onCheckedChange={(v) => setPrefs({ dashboardSections: { ...prefs.dashboardSections, commandStrip: v } })} />
@@ -749,7 +749,7 @@ function SettingsPage() {
 
       {/* DATA & PRIVACY */}
       <Panel id="DP" label="data & privacy" icon={Shield}
-        right={<span className="text-mono text-[10px] text-muted-foreground">local storage · no sync</span>}>
+        right={<span className="text-mono ba-text-2xs text-muted-foreground">local storage · no sync</span>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Row label="Clear recents" desc="Wipe the recent-workspace history (ba.recents).">
             <Button variant="outline" size="sm" className="text-mono gap-1.5" onClick={() => { clearRecents(); toast("Recents cleared"); }}>
@@ -762,11 +762,11 @@ function SettingsPage() {
             </Button>
           </Row>
         </div>
-        <div className="mt-3 rounded-md border border-border/70 bg-card/40 px-3 py-3">
+        <div className="mt-3 rounded-md border border-divider-strong bg-card/40 px-3 py-3">
           <Label>storage</Label>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-mono text-[11px] text-muted-foreground">ba.prefs.v1 &middot; ba.recents.v1 &middot; per-route caches</span>
-            <span className="text-mono text-[11px] text-muted-foreground">localStorage</span>
+            <span className="text-mono ba-text-sm text-muted-foreground">ba.prefs.v1 &middot; ba.recents.v1 &middot; per-route caches</span>
+            <span className="text-mono ba-text-sm text-muted-foreground">localStorage</span>
           </div>
         </div>
         <div className="mt-3">
@@ -783,7 +783,7 @@ function SettingsPage() {
 
 function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <label className="group flex items-center gap-3 rounded-md border border-border/70 bg-card/40 px-3 py-2 transition-colors hover:border-primary/40">
+    <label className="group flex items-center gap-3 rounded-md border border-divider-strong bg-card/40 px-3 py-2 transition-colors hover:border-primary/40">
       <div
         className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border/80 shadow-inner"
         style={{ background: value }}
@@ -797,12 +797,12 @@ function ColorSwatch({ label, value, onChange }: { label: string; value: string;
         />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{label}</div>
+        <div className="text-mono ba-text-2xs uppercase tracking-[0.22em] text-muted-foreground">{label}</div>
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}
-          className="mt-0.5 w-full bg-transparent text-mono text-[12px] text-foreground outline-none"
+          className="mt-0.5 w-full bg-transparent text-mono ba-text-base text-foreground outline-none"
         />
       </div>
     </label>
@@ -828,7 +828,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-md border shadow-lg" style={surfaceStyle}>
+    <div className="overflow-hidden rounded-md border elevation-raised" style={surfaceStyle}>
       {/* Faux topbar */}
       <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: ct.border, background: ct.card }}>
         <span className="flex gap-1">
@@ -839,14 +839,14 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
         <span className="text-mono text-[10.5px] uppercase tracking-[0.22em]" style={{ color: fgSoft }}>
           preview · {ct.isLight ? "light" : "dark"}
         </span>
-        <span className="ml-auto text-mono text-[10px]" style={{ color: fgFaint }}>workspace://demo</span>
+        <span className="ml-auto text-mono ba-text-2xs" style={{ color: fgFaint }}>workspace://demo</span>
       </div>
 
       <div className="space-y-4 p-3.5">
         {/* Heading + body */}
         <div>
           <div className="text-[17px] font-semibold leading-tight">Multi-state preview</div>
-          <div className="mt-1 text-[12px]" style={{ color: fgSoft }}>
+          <div className="mt-1 ba-text-base" style={{ color: fgSoft }}>
             Inspect tokens across common UI states.{" "}
             <a className="underline decoration-dotted underline-offset-4" style={{ color: ct.primary }} href="#">a link</a>{" · "}
             <a className="underline decoration-dotted underline-offset-4" style={{ color: ct.accent }} href="#">accent link</a>
@@ -857,9 +857,9 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
         <div>
           <div className="text-mono text-[9.5px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>buttons</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button className="text-mono rounded-md px-2.5 py-1.5 text-[11px] font-medium shadow-sm transition-transform hover:-translate-y-px"
+            <button className="text-mono rounded-md px-2.5 py-1.5 text-[11px] font-medium elevation-flat transition-transform hover:-translate-y-px"
               style={{ background: ct.primary, color: onPrimary }}>primary</button>
-            <button className="text-mono rounded-md px-2.5 py-1.5 text-[11px] font-medium shadow-sm transition-transform hover:-translate-y-px"
+            <button className="text-mono rounded-md px-2.5 py-1.5 text-[11px] font-medium elevation-flat transition-transform hover:-translate-y-px"
               style={{ background: ct.accent, color: onPrimary }}>accent</button>
             <button className="text-mono rounded-md border px-2.5 py-1.5 text-[11px]"
               style={{ borderColor: ct.border, background: ct.card, color: ct.foreground }}>outline</button>
@@ -877,13 +877,13 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
           <div>
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>badges</div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="text-mono rounded-sm px-1.5 py-0.5 text-[10px]"
+              <span className="text-mono rounded-sm px-1.5 py-0.5 ba-text-2xs"
                 style={{ background: ct.primary + "26", color: ct.primary, border: `1px solid ${ct.primary}66` }}>active</span>
-              <span className="text-mono rounded-sm px-1.5 py-0.5 text-[10px]"
+              <span className="text-mono rounded-sm px-1.5 py-0.5 ba-text-2xs"
                 style={{ background: ct.accent + "26", color: ct.accent, border: `1px solid ${ct.accent}66` }}>tag</span>
-              <span className="text-mono rounded-sm px-1.5 py-0.5 text-[10px]"
+              <span className="text-mono rounded-sm px-1.5 py-0.5 ba-text-2xs"
                 style={{ background: ct.muted, color: fgSoft, border: `1px solid ${ct.border}` }}>muted</span>
-              <span className="text-mono rounded-sm px-1.5 py-0.5 text-[10px]"
+              <span className="text-mono rounded-sm px-1.5 py-0.5 ba-text-2xs"
                 style={{ background: ct.destructive + "26", color: ct.destructive, border: `1px solid ${ct.destructive}66` }}>error</span>
             </div>
           </div>
@@ -913,7 +913,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
               <Sparkles className="h-3 w-3" />
             </span>
             <div className="text-mono text-[10.5px] uppercase tracking-[0.22em]" style={{ color: fgSoft }}>card · surface</div>
-            <span className="ml-auto text-mono text-[10px]" style={{ color: fgFaint }}>3 items</span>
+            <span className="ml-auto text-mono ba-text-2xs" style={{ color: fgFaint }}>3 items</span>
           </div>
           <div className="mt-2 space-y-1.5">
             {["Lookup IOC indicator", "Run detection draft", "Compose pivot summary"].map((t, i) => (
@@ -936,7 +936,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
           <div className="mt-2.5 grid gap-3 grid-cols-2">
             {/* select */}
             <label className="block">
-              <span className="text-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>severity</span>
+              <span className="text-mono ba-text-2xs uppercase tracking-[0.22em]" style={{ color: fgFaint }}>severity</span>
               <select
                 defaultValue="high"
                 className="text-mono mt-1 w-full appearance-none rounded-md border px-2 py-1.5 text-[11.5px] outline-none"
@@ -952,7 +952,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
             {/* toggle */}
             <div className="flex items-center justify-between rounded-md border px-2.5 py-1.5"
               style={{ borderColor: ct.border, background: ct.background }}>
-              <span className="text-mono text-[11px]" style={{ color: ct.foreground }}>auto-run on paste</span>
+              <span className="text-mono ba-text-sm" style={{ color: ct.foreground }}>auto-run on paste</span>
               <span aria-hidden className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
                 style={{ background: ct.primary }}>
                 <span className="absolute right-0.5 h-4 w-4 rounded-full shadow"
@@ -962,7 +962,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
 
             {/* checkboxes */}
             <div>
-              <div className="text-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>enrichers</div>
+              <div className="text-mono ba-text-2xs uppercase tracking-[0.22em]" style={{ color: fgFaint }}>enrichers</div>
               <div className="mt-1.5 grid gap-1">
                 {[["VirusTotal", true], ["AbuseIPDB", true], ["Shodan", false]].map(([n, on]) => (
                   <label key={n as string} className="flex items-center gap-2 text-[11.5px]" style={{ color: ct.foreground }}>
@@ -983,7 +983,7 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
 
             {/* radio */}
             <div>
-              <div className="text-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: fgFaint }}>output format</div>
+              <div className="text-mono ba-text-2xs uppercase tracking-[0.22em]" style={{ color: fgFaint }}>output format</div>
               <div className="mt-1.5 grid gap-1">
                 {[["json", true], ["yaml", false], ["markdown", false]].map(([n, on]) => (
                   <label key={n as string} className="flex items-center gap-2 text-[11.5px]" style={{ color: ct.foreground }}>
@@ -1063,9 +1063,9 @@ function CustomThemePreview({ ct }: { ct: CustomTheme }) {
         <div className="relative overflow-hidden rounded-md border"
           style={{ borderColor: ct.border, background: ct.muted }}>
           <div className="absolute inset-0 opacity-60" style={{ background: `repeating-linear-gradient(45deg, transparent 0 6px, ${ct.border}33 6px 7px)` }} />
-          <div className="relative m-3 rounded-md border shadow-2xl" style={{ borderColor: ct.border, background: ct.card }}>
+          <div className="relative m-3 rounded-md border elevation-floating" style={{ borderColor: ct.border, background: ct.card }}>
             <div className="border-b px-3 py-2" style={{ borderColor: ct.border }}>
-              <div className="text-mono text-[11px] uppercase tracking-[0.22em]" style={{ color: ct.foreground }}>confirm action</div>
+              <div className="text-mono ba-text-sm uppercase tracking-[0.22em]" style={{ color: ct.foreground }}>confirm action</div>
             </div>
             <div className="px-3 py-2 text-[11.5px]" style={{ color: fgSoft }}>
               Apply the custom theme tokens to the active workspace?
@@ -1126,18 +1126,18 @@ function ThemeGallery({
       {/* LEFT — live stage */}
       <div className="relative overflow-hidden rounded-md border border-border bg-[var(--card)]" data-theme={previewTheme} style={stageStyle}>
 
-        <div className="flex items-center justify-between border-b border-border/60 bg-[var(--background)] px-3 py-2">
+        <div className="flex items-center justify-between border-b border-divider-strong bg-[var(--background)] px-3 py-2">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-destructive/70" />
             <span className="h-2 w-2 rounded-full bg-warning/70" />
             <span className="h-2 w-2 rounded-full bg-success/70" />
-            <span className="text-mono ml-3 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            <span className="text-mono ml-3 ba-text-2xs uppercase tracking-[0.25em] text-muted-foreground">
               {previewMeta.name.toLowerCase()} · preview
             </span>
           </div>
           <div className="flex gap-0.5">
             {previewMeta.swatch.map((c, i) => (
-              <span key={i} className="h-3.5 w-2 rounded-[1px] border border-border/40" style={{ background: c }} />
+              <span key={i} className="h-3.5 w-2 rounded-[1px] border border-divider-soft" style={{ background: c }} />
             ))}
           </div>
         </div>
@@ -1146,10 +1146,10 @@ function ThemeGallery({
           <div className="relative space-y-3">
             <div className="flex items-baseline justify-between">
               <div>
-                <div className="text-mono text-[10px] uppercase tracking-[0.28em] text-[var(--muted-foreground)]">workspace</div>
+                <div className="text-mono ba-text-2xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]">workspace</div>
                 <div className="font-display text-xl text-[var(--foreground)]">{previewMeta.name}</div>
               </div>
-              <span className="text-mono rounded-sm border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-[var(--muted-foreground)]">
+              <span className="text-mono rounded-sm border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 ba-text-3xs uppercase tracking-widest text-[var(--muted-foreground)]">
                 {previewMeta.isLight ? "light" : "dark"}
               </span>
             </div>
@@ -1165,7 +1165,7 @@ function ThemeGallery({
               ].map((s) => (
                 <div key={s.label} className="rounded-sm border border-[var(--border)] bg-[var(--card)] p-1.5">
                   <div className="h-6 w-full rounded-[2px]" style={{ background: s.v }} />
-                  <div className="text-mono mt-1 text-[9px] uppercase tracking-widest text-[var(--muted-foreground)]">{s.label}</div>
+                  <div className="text-mono mt-1 ba-text-3xs uppercase tracking-widest text-[var(--muted-foreground)]">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1173,14 +1173,14 @@ function ThemeGallery({
             <div className="rounded-sm border border-[var(--border)] bg-[var(--card)] p-2">
               <div className="text-mono text-[9.5px] uppercase tracking-widest text-[var(--muted-foreground)]">sample · panel</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <span className="text-mono rounded-sm bg-[var(--primary)] px-2 py-1 text-[10px] font-semibold text-[var(--primary-foreground)]">primary</span>
-                <span className="text-mono rounded-sm border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--foreground)]">outline</span>
-                <span className="text-mono rounded-sm bg-[var(--accent)] px-2 py-1 text-[10px] font-semibold text-[var(--accent-foreground)]">accent</span>
-                <span className="text-mono ml-auto rounded-sm bg-[var(--destructive)] px-2 py-1 text-[10px] font-semibold text-[var(--destructive-foreground)]">alert</span>
+                <span className="text-mono rounded-sm bg-[var(--primary)] px-2 py-1 ba-text-2xs font-semibold text-[var(--primary-foreground)]">primary</span>
+                <span className="text-mono rounded-sm border border-[var(--border)] px-2 py-1 ba-text-2xs text-[var(--foreground)]">outline</span>
+                <span className="text-mono rounded-sm bg-[var(--accent)] px-2 py-1 ba-text-2xs font-semibold text-[var(--accent-foreground)]">accent</span>
+                <span className="text-mono ml-auto rounded-sm bg-[var(--destructive)] px-2 py-1 ba-text-2xs font-semibold text-[var(--destructive-foreground)]">alert</span>
               </div>
               <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[var(--border)] pt-2">
                 <div className="text-mono text-[10.5px] text-[var(--foreground)]">indicator.exe · severity high</div>
-                <span className="text-mono rounded-sm border border-[var(--border)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-[var(--muted-foreground)]">12 hits</span>
+                <span className="text-mono rounded-sm border border-[var(--border)] px-1.5 py-0.5 ba-text-3xs uppercase tracking-widest text-[var(--muted-foreground)]">12 hits</span>
               </div>
             </div>
           </div>
@@ -1189,17 +1189,17 @@ function ThemeGallery({
 
       {/* RIGHT — filter + list + sticky apply */}
       <div className="flex flex-col overflow-hidden rounded-md border border-border bg-card">
-        <div className="flex items-center justify-between gap-2 border-b border-border/60 px-2 py-1.5">
+        <div className="flex items-center justify-between gap-2 border-b border-divider-strong px-2 py-1.5">
           <div className="flex gap-1">
             {(["all", "dark", "light"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={[
-                  "text-mono rounded-sm border px-2 py-1 text-[10px] uppercase tracking-widest transition-colors",
+                  "text-mono rounded-sm border px-2 py-1 ba-text-2xs uppercase tracking-widest transition-colors",
                   filter === f
                     ? "border-primary/60 bg-primary/10 text-primary"
-                    : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground",
+                    : "border-divider-strong text-muted-foreground hover:border-border hover:text-foreground",
                 ].join(" ")}
               >
                 {f === "dark" ? <Moon className="mr-1 inline h-3 w-3" /> : f === "light" ? <Sun className="mr-1 inline h-3 w-3" /> : null}
@@ -1207,7 +1207,7 @@ function ThemeGallery({
               </button>
             ))}
           </div>
-          <span className="text-mono text-[10px] text-muted-foreground">{list.length} themes</span>
+          <span className="text-mono ba-text-2xs text-muted-foreground">{list.length} themes</span>
         </div>
 
         <div className="max-h-[420px] overflow-y-auto p-1.5">
@@ -1222,19 +1222,19 @@ function ThemeGallery({
                   "group flex w-full items-center gap-3 rounded-sm border px-2 py-2 text-left transition-all",
                   isPreview
                     ? "border-primary/60 bg-primary/5 shadow-[0_0_0_1px_var(--primary)]/10"
-                    : "border-transparent hover:border-border/70 hover:bg-muted/40",
+                    : "border-transparent hover:border-divider-strong hover:bg-muted/40",
                 ].join(" ")}
               >
                 <div className="flex gap-0.5">
                   {t.swatch.map((c, i) => (
-                    <span key={i} className="h-9 w-2 rounded-[1px] border border-border/40" style={{ background: c }} />
+                    <span key={i} className="h-9 w-2 rounded-[1px] border border-divider-soft" style={{ background: c }} />
                   ))}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-mono flex items-center gap-1.5 text-[12px] font-semibold tracking-tight">
+                  <div className="text-mono flex items-center gap-1.5 ba-text-base font-semibold tracking-tight">
                     {t.name}
                     {isActive && (
-                      <span className="text-mono rounded-sm border border-border/60 bg-muted/40 px-1 py-px text-[8.5px] uppercase tracking-widest text-muted-foreground">
+                      <span className="text-mono rounded-sm border border-divider-strong bg-muted/40 px-1 py-px text-[8.5px] uppercase tracking-widest text-muted-foreground">
                         active
                       </span>
                     )}
@@ -1252,18 +1252,18 @@ function ThemeGallery({
           })}
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-3 py-2 backdrop-blur">
-          <div className="text-mono text-[10px] text-muted-foreground">
+        <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-divider-strong bg-muted/30 px-3 py-2 backdrop-blur">
+          <div className="text-mono ba-text-2xs text-muted-foreground">
             {dirty
               ? <>changes not saved · <span className="text-foreground">{previewTheme}</span></>
               : "click a theme to preview"}
           </div>
           <div className="flex gap-1.5">
-            <Button variant="ghost" size="sm" className="text-mono h-7 gap-1 text-[10px] uppercase tracking-widest"
+            <Button variant="ghost" size="sm" className="text-mono h-7 gap-1 ba-text-2xs uppercase tracking-widest"
               disabled={!dirty} onClick={onCancel}>
               <RotateCcw className="h-3 w-3" /> cancel
             </Button>
-            <Button size="sm" className="text-mono h-7 gap-1 text-[10px] uppercase tracking-widest"
+            <Button size="sm" className="text-mono h-7 gap-1 ba-text-2xs uppercase tracking-widest"
               disabled={!dirty} onClick={onApply}>
               <Check className="h-3 w-3" /> apply
             </Button>
@@ -1311,12 +1311,12 @@ function ThemeCard({ id, active, previewing = false, onClick }: { id: ThemeId; a
           </div>
         </div>
       </div>
-      <div className="border-t border-border/60 px-3 py-2">
+      <div className="border-t border-divider-strong px-3 py-2">
         <div className="flex items-center justify-between">
-          <div className="text-mono text-[12px] font-semibold tracking-tight text-[var(--foreground)]">{t.name}</div>
+          <div className="text-mono ba-text-base font-semibold tracking-tight text-[var(--foreground)]">{t.name}</div>
           {active && <Check className="h-3.5 w-3.5 text-primary" />}
         </div>
-        <div className="text-mono text-[10px] text-[var(--muted-foreground)]">{t.description}</div>
+        <div className="text-mono ba-text-2xs text-[var(--muted-foreground)]">{t.description}</div>
       </div>
     </button>
   );
@@ -1335,11 +1335,11 @@ function FontPicker<T extends string>({ title, options, value, onChange, sample,
             onClick={() => onChange(opt)}
             className={
               "flex items-center gap-3 rounded-md border bg-card/40 px-3 py-2 text-left transition-colors hover:bg-card " +
-              (value === opt ? "border-primary/60 ring-1 ring-primary/40" : "border-border/70")
+              (value === opt ? "border-primary/60 ring-1 ring-primary/40" : "border-divider-strong")
             }
           >
             <div className="min-w-0 flex-1">
-              <div className="text-mono text-[11px] uppercase tracking-widest text-muted-foreground">{opt}</div>
+              <div className="text-mono ba-text-sm uppercase tracking-widest text-muted-foreground">{opt}</div>
               <div
                 className="truncate text-[14px] text-foreground"
                 style={{ fontFamily: mono ? `"${opt}", ui-monospace, monospace` : `"${opt}", ui-sans-serif, sans-serif` }}
@@ -1360,11 +1360,11 @@ function Panel({ id, label, icon: Icon, right, children }: {
 }) {
   return (
     <section id={id ? `panel-${id}` : undefined} className="rounded-md border border-border bg-card/30 scroll-mt-24">
-      <header className="flex items-center gap-2 border-b border-border/70 px-3 py-2">
+      <header className="flex items-center gap-2 border-b border-divider-strong px-3 py-2">
         <span className="grid h-5 w-5 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
           <Icon className="h-3 w-3" strokeWidth={2.25} />
         </span>
-        <h2 className="text-mono text-[11px] uppercase tracking-[0.22em] text-foreground/90">{label}</h2>
+        <h2 className="text-mono ba-text-sm uppercase tracking-[0.22em] text-foreground/90">{label}</h2>
         <div className="ml-auto">{right}</div>
       </header>
       <div className="p-4">{children}</div>
@@ -1378,9 +1378,9 @@ function Label({ children }: { children: React.ReactNode }) {
 
 function Row({ label, desc, children }: { label: string; desc: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border/70 bg-card/40 px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-md border border-divider-strong bg-card/40 px-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-mono text-[12px] font-medium text-foreground">{label}</div>
+        <div className="text-mono ba-text-base font-medium text-foreground">{label}</div>
         <div className="text-[11px] text-muted-foreground">{desc}</div>
       </div>
       {children}
@@ -1403,7 +1403,7 @@ function ShortcutRow({ keys, label }: { keys: string[]; label: string }) {
       <span className="min-w-0 flex-1 text-foreground/90">{label}</span>
       <span className="flex items-center gap-1">
         {keys.map((k, i) => (
-          <kbd key={i} className="rounded border border-border/70 bg-background/60 px-1.5 py-px text-[10px] uppercase tracking-widest text-muted-foreground">{k}</kbd>
+          <kbd key={i} className="rounded border border-divider-strong bg-background/60 px-1.5 py-px ba-text-2xs uppercase tracking-widest text-muted-foreground">{k}</kbd>
         ))}
       </span>
     </div>
@@ -1441,14 +1441,14 @@ function BackendPanel() {
 
   const handlePing = async () => {
     setPingState("testing");
-    const ok = await pingBackend();
-    setPingState(ok ? "ok" : "fail");
+    const r = await pingBackend();
+    setPingState(r.ok ? "ok" : "fail");
   };
 
   return (
     <Panel label="backend connection" icon={Network}
       right={
-        <span className="inline-flex items-center gap-1.5 text-mono text-[10px]">
+        <span className="inline-flex items-center gap-1.5 text-mono ba-text-2xs">
           <span className={"inline-block h-1.5 w-1.5 rounded-full " + (pingState === "ok" ? "bg-success shadow-[0_0_6px_hsl(var(--success))]" : pingState === "fail" ? "bg-destructive" : pingState === "testing" ? "bg-warning animate-pulse" : "bg-muted-foreground/40")} />
           {pingState === "ok" ? "connected" : pingState === "fail" ? "unreachable" : pingState === "testing" ? "testing…" : "not tested"}
         </span>
@@ -1459,7 +1459,7 @@ function BackendPanel() {
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="h-8 w-48 rounded border border-border bg-background/60 px-2 text-mono text-[11px] text-foreground outline-none transition-colors focus:border-primary/60"
+              className="h-8 w-48 rounded border border-border bg-background/60 px-2 text-mono ba-text-sm text-foreground outline-none transition-colors focus:border-primary/60"
             />
             <button onClick={handleSave} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Save URL" aria-label="Save URL"><Check className="h-3.5 w-3.5" /></button>
             <button onClick={handleReset} className="grid h-8 w-8 place-items-center rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Reset to default" aria-label="Reset to default"><RotateCcw className="h-3.5 w-3.5" /></button>
@@ -1467,11 +1467,11 @@ function BackendPanel() {
         </Row>
         <Row label="Connection test" desc="Ping the backend health endpoint.">
           <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded border border-divider-strong bg-card/40 px-2 py-1 text-mono ba-text-2xs text-muted-foreground">
               <Wifi className={"h-3 w-3 " + (pingState === "ok" ? "text-success" : pingState === "fail" ? "text-destructive" : "text-muted-foreground/60")} />
               {pingState === "ok" ? "Live" : pingState === "fail" ? "No response" : pingState === "testing" ? "…" : "—"}
             </span>
-            <button onClick={handlePing} disabled={pingState === "testing"} className="inline-flex h-7 items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors">
+            <button onClick={handlePing} disabled={pingState === "testing"} className="inline-flex h-7 items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors">
               {pingState === "testing" ? "pinging…" : "ping"}
             </button>
           </div>

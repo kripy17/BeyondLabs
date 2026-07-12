@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { AnimatedGrid } from "@/components/magic/AnimatedGrid";
 import { Marquee } from "@/components/magic/Marquee";
 import { WorkflowRibbon } from "@/components/soc/WorkflowRibbon";
-import { MetricGrid } from "@/components/soc/Workspace";
+import { MetricGrid } from "@/components/output";
 import {
   ArrowRight, Plus, ArrowUpRight, Wand2, Radar, Target, Pin, Clock,
   Keyboard, ShieldCheck, Zap, Eraser, Activity,
@@ -153,7 +153,7 @@ function Dashboard() {
                     <Link to={it.url} className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-background/40">
                       <span className="text-mono w-5 shrink-0 text-[10px] text-muted-foreground/70">{String(i + 1).padStart(2, "0")}</span>
                       <it.icon className="h-3.5 w-3.5 text-primary/90" />
-                      <span className="min-w-0 flex-1 truncate text-mono text-[12px] text-foreground">{it.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-mono ba-text-base text-foreground">{it.title}</span>
                       <span className="text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground">{it.group}</span>
                       <ArrowUpRight className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </Link>
@@ -247,7 +247,7 @@ function StripCell({
       {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">{label}</span>
       <span className={
-        "text-[12px] font-semibold " +
+        "ba-text-base font-semibold " +
         (accent ? "text-primary" : tone === "muted" ? "text-foreground/70" : "text-foreground")
       }>{value}</span>
     </div>
@@ -275,7 +275,7 @@ function ContinueRow({ item }: { item?: WorkspaceItem }) {
             <div className="text-mono text-[13.5px] font-semibold text-foreground">{item.title}</div>
             <p className="truncate text-[11.5px] text-muted-foreground">{item.desc}</p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 text-mono text-[11px] text-primary opacity-80 transition-all group-hover:translate-x-0.5">
+          <span className="inline-flex shrink-0 items-center gap-1 text-mono ba-text-sm text-primary opacity-80 transition-all group-hover:translate-x-0.5">
             resume <ArrowUpRight className="h-3 w-3" />
           </span>
         </Link>
@@ -286,10 +286,10 @@ function ContinueRow({ item }: { item?: WorkspaceItem }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-mono text-[9.5px] uppercase tracking-[0.22em] text-muted-foreground">start here</div>
-            <div className="text-mono text-[13px] text-foreground">Drop an artifact into Smart Parser</div>
+            <div className="text-mono ba-text-base text-foreground">Drop an artifact into Smart Parser</div>
             <p className="truncate text-[11.5px] text-muted-foreground">Open a workspace and it'll become your resume point.</p>
           </div>
-          <Link to="/parser" className="inline-flex shrink-0 items-center gap-1 text-mono text-[11px] text-primary hover:translate-x-0.5 transition-transform">
+          <Link to="/parser" className="inline-flex shrink-0 items-center gap-1 text-mono ba-text-sm text-primary hover:translate-x-0.5 transition-transform">
             open <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>
@@ -307,7 +307,7 @@ function ContinueRow({ item }: { item?: WorkspaceItem }) {
               <a.icon className="h-3.5 w-3.5" />
             </span>
             <span className="min-w-0 flex-1 truncate">{a.label}</span>
-            <kbd className="rounded border border-border/70 bg-background/60 px-1 text-[9.5px] uppercase tracking-widest text-muted-foreground group-hover:border-primary/40">
+            <kbd className="rounded border border-divider-strong bg-background/60 px-1 text-[9.5px] uppercase tracking-widest text-muted-foreground group-hover:border-primary/40">
               {a.hint}
             </kbd>
           </Link>
@@ -327,7 +327,7 @@ function TrackCard({ t }: { t: Track }) {
     >
       <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 ba-shimmer" aria-hidden />
       {/* Corner tag */}
-      <span className="absolute right-0 top-0 px-2 py-0.5 text-mono text-[9.5px] tracking-[0.22em] text-muted-foreground border-l border-b border-border/60 rounded-bl-md bg-background/40">
+      <span className="absolute right-0 top-0 px-2 py-0.5 text-mono text-[9.5px] tracking-[0.22em] text-muted-foreground border-l border-b border-divider-strong rounded-bl-md bg-background/40">
         track · {t.id}
       </span>
 
@@ -356,7 +356,7 @@ function TrackCard({ t }: { t: Track }) {
         ))}
       </ol>
 
-      <div className="mt-4 flex items-center gap-1.5 text-mono text-[11px] text-primary opacity-70 transition-all group-hover:translate-x-0.5 group-hover:opacity-100">
+      <div className="mt-4 flex items-center gap-1.5 text-mono ba-text-sm text-primary opacity-70 transition-all group-hover:translate-x-0.5 group-hover:opacity-100">
         open track <ArrowUpRight className="h-3 w-3" />
       </div>
     </Link>
@@ -369,7 +369,7 @@ function ModuleTile({ m }: { m: WorkspaceItem }) {
   return (
     <Link
       to={m.url}
-      className="group relative flex flex-col overflow-hidden rounded-md border border-border/70 bg-card/40 p-3 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70 hover:shadow-glow"
+      className="group relative flex flex-col overflow-hidden rounded-md border border-divider-strong bg-card/40 p-3 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-card/70 hover:shadow-glow"
     >
       <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded border border-border bg-background/60 text-primary/90 transition-colors group-hover:border-primary/50 group-hover:text-primary">
@@ -392,7 +392,7 @@ function ModuleTile({ m }: { m: WorkspaceItem }) {
 
 function PinnedRail({ items }: { items: WorkspaceItem[] }) {
   return (
-    <section className="flex items-center gap-2 overflow-x-auto rounded-md border border-border/70 bg-card/30 px-3 py-2">
+    <section className="flex items-center gap-2 overflow-x-auto rounded-md border border-divider-strong bg-card/30 px-3 py-2">
       <span className="text-mono flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
         <Pin className="h-3 w-3" /> pinned
       </span>
@@ -419,12 +419,12 @@ function Panel({
   label, icon: Icon, right, children, className,
 }: { label: string; icon: LucideIcon; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={"overflow-hidden rounded-md border border-border/70 bg-card/40 " + (className ?? "")}>
-      <header className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+    <section className={"overflow-hidden rounded-md border border-divider-strong bg-card/40 " + (className ?? "")}>
+      <header className="flex items-center gap-2 border-b border-divider-strong px-3 py-2">
         <span className="grid h-5 w-5 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
           <Icon className="h-3 w-3" strokeWidth={2.25} />
         </span>
-        <h3 className="text-mono text-[11px] uppercase tracking-[0.22em] text-foreground/90">{label}</h3>
+        <h3 className="text-mono ba-text-sm uppercase tracking-[0.22em] text-foreground/90">{label}</h3>
         <div className="ml-auto">{right}</div>
       </header>
       {children}
@@ -438,7 +438,7 @@ function SectionHeader({ icon: Icon, label, hint }: { icon: LucideIcon; label: s
       <span className="grid h-5 w-5 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
         <Icon className="h-3 w-3" strokeWidth={2.25} />
       </span>
-      <h2 className="text-mono text-[11px] uppercase tracking-[0.22em] text-foreground/90">{label}</h2>
+      <h2 className="text-mono ba-text-sm uppercase tracking-[0.22em] text-foreground/90">{label}</h2>
       <div className="h-px flex-1 border-t border-dashed border-border" />
       {hint && <span className="text-mono text-[10px] tracking-widest text-muted-foreground">{hint}</span>}
     </div>
@@ -460,7 +460,7 @@ function ShortcutRow({ keys, label }: { keys: string[]; label: string }) {
       <span className="min-w-0 flex-1 text-foreground/90">{label}</span>
       <span className="flex items-center gap-1">
         {keys.map((k, i) => (
-          <kbd key={i} className="rounded border border-border/70 bg-background/60 px-1.5 py-px text-[10px] uppercase tracking-widest text-muted-foreground">
+          <kbd key={i} className="rounded border border-divider-strong bg-background/60 px-1.5 py-px text-[10px] uppercase tracking-widest text-muted-foreground">
             {k}
           </kbd>
         ))}
@@ -476,7 +476,7 @@ function RotatingTip() {
     return () => clearInterval(id);
   }, []);
   return (
-    <p key={i} className="ba-fade-in text-[12px] leading-relaxed text-foreground/85">
+    <p key={i} className="ba-fade-in ba-text-base leading-relaxed text-foreground/85">
       {TIPS[i]}
     </p>
   );

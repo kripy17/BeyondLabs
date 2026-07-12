@@ -37,12 +37,31 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const { reset } = usePrefs();
   const recents = useRecents();
   const locker = useLocker();
+  const [searchValue, setSearchValue] = useState("");
+
+  useEffect(() => {
+    if (!open) setSearchValue("");
+  }, [open]);
 
   const go = (url: string) => { onOpenChange(false); navigate({ to: url }); };
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search workspaces, MITRE, settings…" />
+      <CommandInput
+        placeholder="Search workspaces, MITRE, settings…"
+        onValueChange={(v) => setSearchValue(v)}
+        value={searchValue}
+      />
+
+      {searchValue && (
+        <div className="flex items-center gap-2 border-b border-divider-soft bg-background/40 px-3 py-1.5 text-mono text-[10px] text-muted-foreground">
+          <Search className="h-3 w-3" />
+          <span>
+            Filtering for "<span className="text-foreground/70">{searchValue}</span>"
+          </span>
+        </div>
+      )}
+
       <CommandList className="max-h-[70vh]">
         <CommandEmpty>No results.</CommandEmpty>
 
@@ -151,6 +170,12 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </CommandItem>
         </CommandGroup>
       </CommandList>
+
+      <div className="flex items-center gap-3 border-t border-divider-soft bg-background/60 px-3 py-1 text-mono text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1"><kbd className="rounded border border-border/50 bg-card/40 px-1">↑↓</kbd> navigate</span>
+        <span className="flex items-center gap-1"><kbd className="rounded border border-border/50 bg-card/40 px-1">↵</kbd> open</span>
+        <span className="flex items-center gap-1"><kbd className="rounded border border-border/50 bg-card/40 px-1">Esc</kbd> close</span>
+      </div>
     </CommandDialog>
   );
 }
@@ -164,12 +189,21 @@ const SHORTCUTS = [
   { key: "↵", action: "Open selected result" },
 ] as const;
 
+const PANEL_SHORTCUTS = [
+  { key: "j", action: "Next result" },
+  { key: "k", action: "Previous result" },
+  { key: "y", action: "Copy selected row" },
+  { key: "e", action: "Enrich selected IOC" },
+  { key: "c", action: "Attach selected to case" },
+  { key: ".", action: "Context menu" },
+] as const;
+
 export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-popover p-4 shadow-xl">
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-popover p-4 elevation-floating">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-mono text-[10px] uppercase tracking-[0.22em] text-foreground/80">Keyboard shortcuts</h2>
           <button onClick={onClose} className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-foreground">✕</button>
@@ -177,8 +211,18 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
         <div className="space-y-1.5">
           {SHORTCUTS.map((s) => (
             <div key={s.key} className="flex items-center justify-between gap-3">
-              <span className="text-mono text-[11px] text-foreground/80">{s.action}</span>
-              <kbd className="rounded border border-border/60 bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-primary">{s.key}</kbd>
+              <span className="text-mono ba-text-sm text-foreground/80">{s.action}</span>
+              <kbd className="rounded border border-divider-strong bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-primary">{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+        <div className="my-3 border-t border-border/50" />
+        <div className="mb-2 text-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80">Panel navigation</div>
+        <div className="space-y-1.5">
+          {PANEL_SHORTCUTS.map((s) => (
+            <div key={s.key} className="flex items-center justify-between gap-3">
+              <span className="text-mono ba-text-sm text-foreground/80">{s.action}</span>
+              <kbd className="rounded border border-divider-strong bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-primary">{s.key}</kbd>
             </div>
           ))}
         </div>

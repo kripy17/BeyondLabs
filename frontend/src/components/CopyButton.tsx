@@ -12,7 +12,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
         setTimeout(() => setCopied(false), 1200);
       }}
       aria-label={copied ? "Copied" : label}
-      className="inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-px text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+      className="inline-flex items-center gap-1 rounded border border-divider-strong px-1.5 py-px text-mono text-[9.5px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
     >
       {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
       {copied ? "copied" : "copy"}

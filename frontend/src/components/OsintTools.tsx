@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { IntakeCard, StatusBar, SectionBar, Panel, SendToRow, Chip, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
+import { StatusBar, VerdictBanner, MetricGrid, CollapsibleSection } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact } from "@/lib/handoff";
@@ -134,7 +135,7 @@ function HarvesterJsonSummary({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="flex flex-wrap gap-1">
       {items.map((item) => (
-        <span key={item.label} className={`rounded border border-border/60 bg-card/40 px-2 py-1 text-mono text-[11px] text-foreground/85 ${item.tone}`}>
+        <span key={item.label} className={`rounded border border-divider-strong bg-card/40 px-2 py-1 text-mono ba-text-sm text-foreground/85 ${item.tone}`}>
           {item.count} {item.label}
         </span>
       ))}
@@ -148,9 +149,9 @@ function HarvesterExtractIocBtn({ data, locker: l }: { data: Record<string, unkn
   const subdomains = (Array.isArray(data.subdomains) ? data.subdomains : Array.isArray(data.hostnames) ? data.hostnames : []) as string[];
   return (
     <>
-      {emails.length > 0 && <button onClick={() => { emails.forEach((item) => l.add({ value: item, type: "email", source: "/harvester" })); toast(`Added ${emails.length} emails to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ emails ({emails.length})</button>}
-      {hosts.length > 0 && <button onClick={() => { hosts.forEach((item) => l.add({ value: item, type: "unknown", source: "/harvester" })); toast(`Added ${hosts.length} hosts to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ hosts ({hosts.length})</button>}
-      {subdomains.length > 0 && <button onClick={() => { subdomains.forEach((item) => l.add({ value: item, type: "domain", source: "/harvester" })); toast(`Added ${subdomains.length} subdomains to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ subdomains ({subdomains.length})</button>}
+      {emails.length > 0 && <button onClick={() => { emails.forEach((item) => l.add({ value: item, type: "email", source: "/harvester" })); toast(`Added ${emails.length} emails to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ emails ({emails.length})</button>}
+      {hosts.length > 0 && <button onClick={() => { hosts.forEach((item) => l.add({ value: item, type: "unknown", source: "/harvester" })); toast(`Added ${hosts.length} hosts to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ hosts ({hosts.length})</button>}
+      {subdomains.length > 0 && <button onClick={() => { subdomains.forEach((item) => l.add({ value: item, type: "domain", source: "/harvester" })); toast(`Added ${subdomains.length} subdomains to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ subdomains ({subdomains.length})</button>}
     </>
   );
 }
@@ -382,7 +383,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
         {showSectionBars && <SectionBar id="OT" label="Output · external pivots" meta={`${applicable.length} matching · ${cats.length} categories`} />}
         <button
           onClick={toggleFilter}
-          className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary")}
+          className={"inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest transition-colors " + (showFilter ? "border-primary/50 bg-primary/10 text-primary" : "border-divider-strong text-muted-foreground hover:border-primary/40 hover:text-primary")}
           title="Toggle output filter (⌘F)"
         >
           <Search className="h-3 w-3" />
@@ -420,7 +421,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
                     const enabled = ready && supported;
                     return (
                       <li key={t.id}>
-                        <div className={"group flex items-start justify-between gap-2 rounded border border-border/60 bg-background/30 px-2.5 py-1.5 transition-all " + (enabled ? "hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5" : "opacity-50")}>
+                        <div className={"group flex items-start justify-between gap-2 rounded border border-divider-strong bg-background/30 px-2.5 py-1.5 transition-all " + (enabled ? "hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5" : "opacity-50")}>
                           <button
                             type="button"
                             disabled={!enabled}
@@ -435,7 +436,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
                             </div>
                           </button>
                           {!supported && ready && (
-                            <span className="mt-0.5 rounded border border-border/60 bg-background/60 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">n/a</span>
+                            <span className="mt-0.5 rounded border border-divider-strong bg-background/60 px-1 py-px text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">n/a</span>
                           )}
                         </div>
                       </li>
@@ -468,10 +469,10 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
             </div>
           }
         >
-          <ul className="divide-y divide-border/40 overflow-hidden rounded border border-border/60 bg-background/40">
+          <ul className="divide-y divide-border/40 overflow-hidden rounded border border-divider-strong bg-background/40">
             {cli.map((line, i) => (
               <li key={i} className="group grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 py-1.5">
-                <span className="rounded border border-border/60 bg-background/70 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                <span className="rounded border border-divider-strong bg-background/70 px-1 py-px text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="min-w-0">
@@ -500,24 +501,24 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
       <Panel icon={Search} title="OSINT Lookup" meta={lookupLoading ? "loading..." : osintResult ? "done" : "idle"} actions={
         <div className="flex items-center gap-1">
           {osintResult && !lookupLoading && (
-            <button onClick={() => { const json = JSON.stringify(osintResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `osint-lookup-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
+            <button onClick={() => { const json = JSON.stringify(osintResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `osint-lookup-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
           )}
           <button onClick={runOsintLookup} disabled={!ready || lookupLoading} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
             {lookupLoading ? "looking up..." : "Run OSINT Lookup"}
           </button>
         </div>
       }>
-        {!ready && <div className="text-mono text-[11px] text-muted-foreground/70">Enter a target above to run an OSINT lookup — email → DNS posture, domain → social links, else → username platforms.</div>}
-        {lookupLoading && <div className="text-mono text-[11px] text-muted-foreground animate-pulse">Querying backend…</div>}
+        {!ready && <div className="text-mono ba-text-sm text-muted-foreground/70">Enter a target above to run an OSINT lookup — email → DNS posture, domain → social links, else → username platforms.</div>}
+        {lookupLoading && <div className="text-mono ba-text-sm text-muted-foreground animate-pulse">Querying backend…</div>}
         {osintResult && !lookupLoading && (
           <div className="space-y-2">
-            <div className="rounded border border-border/60 bg-background/40 p-3">
-              <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(osintResult, null, 2)}</pre>
+            <div className="rounded border border-divider-strong bg-background/40 p-3">
+              <pre className="max-h-48 overflow-auto text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(osintResult, null, 2)}</pre>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <button onClick={() => { locker.add({ value: v, type: kind === "email" ? "email" : "domain", source: "/osint" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker target</button>
+              <button onClick={() => { locker.add({ value: v, type: kind === "email" ? "email" : "domain", source: "/osint" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker target</button>
               {osintResult && Object.keys(osintResult).filter((k) => Array.isArray(osintResult[k])).map((k) => (
-                <button key={k} onClick={() => { (osintResult[k] as string[]).forEach((item: string) => locker.add({ value: item, type: "unknown", source: "/osint" })); toast(`Added ${(osintResult[k] as string[]).length} ${k} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ {k} ({Array.isArray(osintResult[k]) ? (osintResult[k] as string[]).length : "?"})</button>
+                <button key={k} onClick={() => { (osintResult[k] as string[]).forEach((item: string) => locker.add({ value: item, type: "unknown", source: "/osint" })); toast(`Added ${(osintResult[k] as string[]).length} ${k} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ {k} ({Array.isArray(osintResult[k]) ? (osintResult[k] as string[]).length : "?"})</button>
               ))}
             </div>
           </div>
@@ -525,24 +526,24 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
       </Panel>
 
       {toolStatus && (toolStatus as any).runnable && (
-        <Panel icon={Terminal} title="Local OSINT Tools" meta={`${(toolStatus as any).available_count ?? "?"}/${(toolStatus as any).total_count ?? "?"} available`} actions={<span className="text-mono text-[9px] uppercase tracking-widest text-muted-foreground">path check only</span>}>
+        <Panel icon={Terminal} title="Local OSINT Tools" meta={`${(toolStatus as any).available_count ?? "?"}/${(toolStatus as any).total_count ?? "?"} available`} actions={<span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">path check only</span>}>
           {toolOutput && (
             <div className="mb-3 rounded border border-primary/30 bg-primary/5 p-3">
               <div className="mb-1 text-mono text-[10px] uppercase tracking-widest text-primary">Last output</div>
-              <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(toolOutput, null, 2)}</pre>
+              <pre className="max-h-48 overflow-auto text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(toolOutput, null, 2)}</pre>
             </div>
           )}
           <div className="grid gap-1.5 grid-cols-2">
             {Object.entries((toolStatus as any).runnable).map(([id, meta]: [string, any]) => (
-              <div key={id} className={"flex items-center justify-between gap-2 rounded border px-2.5 py-1.5 " + (meta.available ? "border-border/60 bg-background/30" : "border-border/30 bg-background/10 opacity-50")}>
+              <div key={id} className={"flex items-center justify-between gap-2 rounded border px-2.5 py-1.5 " + (meta.available ? "border-divider-strong bg-background/30" : "border-divider-soft bg-background/10 opacity-50")}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className={"inline-block h-1.5 w-1.5 rounded-full " + (meta.available ? "bg-success" : "bg-muted-foreground/40")} />
-                    <span className="text-mono text-[11px] text-foreground/90">{meta.label}</span>
+                    <span className="text-mono ba-text-sm text-foreground/90">{meta.label}</span>
                   </div>
-                  {meta.description && <div className="truncate text-mono text-[9px] text-muted-foreground">{meta.description}</div>}
+                  {meta.description && <div className="truncate text-mono ba-text-3xs text-muted-foreground">{meta.description}</div>}
                 </div>
-                <button onClick={() => runTool(id)} disabled={!meta.available || !ready || toolRunning === id} className="shrink-0 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-30">
+                <button onClick={() => runTool(id)} disabled={!meta.available || !ready || toolRunning === id} className="shrink-0 rounded border border-border bg-background/60 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-30">
                   {toolRunning === id ? "running…" : "run"}
                 </button>
               </div>
@@ -556,8 +557,8 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
           <div className="flex items-center gap-1">
             {maigretResult && !maigretLoading && (
               <>
-                <button onClick={() => { const json = JSON.stringify(maigretResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `maigret-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
-                <button onClick={() => { locker.add({ value: v, type: "unknown", source: "/maigret" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker</button>
+                <button onClick={() => { const json = JSON.stringify(maigretResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `maigret-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
+                <button onClick={() => { locker.add({ value: v, type: "unknown", source: "/maigret" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker</button>
               </>
             )}
             <button onClick={runMaigretLookup} disabled={maigretLoading} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
@@ -567,7 +568,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
         }>
           {maigretResult && !maigretLoading && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-mono text-[11px]">
+              <div className="flex items-center gap-2 text-mono ba-text-sm">
                 <span className="text-muted-foreground">Status:</span>
                 <span className={(maigretResult as any).status === "completed" ? "text-success" : "text-warning"}>{(maigretResult as any).status ?? "unknown"}</span>
                 {(maigretResult as any).sites_found != null && (
@@ -577,13 +578,13 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
               {(maigretResult as any).notes && (
                 <div className="text-mono text-[10px] text-muted-foreground">{(maigretResult as any).notes}</div>
               )}
-              <div className="rounded border border-border/60 bg-background/40 p-3">
-                <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(maigretResult, null, 2)}</pre>
+              <div className="rounded border border-divider-strong bg-background/40 p-3">
+                <pre className="max-h-48 overflow-auto text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(maigretResult, null, 2)}</pre>
               </div>
             </div>
           )}
           {!maigretResult && !maigretLoading && (
-            <div className="text-mono text-[11px] text-muted-foreground/70">Run maigret to search for this target across hundreds of social platforms.</div>
+            <div className="text-mono ba-text-sm text-muted-foreground/70">Run maigret to search for this target across hundreds of social platforms.</div>
           )}
         </Panel>
       )}
@@ -599,7 +600,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
               <select
                 value={theHarvesterSource}
                 onChange={(e) => setTheHarvesterSource(e.target.value)}
-                className="rounded border border-border/60 bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground"
+                className="rounded border border-divider-strong bg-background/60 px-1.5 py-0.5 text-mono text-[10px] text-muted-foreground"
               >
                 <option value="duckduckgo">DuckDuckGo</option>
                 <option value="bing">Bing</option>
@@ -616,16 +617,16 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
             {theHarvesterResult && !theHarvesterLoading && (
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => { const json = JSON.stringify(theHarvesterResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `harvester-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
+                  <button onClick={() => { const json = JSON.stringify(theHarvesterResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `harvester-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
                   <HarvesterJsonSummary data={theHarvesterResult} />
                 </div>
-                <div className="rounded border border-border/60 bg-background/40 p-3">
-                  <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(theHarvesterResult, null, 2)}</pre>
+                <div className="rounded border border-divider-strong bg-background/40 p-3">
+                  <pre className="max-h-48 overflow-auto text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(theHarvesterResult, null, 2)}</pre>
                 </div>
               </div>
             )}
             {!theHarvesterResult && !theHarvesterLoading && (
-              <div className="text-mono text-[11px] text-muted-foreground/70">Run theHarvester to discover emails, subdomains, and hosts related to this target.</div>
+              <div className="text-mono ba-text-sm text-muted-foreground/70">Run theHarvester to discover emails, subdomains, and hosts related to this target.</div>
             )}
           </Panel>
         </>
@@ -636,8 +637,8 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
         <div className="flex items-center gap-1">
           {searchsploitResult && !searchsploitLoading && (
             <>
-              <button onClick={() => { const json = JSON.stringify(searchsploitResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `searchsploit-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
-              <button onClick={() => { locker.add({ value: v, type: kind === "hash" ? "sha256" : "unknown", source: "/searchsploit" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker</button>
+              <button onClick={() => { const json = JSON.stringify(searchsploitResult, null, 2); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `searchsploit-${v}.json`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Download className="h-3 w-3" />json</button>
+              <button onClick={() => { locker.add({ value: v, type: kind === "hash" ? "sha256" : "unknown", source: "/searchsploit" }); toast(`Added ${v} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">+ locker</button>
             </>
           )}
           <button onClick={runSearchsploitLookup} disabled={!ready || searchsploitLoading} className="inline-flex items-center gap-1 rounded border border-border bg-background/60 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-40">
@@ -646,12 +647,12 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
         </div>
       }>
         {searchsploitResult && !searchsploitLoading && (
-          <div className="rounded border border-border/60 bg-background/40 p-3">
-            <pre className="max-h-48 overflow-auto text-mono text-[11px] leading-relaxed text-foreground/90">{JSON.stringify(searchsploitResult, null, 2)}</pre>
+          <div className="rounded border border-divider-strong bg-background/40 p-3">
+            <pre className="max-h-48 overflow-auto text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(searchsploitResult, null, 2)}</pre>
           </div>
         )}
         {!searchsploitResult && !searchsploitLoading && (
-          <div className="text-mono text-[11px] text-muted-foreground/70">Search the Exploit Database for vulnerabilities related to this target. Supports CVE, software name, and keyword queries.</div>
+          <div className="text-mono ba-text-sm text-muted-foreground/70">Search the Exploit Database for vulnerabilities related to this target. Supports CVE, software name, and keyword queries.</div>
         )}
       </Panel>
 
@@ -669,7 +670,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
     const k = classify(value);
     const Ico = KIND_META[k].icon;
     return (
-      <span className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background/40 pl-1.5 pr-0.5 py-0.5 text-mono text-[11px] hover:border-primary/50">
+      <span className="group inline-flex items-center gap-1 rounded border border-divider-strong bg-background/40 pl-1.5 pr-0.5 py-0.5 text-mono ba-text-sm hover:border-primary/50">
         <Ico className="h-3 w-3 text-muted-foreground" />
         <button onClick={() => onPick(value)} className="truncate max-w-[18ch] text-foreground/90 group-hover:text-primary" title={value}>{value}</button>
         <button onClick={() => onPin(value)} className="rounded p-0.5 text-muted-foreground hover:text-primary" title={pinned ? "unpin" : "pin"}>

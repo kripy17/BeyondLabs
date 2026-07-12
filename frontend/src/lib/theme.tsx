@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { storageGet, storageSet } from "@/lib/storage";
 
 export type ThemeId =
   | "terminal-noir"
@@ -9,6 +10,8 @@ export type ThemeId =
   | "brutalist-light"
   | "newsprint-dark"
   | "custom";
+
+export type ThemeMode = "auto" | "light" | "dark";
 
 export const THEMES: { id: ThemeId; name: string; description: string; swatch: string[]; isLight?: boolean }[] = [
   { id: "terminal-noir",   name: "Terminal Noir",  description: "Pitch black · neon green CRT",    swatch: ["#020202", "#0a0a0a", "#39ff14"] },
@@ -21,36 +24,51 @@ export const THEMES: { id: ThemeId; name: string; description: string; swatch: s
   { id: "custom",          name: "Custom",         description: "Build your own — colors, mode",   swatch: ["#0f172a", "#1e293b", "#22d3ee"] },
 ];
 
-
 const STORAGE_KEY = "beyondlabs-theme";
+const MODE_KEY = "beyondlabs-theme-mode";
 const DEFAULT: ThemeId = "terminal-noir";
 
-type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void };
-const ThemeCtx = createContext<Ctx>({ theme: DEFAULT, setTheme: () => {} });
+type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void; mode: ThemeMode; setMode: (m: ThemeMode) => void };
+const ThemeCtx = createContext<Ctx>({ theme: DEFAULT, setTheme: () => {}, mode: "auto", setMode: () => {} });
 
 function getInitialTheme(): ThemeId {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
-    if (stored && THEMES.some((t) => t.id === stored)) return stored;
-  } catch { /* ignore */ }
+  const stored = storageGet<ThemeId>(STORAGE_KEY, DEFAULT);
+  if (THEMES.some((t) => t.id === stored)) return stored;
   return DEFAULT;
+}
+
+function applyThemeAndMode(theme: ThemeId, mode: ThemeMode) {
+  const isLight = THEMES.find((t) => t.id === theme)?.isLight ?? false;
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-mode", mode);
+  if (mode === "light") {
+    document.documentElement.classList.remove("dark");
+  } else if (mode === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.toggle("dark", !isLight);
+  }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(getInitialTheme);
+  const [mode, setModeState] = useState<ThemeMode>(() => storageGet<ThemeMode>(MODE_KEY, "auto"));
 
   useEffect(() => {
-    const isLight = THEMES.find((t) => t.id === theme)?.isLight ?? false;
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.classList.toggle("dark", !isLight);
-  }, [theme]);
+    applyThemeAndMode(theme, mode);
+  }, [theme, mode]);
 
   const setTheme = (t: ThemeId) => {
     setThemeState(t);
-    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, t);
+    storageSet(STORAGE_KEY, t);
   };
 
-  return <ThemeCtx.Provider value={{ theme, setTheme }}>{children}</ThemeCtx.Provider>;
+  const setMode = (m: ThemeMode) => {
+    setModeState(m);
+    storageSet(MODE_KEY, m);
+  };
+
+  return <ThemeCtx.Provider value={{ theme, setTheme, mode, setMode }}>{children}</ThemeCtx.Provider>;
 }
 
 export const useTheme = () => useContext(ThemeCtx);

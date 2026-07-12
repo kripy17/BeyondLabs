@@ -1,18 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import {
-  IntakeCard, StatusBar, KeyFields, SectionBar,
-  Panel, SendToRow, Empty, Chip, EvidenceCard, IocInventory,
-  TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection,
-} from "@/components/soc/Workspace";
+import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
+import { StatusBar, KeyFields, Empty, EvidenceCard, TwoColumnOutput, MetricGrid, CollapsibleSection } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { useLocker } from "@/lib/locker";
 import { CopyInline } from "@/components/CopyButton";
 import { toast } from "sonner";
-import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Download, Hash, Network, ShieldCheck, ShieldX, Activity, ExternalLink, Terminal, Globe, AtSign, ScrollText, History, KeyRound, Award, Copy, Check } from "lucide-react";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Download, Hash, Network, Activity, ExternalLink, Terminal, Globe, AtSign, ScrollText, History, KeyRound, Award, Copy, Check } from "lucide-react";
 import { passiveRecon } from "@/api/backend";
 import { sendToCase } from "@/lib/handoff";
+import { pushTimelineEvent } from "@/lib/timeline";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });
 
@@ -206,10 +204,12 @@ function ReconPage() {
     try {
       const res = await passiveRecon(target.trim());
       setResult(res as unknown as ReconApiResult);
+      pushTimelineEvent({ source: "recon", verb: "enumerated", detail: `Enumerated ${target.trim()}`, target: target.trim() });
       toast.success("Recon complete", { description: target.trim() });
     } catch (e: any) {
-      setError(e?.message || "passive recon failed");
-      toast.error("Recon failed", { description: target.trim() });
+      const msg = e?.suggestion ? `${e.message} — ${e.suggestion}` : (e?.message || "passive recon failed");
+      setError(msg);
+      toast.error(e?.message || "Recon failed", { description: e?.suggestion || target.trim() });
     } finally {
       setLoading(false);
     }
@@ -260,38 +260,24 @@ function ReconPage() {
       )}
 
       {!result && !loading && !error && (
-        <Empty icon={Globe2} title="No target loaded" hint="Enter a domain above and click enumerate to run recon." />
+        <Empty icon={Globe2} title="No target loaded" hint="Recon resolves DNS records (A/AAAA/MX/NS/TXT), fetches WHOIS data, probes HTTP headers and TLS certificates, and checks subdomain sources. Enter a domain above and click enumerate." />
       )}
 
       {loading && (
-        <Panel title="Probing" icon={Search}>
-          <p className="text-mono text-[11px] text-muted-foreground">Resolving DNS, looking up WHOIS, probing HTTP, fetching TLS certificate...</p>
+        <Panel title="Probing" icon={Search} priority="secondary">
+          <p className="text-mono ba-text-sm text-muted-foreground">Resolving DNS, looking up WHOIS, probing HTTP, fetching TLS certificate...</p>
         </Panel>
       )}
 
       {error && (
-        <Panel title="Error" icon={AlertTriangle}>
-          <p className="text-mono text-[11px] text-destructive">{error}</p>
+        <Panel title="Error" icon={AlertTriangle} priority="secondary">
+          <p className="text-mono ba-text-sm text-destructive">{error}</p>
         </Panel>
       )}
 
       {result && !loading && (
         <OutputFilter query={filterText.toLowerCase()}>
         <div className="space-y-5">
-          {/* Verdict Banner */}
-          <VerdictBanner
-            verdict={result.target.hostname || target}
-            tone={signals.some((s) => s.sev === "destructive") ? "destructive" : signals.some((s) => s.sev === "warning") ? "warning" : "success"}
-            icon={signals.some((s) => s.sev === "destructive") ? ShieldX : signals.some((s) => s.sev === "warning") ? AlertTriangle : ShieldCheck}
-            details={[
-              result.target.type === "domain" ? `Root: ${result.target.root_domain}` : `Type: ${result.target.type}`,
-              dns ? `${Object.values(dns).flat().length} DNS records` : "",
-              ssl ? "TLS certificate present" : "",
-              http ? `HTTP ${http.status_code}` : "",
-              signals.some((s) => s.sev === "destructive" || s.sev === "warning") ? `${signals.filter((s) => s.sev === "destructive" || s.sev === "warning").length} risk signal(s)` : "",
-            ].filter(Boolean)}
-          />
-
           {/* Metrics Overview */}
           <MetricGrid
             columns={4}
@@ -308,18 +294,18 @@ function ReconPage() {
           />
 
           {result.warning && (
-            <Panel title="Warning" icon={AlertTriangle}>
-              <p className="text-mono text-[11px] text-muted-foreground">{result.warning}</p>
+            <Panel title="Warning" icon={AlertTriangle} priority="secondary">
+              <p className="text-mono ba-text-sm text-muted-foreground">{result.warning}</p>
             </Panel>
           )}
 
           {result.whois && "skipped" in result.whois && (
-            <Panel title="WHOIS / RDAP" icon={Search} meta="not available" collapsible storageKey="ba.panel.recon.whois" defaultCollapsed>
-              <p className="text-mono text-[11px] text-muted-foreground">{(result.whois as any).skipped}</p>
+            <Panel title="WHOIS / RDAP" icon={Search} meta="not available" priority="secondary" collapsible storageKey="ba.panel.recon.whois" defaultCollapsed>
+              <p className="text-mono ba-text-sm text-muted-foreground">{(result.whois as any).skipped}</p>
             </Panel>
           )}
           {result.whois && !("skipped" in result.whois) && (result.whois as any).raw && (
-            <Panel title="WHOIS" icon={Search} meta={result.whois.registrar ? (result.whois as any).registrar : "registered"} collapsible storageKey="ba.panel.recon.whois" defaultCollapsed>
+            <Panel title="WHOIS" icon={Search} meta={(result.whois as any).registrar ? (result.whois as any).registrar : "registered"} priority="secondary" collapsible storageKey="ba.panel.recon.whois" defaultCollapsed>
               <div className="space-y-2">
                 {((result.whois as any).registrar && (
                   <div className="grid grid-cols-2 gap-2">
@@ -347,19 +333,19 @@ function ReconPage() {
                     </div>
                   </div>
                 )}
-                <button onClick={() => navigator.clipboard.writeText((result.whois as any).raw)} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw WHOIS</button>
+                <button onClick={() => navigator.clipboard.writeText((result.whois as any).raw)} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw WHOIS</button>
               </div>
             </Panel>
           )}
           {result.rdap && !("skipped" in result.rdap) && (result.rdap as any).handle && (
-            <Panel title="RDAP" icon={Search} meta={(result.rdap as any).organization || "registered"} collapsible storageKey="ba.panel.recon.rdap">
+            <Panel title="RDAP" icon={Search} meta={(result.rdap as any).organization || "registered"} priority="secondary" collapsible storageKey="ba.panel.recon.rdap">
               <KeyFields items={[
                 { label: "Handle", value: (result.rdap as any).handle },
                 ...((result.rdap as any).range ? [{ label: "Range", value: (result.rdap as any).range }] : []),
                 ...((result.rdap as any).organization ? [{ label: "Organization", value: (result.rdap as any).organization }] : []),
                 ...((result.rdap as any).name ? [{ label: "Name", value: (result.rdap as any).name }] : []),
               ]} />
-              <button onClick={() => navigator.clipboard.writeText((result.rdap as any).raw)} className="mt-2 inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw RDAP</button>
+              <button onClick={() => navigator.clipboard.writeText((result.rdap as any).raw)} className="mt-2 inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw RDAP</button>
             </Panel>
           )}
 
@@ -370,13 +356,13 @@ function ReconPage() {
               left={
                 <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`} actions={
                   <div className="flex items-center gap-1">
-                    <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
-                    <a href={`https://securitytrails.com/list/apex_domain/${encodeURIComponent(result?.target?.root_domain || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> SecurityTrails</a>
+                    <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
+                    <a href={`https://securitytrails.com/list/apex_domain/${encodeURIComponent(result?.target?.root_domain || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> SecurityTrails</a>
                   </div>
                 }>
                   <div className="grid gap-2 grid-cols-2">
                     {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
-                      <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
+                      <div key={rr} className="rounded border border-divider-strong bg-card/50 p-2.5">
                         <div className="mb-1 flex items-center gap-1.5">
                           <Chip tone="primary">{rr}</Chip>
                           <span className="text-mono text-[10px] text-muted-foreground">×{vals.length}</span>
@@ -390,10 +376,10 @@ function ReconPage() {
                                 <CopyInline value={v} />
                                 {isIp && (
                                   <div className="ml-auto hidden gap-0.5 group-hover:flex">
-                                    <a href={`https://www.abuseipdb.com/check/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="AbuseIPDB">Abuse</a>
-                                    <a href={`https://www.shodan.io/search?query=${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="Shodan">Shodan</a>
-                                    <a href={`https://viz.greynoise.io/ip/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="GreyNoise">GN</a>
-                                    <button onClick={() => { locker.add({ value: v, type: "ipv4", source: "/recon" }); toast(`Added ${v} to locker`); }} className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="add to locker">L</button>
+                                    <a href={`https://www.abuseipdb.com/check/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="AbuseIPDB">Abuse</a>
+                                    <a href={`https://www.shodan.io/search?query=${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="Shodan">Shodan</a>
+                                    <a href={`https://viz.greynoise.io/ip/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="GreyNoise">GN</a>
+                                    <button onClick={() => { locker.add({ value: v, type: "ipv4", source: "/recon" }); toast(`Added ${v} to locker`); }} className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="add to locker">L</button>
                                   </div>
                                 )}
                               </div>
@@ -408,8 +394,8 @@ function ReconPage() {
               right={
                 <Panel title="TLS Certificate" icon={Lock} meta={`${(ssl.subject_alt_names || []).length} SANs`} actions={
                   <div className="flex items-center gap-1">
-                    <a href={`https://www.virustotal.com/gui/search/${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> VT</a>
-                    <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
+                    <a href={`https://www.virustotal.com/gui/search/${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> VT</a>
+                    <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
                   </div>
                 }>
                   <KeyFields items={[
@@ -428,12 +414,12 @@ function ReconPage() {
           {dns && (dns.A.length > 0 || dns.AAAA.length > 0) && !ssl && (
             <Panel title="DNS Records" icon={Network} meta={`${Object.values(dns).flat().length} RRs`} actions={
               <div className="flex items-center gap-1">
-                <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
+                <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
               </div>
             }>
               <div className="grid gap-2 grid-cols-3">
                 {Object.entries(dns).filter(([, vals]) => vals.length > 0).map(([rr, vals]) => (
-                  <div key={rr} className="rounded border border-border/60 bg-card/50 p-2.5">
+                  <div key={rr} className="rounded border border-divider-strong bg-card/50 p-2.5">
                     <div className="mb-1 flex items-center gap-1.5">
                       <Chip tone="primary">{rr}</Chip>
                       <span className="text-mono text-[10px] text-muted-foreground">×{vals.length}</span>
@@ -447,10 +433,10 @@ function ReconPage() {
                             <CopyInline value={v} />
                             {isIp && (
                               <div className="ml-auto hidden gap-0.5 group-hover:flex">
-                                <a href={`https://www.abuseipdb.com/check/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="AbuseIPDB">Abuse</a>
-                                <a href={`https://www.shodan.io/search?query=${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="Shodan">Shodan</a>
-                                <a href={`https://viz.greynoise.io/ip/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="GreyNoise">GN</a>
-                                <button onClick={() => { locker.add({ value: v, type: "ipv4", source: "/recon" }); toast(`Added ${v} to locker`); }} className="rounded border border-border/40 bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="add to locker">L</button>
+                                <a href={`https://www.abuseipdb.com/check/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="AbuseIPDB">Abuse</a>
+                                <a href={`https://www.shodan.io/search?query=${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="Shodan">Shodan</a>
+                                <a href={`https://viz.greynoise.io/ip/${encodeURIComponent(v)}`} target="_blank" rel="noopener noreferrer" className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="GreyNoise">GN</a>
+                                <button onClick={() => { locker.add({ value: v, type: "ipv4", source: "/recon" }); toast(`Added ${v} to locker`); }} className="rounded border border-divider-soft bg-card/50 px-1 py-0.5 text-mono text-[8px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40" title="add to locker">L</button>
                               </div>
                             )}
                           </div>
@@ -467,8 +453,8 @@ function ReconPage() {
           {ssl && !(dns && (dns.A.length > 0 || dns.AAAA.length > 0)) && (
             <Panel title="TLS Certificate" icon={Lock} meta={`${(ssl.subject_alt_names || []).length} SANs`} actions={
               <div className="flex items-center gap-1">
-                <a href={`https://www.virustotal.com/gui/search/${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> VT</a>
-                <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
+                <a href={`https://www.virustotal.com/gui/search/${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> VT</a>
+                <a href={`https://crt.sh/?q=${encodeURIComponent(result?.target?.hostname || target)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40"><ExternalLink className="h-2.5 w-2.5" /> crt.sh</a>
               </div>
             }>
               <KeyFields items={[
@@ -515,7 +501,7 @@ function ReconPage() {
                     <button
                       key={kindName as string}
                       onClick={() => { const t = kindName === "Domain" ? "domain" : kindName === "IPv4" ? "ipv4" : kindName === "IPv6" ? "ipv6" : kindName === "Mail" ? "domain" : kindName === "Nameserver" ? "domain" : "unknown"; (items as string[]).forEach((v) => locker.add({ value: v, type: t, source: "/recon" })); toast(`Added ${(items as string[]).length} ${kindName} to locker`); }}
-                      className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                      className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
                     >
                       + {kindName as string} ({(items as string[]).length})
                     </button>
@@ -523,7 +509,7 @@ function ReconPage() {
                   {ssl && (ssl.subject_alt_names || []).length > 0 && (
                     <button
                       onClick={() => { (ssl.subject_alt_names || []).forEach(([, v]) => locker.add({ value: v, type: "domain", source: "/recon" })); toast(`Added ${ssl.subject_alt_names?.length ?? 0} SANs to locker`); }}
-                      className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                      className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
                     >
                       + SANs ({ssl.subject_alt_names?.length ?? 0})
                     </button>
@@ -546,7 +532,7 @@ function ReconPage() {
 
           {/* Export */}
           {result.target.hostname && (
-            <Panel title="Export" icon={Download} collapsible storageKey="ba.panel.recon.export" defaultCollapsed>
+            <Panel title="Export" icon={Download} priority="secondary" collapsible storageKey="ba.panel.recon.export" defaultCollapsed>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => {
@@ -588,13 +574,13 @@ function ReconPage() {
           )}
 
           {/* ── OSINT Tool Links (inline from Recon target) ── */}
-          <SectionBar id="OT" label="OSINT Tool Links" meta={`${osintKind} · ${result?.target?.hostname ? "auto" : "from target"}`} />
+          <SectionBar id="OT" label="OSINT Tool Links" meta={`${osintKind} · ${result?.target?.hostname ? "auto" : "from target"}`} priority="secondary" />
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <button onClick={() => { locker.add({ value: osintTarget, type: osintKind, source: "/recon" }); toast(`Added ${osintTarget} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Hash className="h-3 w-3" /> locker target</button>
-            <button onClick={() => { const links = OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `${t.label}: ${t.href(osintTarget)}`).join("\n"); navigator.clipboard.writeText(links); toast("Copied all OSINT links"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy all links</button>
-            <button onClick={() => sendToCase({ body: `OSINT pivot links for ${osintTarget}\n\n${OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `- [${t.label}](${t.href(osintTarget)})`).join("\n")}`, source: "/recon", kind: "evidence" })} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Database className="h-3 w-3" /> send to case</button>
+            <button onClick={() => { locker.add({ value: osintTarget, type: osintKind, source: "/recon" }); toast(`Added ${osintTarget} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Hash className="h-3 w-3" /> locker target</button>
+            <button onClick={() => { const links = OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `${t.label}: ${t.href(osintTarget)}`).join("\n"); navigator.clipboard.writeText(links); toast("Copied all OSINT links"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy all links</button>
+            <button onClick={() => sendToCase({ body: `OSINT pivot links for ${osintTarget}\n\n${OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `- [${t.label}](${t.href(osintTarget)})`).join("\n")}`, source: "/recon", kind: "evidence" })} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Database className="h-3 w-3" /> send to case</button>
           </div>
-          <Panel title="External Service Pivots" icon={ExternalLink} collapsible storageKey="ba.panel.recon.osint-links">
+          <Panel title="External Service Pivots" icon={ExternalLink} priority="secondary" collapsible storageKey="ba.panel.recon.osint-links">
             <div className="grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
               {OSINT_CATS.map((c) => {
                 const items = OSINT_TOOLS.filter((t) => t.cat === c && t.supports.includes(osintKind));
@@ -606,12 +592,12 @@ function ReconPage() {
                       {items.map((t) => (
                         <li key={t.id}>
                           <a href={t.href(osintTarget)} target="_blank" rel="noopener noreferrer"
-                            className="group flex items-center gap-2 rounded border border-border/60 bg-background/30 px-2 py-1.5 hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5 transition-all"
+                            className="group flex items-center gap-2 rounded border border-divider-strong bg-background/30 px-2 py-1.5 hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5 transition-all"
                           >
                             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground group-hover:text-primary" />
                             <div className="min-w-0">
-                              <div className="text-mono text-[11px] text-foreground/90 group-hover:text-primary">{t.label}</div>
-                              <div className="truncate text-mono text-[9px] text-muted-foreground">{t.tagline}</div>
+                              <div className="text-mono ba-text-sm text-foreground/90 group-hover:text-primary">{t.label}</div>
+                              <div className="truncate text-mono ba-text-3xs text-muted-foreground">{t.tagline}</div>
                             </div>
                           </a>
                         </li>
@@ -624,9 +610,9 @@ function ReconPage() {
           </Panel>
 
           {/* ── CLI Commands for target ── */}
-          <SectionBar id="CL" label="OSINT CLI Commands" meta={`tuned for ${osintKind}`} />
-          <Panel title="Suggested CLI" icon={Terminal} collapsible storageKey="ba.panel.recon.osint-cli">
-            <ul className="divide-y divide-border/40 overflow-hidden rounded border border-border/60 bg-background/40">
+          <SectionBar id="CL" label="OSINT CLI Commands" meta={`tuned for ${osintKind}`} priority="raw" />
+          <Panel title="Suggested CLI" icon={Terminal} priority="secondary" collapsible storageKey="ba.panel.recon.osint-cli">
+            <ul className="divide-y divide-border/40 overflow-hidden rounded border border-divider-strong bg-background/40">
               {(osintKind === "ipv4" ? [
                 { label: "Reverse DNS",     cmd: `dig -x ${osintTarget} +short` },
                 { label: "WHOIS",           cmd: `whois ${osintTarget}` },
@@ -648,7 +634,7 @@ function ReconPage() {
                 { label: "WhatWeb",         cmd: `whatweb ${osintTarget}` },
               ]).map((line, i) => (
                 <li key={i} className="group grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-1.5">
-                  <span className="rounded border border-border/60 bg-background/70 px-1 py-px text-mono text-[9px] uppercase tracking-widest text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="rounded border border-divider-strong bg-background/70 px-1 py-px text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
                   <div className="min-w-0">
                     <div className="truncate text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{line.label}</div>
                     <div className="truncate text-mono text-[11.5px] text-foreground/90"><span className="select-none text-muted-foreground/60">$ </span>{line.cmd}</div>
