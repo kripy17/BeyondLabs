@@ -32,9 +32,6 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
       ).slice(0, 6)
     : [];
 
-  // Recent / suggested when empty
-  const suggested = ALL_ITEMS.slice(0, 5);
-
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
@@ -148,31 +145,6 @@ export function TopSearch({ onOpenPalette }: { onOpenPalette: () => void }) {
               <p className="mt-1 text-[11px] text-muted-foreground/80">
                 Try a tool name, IOC type, or section.
               </p>
-            </div>
-          )}
-
-          {/* Empty state — focused, no query: suggest jumps + open palette */}
-          {!needle && (
-            <div>
-              <div className="flex items-center justify-between px-2.5 pb-1 pt-2 text-mono text-[10px] uppercase tracking-widest text-muted-foreground/80">
-                <span>jump to</span>
-                <span>↑ ↓ to move · ↵ open</span>
-              </div>
-              <ul className="pb-1">
-                {suggested.map((h) => (
-                  <li key={h.url}>
-                    <Link
-                      to={h.url}
-                      onClick={closeAndClear}
-                      className="flex items-center gap-2 px-2.5 py-1.5 text-mono ba-text-base text-foreground/90 transition-colors hover:bg-muted/60"
-                    >
-                      <h.icon className="h-3.5 w-3.5 text-primary" />
-                      <span className="flex-1 truncate">{h.title}</span>
-                      <span className="truncate text-[10.5px] text-muted-foreground">{h.group.toLowerCase()}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
 

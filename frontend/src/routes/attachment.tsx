@@ -63,6 +63,7 @@ function AttachmentPage() {
       setResult(res as unknown as ApiResult);
     } catch (e: any) {
       setError(e?.message || "analysis failed");
+      toast.error(e?.message || "Upload failed", { description: e?.suggestion });
     } finally {
       setLoading(false);
     }

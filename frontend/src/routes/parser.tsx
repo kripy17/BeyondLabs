@@ -539,6 +539,44 @@ function ParserPage() {
             </p>
           </div>
 
+          {/* Suggested next steps — universal intake routing */}
+          {(hasDomains || hasIps || hasEmails || result?.iocs.URL.length > 0 || result?.iocs.MD5.length > 0 || result?.iocs.SHA256.length > 0) && (
+            <Panel title="Suggested next steps" icon={ArrowRight} meta="smart routing">
+              <div className="flex flex-wrap gap-2">
+                {hasIps && (
+                  <Link to="/recon" className="inline-flex items-center gap-2 rounded-md border border-info/40 bg-info/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-info transition-colors hover:bg-info/20">
+                    <Network className="h-3.5 w-3.5" /> Recon <span className="opacity-70">({result.iocs.IPv4.length} IP{result.iocs.IPv4.length === 1 ? "" : "s"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+                {hasDomains && (
+                  <Link to="/recon" className="inline-flex items-center gap-2 rounded-md border border-info/40 bg-info/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-info transition-colors hover:bg-info/20">
+                    <Globe className="h-3.5 w-3.5" /> Recon <span className="opacity-70">({result.iocs.Domain.length} domain{result.iocs.Domain.length === 1 ? "" : "s"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+                {result.iocs.URL.length > 0 && (
+                  <Link to="/url" className="inline-flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-warning transition-colors hover:bg-warning/20">
+                    <Link2 className="h-3.5 w-3.5" /> URL Analyzer <span className="opacity-70">({result.iocs.URL.length} URL{result.iocs.URL.length === 1 ? "" : "s"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+                {hasEmails && (
+                  <Link to="/phishing" className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/20">
+                    <Mail className="h-3.5 w-3.5" /> Phishing Triage <span className="opacity-70">({result.iocs.Email.length} email{result.iocs.Email.length === 1 ? "" : "s"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+                {(result.iocs.MD5.length > 0 || result.iocs.SHA256.length > 0) && (
+                  <Link to="/attachment" className="inline-flex items-center gap-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-accent transition-colors hover:bg-accent/20">
+                    <FileWarning className="h-3.5 w-3.5" /> Attachment Triage <span className="opacity-70">({result.iocs.MD5.length + result.iocs.SHA256.length} hash{(result.iocs.MD5.length + result.iocs.SHA256.length) === 1 ? "" : "es"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+                {result.iocs.ATTACK.length > 0 && (
+                  <Link to="/mitre" className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono text-[11px] uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/20">
+                    <Crosshair className="h-3.5 w-3.5" /> MITRE <span className="opacity-70">({result.iocs.ATTACK.length} technique{result.iocs.ATTACK.length === 1 ? "" : "s"})</span> <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
+            </Panel>
+          )}
+
           {/* Deep Scan */}
           {canDeepScan && (
             <div className="flex items-center justify-between rounded-md border border-dashed border-primary/30 bg-primary/[0.02] px-3.5 py-2.5">

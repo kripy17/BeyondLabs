@@ -6,7 +6,7 @@ import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/
 import { StatusBar, ResultBanner, Empty, EvidenceCard } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import {
-  Database, Search, ArrowRight, Zap, ShieldAlert, Activity, Filter,
+  Database, ArrowRight, Zap, ShieldAlert, Activity, Filter,
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
   Hash, User, ChevronDown, ChevronRight,
 } from "lucide-react";
@@ -460,24 +460,7 @@ function SiemPage() {
         ) : undefined
       } />
 
-      <div className="grid gap-3 grid-cols-2">
-        <IntakeCard
-          icon={Search}
-          title="Event Search"
-          value={q}
-          onChange={setQ}
-          rows={2}
-          placeholder='src:8.8.8.8 OR user:root OR sig:"SQLi"'
-          samples={[
-            { key: "sqli",  label: "SQLi",     hint: 'sig:"SQLi"' },
-            { key: "root",  label: "Root login", hint: "user:root" },
-            { key: "ext",   label: "Egress IP", hint: "src:8.8.8.8" },
-          ]}
-          onLoadSample={(k) => setQ(k === "sqli" ? 'sig:"SQLi"' : k === "root" ? "user:root" : "src:8.8.8.8")}
-          run={{ label: "run", icon: Zap, hint: "⌘↵", onClick: () => {}, disabled: !q.trim() }}
-          onClear={() => { setQ(""); setChips([]); }}
-          showCopy={false}
-        />
+      <div className="grid gap-3 grid-cols-1">
         <IntakeCard
           icon={FileText}
           title="Paste raw events"

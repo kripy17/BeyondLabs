@@ -234,6 +234,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
 export function useCommandPalette() {
   const [open, setOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const navigate = useNavigate();
   const { prefs } = usePrefs();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -250,5 +251,33 @@ export function useCommandPalette() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [prefs.slashOpensPalette]);
+
+  /* Navigation shortcuts: G + key */
+  useEffect(() => {
+    let gPending = false;
+    let gTimer: ReturnType<typeof setTimeout>;
+    const NAV_MAP: Record<string, string> = {
+      p: "/parser", s: "/settings", h: "/", f: "/phishing",
+      d: "/detection", i: "/siem", r: "/recon", t: "/hacking-toolkit",
+      c: "/chef", m: "/mitre", n: "/case",
+    };
+    const onNavKey = (e: KeyboardEvent) => {
+      if (e.key === "g" && !e.metaKey && !e.ctrlKey && !e.repeat) {
+        gPending = true;
+        clearTimeout(gTimer);
+        gTimer = setTimeout(() => { gPending = false; }, 1000);
+        return;
+      }
+      if (gPending && NAV_MAP[e.key.toLowerCase()]) {
+        e.preventDefault();
+        gPending = false;
+        clearTimeout(gTimer);
+        navigate({ to: NAV_MAP[e.key.toLowerCase()] });
+      }
+    };
+    window.addEventListener("keydown", onNavKey);
+    return () => window.removeEventListener("keydown", onNavKey);
+  }, [navigate]);
+
   return { open, setOpen, shortcutsOpen, setShortcutsOpen };
 }

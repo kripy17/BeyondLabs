@@ -9,6 +9,7 @@ import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { PanelSkeleton } from "@/components/Skeleton";
 import { TerminalOutput } from "@/components/soc/TerminalOutput";
+import { NmapOutput } from "@/components/output/NmapOutput";
 import type { LucideIcon } from "lucide-react";
 import {
   Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
@@ -373,10 +374,8 @@ function HackingToolkitPage() {
           setOffline(false);
           try { localStorage.setItem(CACHE_KEY, JSON.stringify({ _cachedAt: Date.now(), categories: res.categories })); } catch {}
           if (res.categories.length > 0) {
-            setActiveCatId(res.categories[0].id);
-            if (res.categories[0].tools.length > 0) {
-              setActiveToolId(res.categories[0].tools[0].id);
-            }
+            setActiveCatId("");
+            setActiveToolId("");
           }
         }
         setLoading(false);
@@ -389,8 +388,8 @@ function HackingToolkitPage() {
           setInstalled(false);
           setOffline(true);
           if (cached.length > 0) {
-            setActiveCatId(cached[0].id);
-            if (cached[0].tools.length > 0) setActiveToolId(cached[0].tools[0].id);
+            setActiveCatId("");
+            setActiveToolId("");
           }
         } else {
           setBackendError(err?.message || "Cannot reach backend");
@@ -715,7 +714,7 @@ function HackingToolkitPage() {
             {/* ── Right column ── */}
             <div className="min-w-0 space-y-4">
               {!activeTool ? (
-                <Empty icon={Terminal} title="No tool selected" hint="Choose a tool from the left rail to get started." />
+                <Empty icon={Terminal} title="No tool selected" hint="Hacking Toolkit provides 50+ offensive security tools grouped by category — recon, web, forensics, exploit, password attacks, and more. Select a tool from the left rail, configure flags or presets, and run against locally installed binaries." />
               ) : (
                 <>
                   {/* Tool header */}
@@ -969,11 +968,21 @@ function HackingToolkitPage() {
                           filename={`hacking-${activeTool.id}.txt`}
                         />
 
+                        {activeTool.id === "nmap" && (
+                          <div className="mt-3 space-y-3">
+                            <NmapOutput
+                              body={output.body}
+                              command={output.command}
+                              target={target}
+                              status={output.status}
+                            />
+                          </div>
+                        )}
+
                         {target && (
                           <div className="mt-3">
                             <SendToRow
                               targets={[
-                                { label: "Nmap Runner", to: "/nmap", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                                 { label: "OSINT Tools", to: "/osint", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                                 { label: "URL Analyzer", to: "/url", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                                 { label: "Recon", to: "/recon", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },

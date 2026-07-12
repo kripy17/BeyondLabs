@@ -26,7 +26,7 @@ export const THEMES: { id: ThemeId; name: string; description: string; swatch: s
 
 const STORAGE_KEY = "beyondlabs-theme";
 const MODE_KEY = "beyondlabs-theme-mode";
-const DEFAULT: ThemeId = "terminal-noir";
+const DEFAULT: ThemeId = "soc-console";
 
 type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void; mode: ThemeMode; setMode: (m: ThemeMode) => void };
 const ThemeCtx = createContext<Ctx>({ theme: DEFAULT, setTheme: () => {}, mode: "auto", setMode: () => {} });

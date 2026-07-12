@@ -1,5 +1,5 @@
 import {
-  MailWarning, Link2, Paperclip, Radar, ScanLine, Wand2,
+  MailWarning, Link2, Paperclip, Radar, Wand2,
   Activity, Wrench, Target, ShieldCheck, BookOpen, FileText,
   LayoutDashboard, Settings, Swords, Terminal,
 } from "lucide-react";
@@ -25,19 +25,19 @@ export const GROUPS: WorkspaceGroup[] = [
     ],
   },
   {
-    label: "Triage",
+    label: "Investigate",
     items: [
-      { title: "Smart Parser",      url: "/parser",     icon: Wand2,     desc: "Normalize IOCs from artifacts",  group: "Triage" },
-      { title: "Phishing Triage",   url: "/phishing",   icon: MailWarning, desc: "Auth, headers, body verdict",    group: "Triage" },
-      { title: "URL Analyzer",      url: "/url",        icon: Link2,     desc: "Redirects, lists, reputation",   group: "Triage" },
-      { title: "Attachment Triage", url: "/attachment", icon: Paperclip, desc: "Hashes, strings, markers",       group: "Triage" },
+      { title: "Smart Parser",      url: "/parser",     icon: Wand2,     desc: "Normalize IOCs from artifacts",  group: "Investigate" },
+      { title: "Phishing Triage",   url: "/phishing",   icon: MailWarning, desc: "Auth, headers, body verdict",    group: "Investigate" },
+      { title: "URL Analyzer",      url: "/url",        icon: Link2,     desc: "Redirects, lists, reputation",   group: "Investigate" },
+      { title: "Attachment Triage", url: "/attachment", icon: Paperclip, desc: "Hashes, strings, markers",       group: "Investigate" },
     ],
   },
   {
     label: "Recon",
     items: [
       { title: "Recon & Exposure", url: "/recon", icon: Radar,    desc: "Subdomains, certs, cloud surface", group: "Recon" },
-      { title: "Nmap Runner",      url: "/nmap",  icon: ScanLine, desc: "Bounded port scans",               group: "Recon" },
+
     ],
   },
   {

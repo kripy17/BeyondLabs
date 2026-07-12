@@ -514,8 +514,9 @@ function PhishingPage() {
       const headers = extractHeaders(input);
       const response = await analyzeFullEmail(headers, body, true);
       setApiResult(response);
-    } catch {
+    } catch (e: any) {
       setApiResult(null);
+      toast.error(e?.message || "Analysis failed", { description: e?.suggestion });
     }
     try {
       const refanged = refang(input);

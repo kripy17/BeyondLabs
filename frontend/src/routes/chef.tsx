@@ -397,7 +397,7 @@ function ChefPage() {
       <div className="flex gap-3" style={{ height: "calc(100vh - 310px)" }}>
 
         {/* PANE 1 — Operations (CyberChef style) */}
-        <aside className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-md border border-border bg-card/40">
+        <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-md border border-border bg-card/40">
           <div className="border-b border-divider-strong px-2.5 py-2">
             <div className="flex items-center gap-1.5">
               <ChefHat className="h-3.5 w-3.5 text-primary" />
@@ -451,7 +451,7 @@ function ChefPage() {
         {/* PANE 2 — Recipe */}
         <section
           ref={recipePanelRef}
-          className="flex w-[260px] shrink-0 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card/40"
+          className="flex w-[320px] shrink-0 min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card/40"
           onDragOver={(e) => { if (e.dataTransfer.types.includes("text/op-id")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
           onDrop={(e) => {
             const id = e.dataTransfer.getData("text/op-id");

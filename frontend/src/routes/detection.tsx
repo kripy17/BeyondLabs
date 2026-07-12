@@ -921,7 +921,7 @@ function DetectionPage() {
         </Panel>
 
           {/* IDS Rule Generator (from IdsBuilder essence) */}
-          <Panel title="IDS Rule Generator" icon={ShieldAlert} priority="secondary" meta="Snort/Suricata" collapsible defaultCollapsed>
+          <Panel title="IDS Rule Generator" icon={ShieldAlert} priority="secondary" meta="Snort/Suricata" collapsible>
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">template</span>

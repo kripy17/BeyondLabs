@@ -13,7 +13,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { BackendPill } from "@/components/BackendPill";
 import { cn } from "@/lib/utils";
 
-const PRIMARY_GROUPS = new Set(["Overview", "Triage"]);
+const PRIMARY_GROUPS = new Set(["Overview", "Triage", "Recon", "SIEM", "Offensive", "Tools", "Detection"]);
 
 function Row({
   item, active, pinned, onTogglePin, collapsed,
@@ -153,7 +153,7 @@ export function AppSidebar() {
         {ordered.map((g) => {
           const hasActive = g.items.some((i) => isActive(i.url));
           return (
-            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={hasActive || PRIMARY_GROUPS.has(g.label)}>
+            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={true}>
               {g.items.map((item) => (
                 <Row
                   key={item.url}

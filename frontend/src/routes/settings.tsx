@@ -51,11 +51,6 @@ function SettingsPage() {
   const themeDirty = previewTheme !== theme;
   const handleThemePreview = (id: ThemeId) => {
     setPreviewTheme(id);
-    const t = THEMES.find((t) => t.id === id);
-    if (t) {
-      document.documentElement.setAttribute("data-theme", id);
-      document.documentElement.classList.toggle("dark", !t.isLight);
-    }
   };
   const handleThemeApply = () => setTheme(previewTheme);
   const handleThemeCancel = () => {
