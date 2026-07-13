@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { useLocker, guessType, type LockerItem } from "@/lib/locker";
+import { useLocker, type LockerItem } from "@/lib/locker";
 import { getBackendUrl, setBackendUrl, pingBackend, runToolRemote, type BackendStatus } from "@/lib/backend";
-import { X, Trash2, PackageOpen, FileText, ExternalLink, Copy, NotebookPen, Terminal, ChevronUp, PlugZap, Plug } from "lucide-react";
+import { X, PackageOpen, Copy, NotebookPen, Terminal, ChevronUp, PlugZap, Plug } from "lucide-react";
 import { toast } from "sonner";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -304,21 +304,6 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function ansi256(code: number): string {
-  if (code < 16) {
-    const ansiBasic: [number,number,number][] = [
-      [0,0,0],[205,0,0],[0,205,0],[205,205,0],
-      [0,0,205],[205,0,205],[0,205,205],[229,229,229],
-      [128,128,128],[255,0,0],[0,255,0],[255,255,0],
-      [0,0,255],[255,0,255],[0,255,255],[255,255,255],
-    ];
-    const [r,g,b] = ansiBasic[code] ?? [0,0,0];
-    return `rgb(${r},${g},${b})`;
-  }
-  if (code < 232) { const i = code - 16; return `rgb(${(i/36)*51|0},${((i%36)/6)*51|0},${(i%6)*51|0})`; }
-  return `rgb(${(code-232)*10+8},${(code-232)*10+8},${(code-232)*10+8})`;
-}
-
 function renderAnsi(text: string): string {
   const parts: string[] = [];
   let last = 0, m: RegExpExecArray | null;
@@ -390,7 +375,6 @@ function TerminalPanel({ open, onClose }: { open: boolean; onClose: () => void }
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [status, setStatus] = useState<BackendStatus>("unknown");
-  const [backendUrl] = useState(() => getBackendUrl());
   const [historySearch, setHistorySearch] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);

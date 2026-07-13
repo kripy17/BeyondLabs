@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
 import { Panel, SectionBar, Chip, Field, SendToRow } from "@/components/soc";
-import { Empty, ResultBanner, EvidenceCard } from "@/components/output";
+import { Empty, ResultBanner } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
@@ -16,8 +16,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
   FileText, Cloud, Server, Image as ImageIcon, Terminal, Copy, Check,
-  X, AlertTriangle, ChevronRight, Sparkles, Send, Pin, PinOff,
-  Loader2, Bug, History, RotateCcw, Clock, Trash2,
+  X, AlertTriangle, ChevronRight, Sparkles, Pin, PinOff,
+  Loader2, Bug, History, Clock, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/hacking-toolkit")({ component: HackingToolkitPage });
@@ -83,41 +83,6 @@ type ToolInputField = {
   flag?: string | null;
 };
 type ToolSchema = { fields: ToolInputField[] };
-
-const TOOL_INFO: Record<string, { heading: string; hint: string }> = {
-  nmap: { heading: "Port scan & service detection", hint: "Scans open ports, detects services & OS. Use presets for common configurations." },
-  dig: { heading: "DNS lookup utility", hint: "Query DNS records for domains. Supports A, AAAA, MX, NS, TXT, and more." },
-  ping: { heading: "ICMP reachability check", hint: "Test host reachability. Use count to limit packets." },
-  hydra: { heading: "Online password brute-forcer", hint: "Brute-force login credentials over SSH, FTP, HTTP, and more." },
-  sqlmap: { heading: "SQL injection automation", hint: "Detect and exploit SQL injection flaws. Start with batch mode." },
-  gobuster: { heading: "Directory & DNS brute-force", hint: "Brute-force directories, DNS subdomains, or vhosts." },
-  ffuf: { heading: "Web fuzzer", hint: "Fuzz URLs, parameters, and more using a wordlist." },
-  theharvester: { heading: "Email & subdomain OSINT", hint: "Gather emails, names, subdomains, and IPs from public sources." },
-  whois: { heading: "Domain/IP registration lookup", hint: "Look up ownership and registration details." },
-  nslookup: { heading: "DNS query tool", hint: "Query DNS name servers for records." },
-  traceroute: { heading: "Network path tracer", hint: "Trace the route packets take to reach a host." },
-  curl: { heading: "HTTP client & debugger", hint: "Make HTTP requests with custom headers, methods, and bodies." },
-  nikto: { heading: "Web server scanner", hint: "Scan web servers for known vulnerabilities and misconfigurations." },
-  nuclei: { heading: "YAML-based vulnerability scanner", hint: "Fast, template-based vulnerability scanning." },
-  whatweb: { heading: "Web technology fingerprint", hint: "Identify CMS, frameworks, and server software." },
-  wpscan: { heading: "WordPress vulnerability scanner", hint: "Enumerate plugins, themes, users, and vulnerabilities." },
-  dnsrecon: { heading: "DNS enumeration", hint: "Enumerate DNS records with multiple scan types." },
-  amass: { heading: "Attack surface mapping", hint: "Map network attack surface using passive and active techniques." },
-  sublist3r: { heading: "Subdomain enumeration", hint: "Enumerate subdomains using search engines and DNS." },
-  dirb: { heading: "Web content scanner", hint: "Discover hidden files and directories." },
-  wafw00f: { heading: "WAF detection", hint: "Detect if a web server is behind a WAF." },
-  hashcat: { heading: "GPU-accelerated hash cracker", hint: "Crack hashes using dictionary and rule-based attacks." },
-  john: { heading: "John the Ripper", hint: "Offline password cracking with multiple formats." },
-  searchsploit: { heading: "Exploit database search", hint: "Search local Exploit-DB for known vulnerabilities." },
-  binwalk: { heading: "Firmware analysis", hint: "Analyze, extract, and reverse firmware images." },
-  foremost: { heading: "File carving", hint: "Recover deleted files from disk images." },
-  volatility3: { heading: "Memory forensics", hint: "Analyze memory dumps for processes, network, registry." },
-  trivy: { heading: "Vulnerability scanner", hint: "Scan containers, filesystems, repos, and K8s for CVEs." },
-  impacket: { heading: "AD protocol toolkit", hint: "Execute Active Directory attacks and enumeration." },
-  responder: { heading: "LLMNR/NBT-NS poisoning", hint: "Poison LLMNR/NBT-NS/MDNS for credential capture." },
-  bloodhound: { heading: "AD attack path mapper", hint: "Map Active Directory relationships and attack paths." },
-  stegocracker: { heading: "Steganography brute-force", hint: "Brute-force hidden data in files using a wordlist." },
-};
 
 const TOOL_SCHEMAS: Record<string, ToolSchema> = {
   nmap: { fields: [

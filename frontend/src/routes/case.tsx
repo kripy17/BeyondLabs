@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { takePendingCaseEntry } from "@/lib/handoff";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker, guessType } from "@/lib/locker";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { ResultBanner, KeyFields, Empty } from "@/components/output";
@@ -47,7 +49,7 @@ function saveCases(list: Case[]) {
     const serialized = JSON.stringify(list);
     if (serialized.length > 5_000_000) { toast.error("Case data too large to save"); return; }
     localStorage.setItem(LS_KEY, serialized);
-  } catch (e) {
+  } catch {
     toast.error("Failed to save cases — storage may be full");
   }
 }
@@ -113,6 +115,7 @@ const CASE_TEMPLATES: TemplateDef[] = [
 ];
 
 function CasePage() {
+  const locker = useLocker();
   const [cases, setCases] = useState<Case[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [draft, setDraft] = useState("");
@@ -134,6 +137,14 @@ function CasePage() {
   const [annotations, setAnnotations] = useState<Record<string, string>>({});
   const [annotatingEntry, setAnnotatingEntry] = useState<string | null>(null);
   const [annotationDraft, setAnnotationDraft] = useState("");
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setTemplateOpen(false); setShowHandoff(false); setAnnotatingEntry(null); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const active = cases.find(c => c.id === activeId);
 
@@ -203,9 +214,10 @@ function CasePage() {
     const e: Entry = { id: newId("e"), ts: new Date().toISOString(), kind, body: draft.trim() };
     updateActive(c => ({ ...c, entries: [...c.entries, e] }));
     setDraft("");
+    pushTimelineEvent({ source: "case", verb: kind === "ioc" ? "added-ioc" : "added-entry", detail: `Added ${kind} to case: ${active.title}`, result: draft.trim().slice(0, 60) });
   }
 
-  function removeEntry(id: string, body: string) {
+  function removeEntry(id: string, _body: string) {
     const caseId = activeId;
     if (!active) return;
     const snapshot = active.entries.find(e => e.id === id);
@@ -233,6 +245,7 @@ function CasePage() {
     });
     setTemplateOpen(false);
     toast.success(`Template "${tpl.label}" applied`);
+    pushTimelineEvent({ source: "case", verb: "applied-template", detail: `Applied template "${tpl.label}" to ${active?.title ?? "?"}`, result: `${tpl.entries.length} entries` });
   }
 
   function addTag() {
@@ -246,6 +259,7 @@ function CasePage() {
   function createCase() {
     const c: Case = { id: newId("c"), title: newCaseTitle(), tags: [], createdAt: new Date().toISOString(), state: "active", entries: [] };
     setCases(prev => [c, ...prev]); setActiveId(c.id);
+    pushTimelineEvent({ source: "case", verb: "created", detail: `Created case: ${c.title}`, target: c.id });
   }
   function deleteCase(id: string) {
     const caseToDelete = cases.find(c => c.id === id);
@@ -681,7 +695,11 @@ function CasePage() {
 
               {/* IOC extraction summary */}
               {active.entries.some(e => e.kind === "ioc") && (
-                <Panel title="Extracted IOCs" icon={Siren} priority="secondary">
+                <Panel title="Extracted IOCs" icon={Siren} priority="secondary"
+                  headerAction={
+                    <button onClick={() => { active.entries.filter(e => e.kind === "ioc").forEach(e => locker.add({ value: e.body, type: guessType(e.body), source: "/case" })); toast("All IOCs added to locker"); }}
+                      className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /> all to locker</button>
+                  }>
                   {(() => {
                     const allText = active.entries.filter(e => e.kind === "ioc").map(e => e.body).join("\n");
                     const iocRx = { "IPs": /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "URLs": /https?:\/\/[^\s)"']+/g, "Hashes 32": /\b[a-f0-9]{32}\b/ig, "Hashes 40": /\b[a-f0-9]{40}\b/ig, "Hashes 64": /\b[a-f0-9]{64}\b/ig };
@@ -754,7 +772,13 @@ function CasePage() {
                                 <MessageSquare className="h-3 w-3" />
                               </button>
                               {e.kind === "ioc" ? (
-                                <CopyAsDropdown value={e.body} label={e.body} />
+                                <div className="flex items-center gap-0.5">
+                                  <button onClick={() => { locker.add({ value: e.body, type: guessType(e.body), source: "/case" }); toast("Added to locker"); }}
+                                    className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary" title="Add to IOC locker">
+                                    <Database className="h-3 w-3" />
+                                  </button>
+                                  <CopyAsDropdown value={e.body} label={e.body} />
+                                </div>
                               ) : (
                                 <button onClick={() => copyEntryBody(e.id, e.body)}
                                   className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary" title="Copy entry">

@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { Panel, SectionBar, Chip } from "@/components/soc";
+import { Panel, Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
-import { Search, Copy, Check, Users, Crosshair, Swords, Globe } from "lucide-react";
-import { toast } from "sonner";
+import { Search, Copy, Check, Users, Download, Eye, ArrowLeft } from "lucide-react";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker, guessType } from "@/lib/locker";
 
 export const Route = createFileRoute("/threat-actors")({ component: ThreatActorsPage });
 
@@ -50,11 +51,40 @@ const ACTORS: Actor[] = [
   { name: "Earth Longzhi", aliases: ["APT17", "Deputy Dog"], origin: "China", motivation: "Espionage", firstSeen: "2013", techniques: ["T1566", "T1059", "T1071", "T1105", "T1027", "T1190"], campaigns: ["Chinese Government Targets"], tools: ["PoisonIvy", "Gh0stRAT", "HttpServer"], targets: ["Government", "Agriculture", "Academic"] },
 ];
 
+function genMarkdown(a: Actor): string {
+  return `# Threat Actor: ${a.name}
+
+**Aliases:** ${a.aliases.join(", ")}
+**Origin:** ${a.origin}
+**Motivation:** ${a.motivation}
+**First Seen:** ${a.firstSeen}
+
+## Techniques
+${a.techniques.map((t) => `- ${t}`).join("\n")}
+
+## Tools
+${a.tools.map((t) => `- ${t}`).join("\n")}
+
+## Targets
+${a.targets.map((t) => `- ${t}`).join("\n")}
+
+## Campaigns
+${a.campaigns.map((c) => `- ${c}`).join("\n")}
+`;
+}
+
 function ThreatActorsPage() {
+  const locker = useLocker();
   const [query, setQuery] = useState("");
   const [selectedTechnique, setSelectedTechnique] = useState<string | null>(null);
   const [selectedActor, setSelectedActor] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
+
+  useEffect(() => {
+    if (selectedActor) {
+      pushTimelineEvent({ source: "threat-actors", verb: "viewed", detail: `Viewed threat actor: ${selectedActor}`, target: selectedActor });
+    }
+  }, [selectedActor]);
 
   const allTechniques = useMemo(() => {
     const t = new Set<string>();
@@ -72,6 +102,29 @@ function ThreatActorsPage() {
     T1486: "T1486 Data Encrypted for Impact", T1550: "T1550 Use Alternate Auth Material",
     T1095: "T1095 Non-App Layer Protocol",
   };
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectedActor) { setSelectedActor(null); e.preventDefault(); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedActor]);
+
+  const addToLocker = useCallback((value: string) => {
+    locker.add({ value, type: guessType(value), source: "threat-actors" });
+  }, [locker]);
+
+  const exportAsMarkdown = useCallback((actor: Actor) => {
+    const md = genMarkdown(actor);
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `threat-actor-${actor.name.toLowerCase().replace(/\s+/g, "-")}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const filtered = useMemo(() => {
     let result = ACTORS;
@@ -136,19 +189,22 @@ function ThreatActorsPage() {
 
           {selected ? (
             <div className="space-y-4">
-              <button onClick={() => setSelectedActor(null)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">&larr; Back to list</button>
+              <button onClick={() => setSelectedActor(null)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back to list</button>
               <Panel
                 title={selected.name}
                 actions={
-                  <button onClick={() => { const json = JSON.stringify(selected, null, 2); navigator.clipboard.writeText(json); setCopied(selected.name); setTimeout(() => setCopied(""), 1200); }}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
-                    {copied === selected.name ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> JSON</>}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => exportAsMarkdown(selected)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground" title="Export as Markdown"><Download className="h-3 w-3" /> MD</button>
+                    <button onClick={() => { const json = JSON.stringify(selected, null, 2); navigator.clipboard.writeText(json); setCopied(selected.name); setTimeout(() => setCopied(""), 1200); }}
+                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                      {copied === selected.name ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> JSON</>}
+                    </button>
+                  </div>
                 }
               >
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-1.5">{selected.aliases.map((a) => <Chip key={a} tone="primary">{a}</Chip>)}</div>
-                  <div className="grid grid-cols-2 gap-3 font-mono text-sm">
+                  <div className="grid grid-cols-3 gap-3 font-mono text-sm">
                     <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Origin</span><div className="text-foreground/90">{selected.origin}</div></div>
                     <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Motivation</span><div className="text-foreground/90">{selected.motivation}</div></div>
                     <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">First Seen</span><div className="text-foreground/90">{selected.firstSeen}</div></div>
@@ -156,8 +212,8 @@ function ThreatActorsPage() {
                   <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Techniques</span>
                     <div className="mt-1 flex flex-wrap gap-1">{selected.techniques.map((t) => <Chip key={t} tone="warning">{techniqueLabel[t] || t}</Chip>)}</div>
                   </div>
-                  <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Tools</span>
-                    <div className="mt-1 flex flex-wrap gap-1">{selected.tools.map((t) => <Chip key={t} tone="destructive">{t}</Chip>)}</div>
+                  <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Tools</span> <span className="text-[9px] text-muted-foreground/50">(click to add to locker)</span>
+                    <div className="mt-1 flex flex-wrap gap-1">{selected.tools.map((t) => <button key={t} onClick={() => addToLocker(t)} title="Add to IOC Locker" className="rounded bg-destructive/10 px-2.5 py-0.5 text-mono text-[11px] text-destructive transition-colors hover:bg-destructive/20">{t}</button>)}</div>
                   </div>
                   <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Targets</span>
                     <div className="mt-1 flex flex-wrap gap-1">{selected.targets.map((t) => <Chip key={t} tone="default">{t}</Chip>)}</div>
@@ -167,6 +223,10 @@ function ThreatActorsPage() {
                   </div>
                 </div>
               </Panel>
+              <SendToRow targets={[
+                { label: "case", to: `/case?note=${encodeURIComponent(`${selected.name} (${selected.aliases[0]}) — ${selected.motivation}, origin: ${selected.origin}, first seen: ${selected.firstSeen}. Tools: ${selected.tools.join(", ")}. Techniques: ${selected.techniques.join(", ")}.`)}`, icon: Eye },
+                { label: "detection", to: `/detection?note=${encodeURIComponent(`Threat actor ${selected.name} (${selected.aliases[0]}) — techniques: ${selected.techniques.join(", ")}, tools: ${selected.tools.join(", ")}`)}`, icon: Search },
+              ]} />
             </div>
           ) : (
             <div className="space-y-2">

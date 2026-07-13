@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Pin, Settings as SettingsIcon, ChevronDown, Notebook,
@@ -12,7 +12,6 @@ import { useActiveCase } from "@/lib/case";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { cn } from "@/lib/utils";
 
-const PRIMARY_GROUPS = new Set(["Overview", "Detection", "Recon", "Investigate", "Case", "SIEM", "Offensive", "Tools", "System"]);
 
 function Row({
   item, active, pinned, onTogglePin, collapsed,
@@ -146,7 +145,6 @@ export function AppSidebar() {
         )}
 
         {ordered.map((g) => {
-          const hasActive = g.items.some((i) => isActive(i.url));
           return (
             <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={true}>
               {g.items.map((item) => (

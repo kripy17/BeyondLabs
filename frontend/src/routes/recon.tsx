@@ -7,7 +7,7 @@ import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc
 import { useLocker } from "@/lib/locker";
 import { CopyInline } from "@/components/CopyButton";
 import { toast } from "sonner";
-import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, FileSearch, TriangleAlert as AlertTriangle, Download, Hash, Network, Activity, ExternalLink, Terminal, Globe, AtSign, ScrollText, History, KeyRound, Award, Copy, Check } from "lucide-react";
+import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server, Lock, TriangleAlert as AlertTriangle, Download, Hash, Network, Activity, ExternalLink, Terminal, Copy } from "lucide-react";
 import { passiveRecon } from "@/api/backend";
 import { sendToCase } from "@/lib/handoff";
 import { pushTimelineEvent } from "@/lib/timeline";
@@ -181,7 +181,7 @@ function ReconPage() {
   const [target, setTarget] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
+  const { filterText, setFilterText, showFilter, setShowFilter } = useOutputFilter();
   const locker = useLocker();
   const [result, setResult] = useState<ReconApiResult | null>(null);
 
@@ -585,7 +585,7 @@ function ReconPage() {
               {OSINT_CATS.map((c) => {
                 const items = OSINT_TOOLS.filter((t) => t.cat === c && t.supports.includes(osintKind));
                 if (!items.length) return null;
-                const meta = OSINT_CAT_META[c] ?? { tone: "primary" as const };
+                const _meta = OSINT_CAT_META[c] ?? { tone: "primary" as const };
                 return (
                   <Panel key={c} title={c} icon={ExternalLink} meta={`${items.length} tools`}>
                     <ul className="space-y-1">

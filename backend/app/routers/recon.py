@@ -9,7 +9,7 @@ from app.services.nmap_runner import run_custom_nmap_command, run_nmap_scan
 from app.services.parser import normalize_target
 from app.services.ssl_lookup import get_ssl_certificate
 from app.services.web_exposure import run_web_exposure_review
-from app.services.whois_rdap import whois_lookup, rdap_lookup
+from app.services.whois_rdap import rdap_lookup, whois_lookup
 
 router = APIRouter()
 

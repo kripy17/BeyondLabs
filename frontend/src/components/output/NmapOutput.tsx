@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Server, Globe2, Download } from "lucide-react";
 import { DataTable } from "@/components/output";
 import { Panel, Chip } from "@/components/soc";
@@ -29,14 +29,6 @@ function parseNmapPorts(stdout: string): { port: string; state: string; service:
   return ports;
 }
 
-function portRiskTone(service: string): "destructive" | "warning" | "success" | "default" {
-  const svc = service.toLowerCase().trim();
-  if (["ssh", "telnet", "ftp", "rdp", "vnc", "mysql", "ms-sql", "oracle", "postgresql", "redis", "mongodb", "cassandra", "elasticsearch"].some((s) => svc.includes(s))) return "destructive";
-  if (["http", "https", "apache", "nginx", "iis", "tomcat", "couchdb", "memcached", "smtp", "pop3", "imap"].some((s) => svc.includes(s))) return "warning";
-  if (["dns", "ntp", "snmp", "dhcp", "ldap", "kerberos", "sip"].some((s) => svc.includes(s))) return "default";
-  return "success";
-}
-
 function genMarkdownReport(target: string, stdout: string): string {
   const ports = parseNmapPorts(stdout);
   const ips = [...new Set(stdout.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [])].filter((ip) => ip !== target && !ip.startsWith("127.") && !ip.startsWith("10.") && !ip.startsWith("192.168.") && !ip.startsWith("172."));
@@ -50,9 +42,8 @@ function genJsonExport(target: string, stdout: string): string {
   return JSON.stringify({ target, timestamp: new Date().toISOString(), ports, discoveredIps: ips, raw: stdout.length > 5000 ? stdout.slice(0, 5000) + "\n... truncated" : stdout }, null, 2);
 }
 
-export function NmapOutput({ body, command, target, status }: NmapOutputProps) {
+export function NmapOutput({ body, command: _command, target, status: _status }: NmapOutputProps) {
   const locker = useLocker();
-  const [copied, setCopied] = useState<string | null>(null);
 
   const ports = useMemo(() => parseNmapPorts(body), [body]);
   const ips = useMemo(() => {

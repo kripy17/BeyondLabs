@@ -1,7 +1,7 @@
 import { useBackendStatus } from "@/lib/backend";
 
 export function BackendPill({className}: {className?: string}) {
-  const { status, online, latency } = useBackendStatus();
+  const { status, latency } = useBackendStatus();
 
   const dot = status === "online" ? "bg-success" : status === "checking" ? "bg-warning" : "bg-destructive";
   const label = status === "online" ? `online ${latency}ms` : status === "checking" ? "checking…" : "offline";

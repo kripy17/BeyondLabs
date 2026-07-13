@@ -7,9 +7,9 @@ import { IntakeCard, SectionBar, Panel, SendToRow, Chip } from "@/components/soc
 import { StatusBar, KeyFields, EvidenceCard, ResultBanner, Empty } from "@/components/output";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
-import { safeAnalyzeUrl } from "@/api/backend";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { safeAnalyzeUrl } from "@/api/backend";
+import { SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
 import { useRecentInputs } from "@/lib/use-recent-inputs";
 import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Search } from "lucide-react";
 
@@ -57,10 +57,6 @@ const SUSPICIOUS_PORT_WARN: Record<string, string> = { "8080": "common proxy/c2 
 const NUMERIC_IP_RX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 const TRACKING_PARAMS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "fbclid", "gclid", "gclsrc", "dclid", "msclkid", "ref", "source", "mc_cid", "mc_eid", "_ga", "_gl", "pk_source", "pk_medium", "pk_campaign", "yclid", "igshid", "ttclid", "twclid", "sc_campaign", "wt_mc"]);
-
-function findTrackingParams(url: URL): string[] {
-  return Array.from(url.searchParams.keys()).filter((k) => TRACKING_PARAMS.has(k.toLowerCase()));
-}
 
 const BASE64_PATH_RX = /(?:[A-Za-z0-9+/]{4,}){2,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g;
 
@@ -186,9 +182,14 @@ function UrlPage() {
   const [urlSearch, setUrlSearch] = useState("");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
   const recentInputs = useRecentInputs("url");
+  const prevRuns = useRef(0);
 
   const enrichMutation = useMutation({
     mutationFn: (url: string) => safeAnalyzeUrl({ url, allow_live_fetch: false }),
+    onSuccess: (data) => {
+      const er = data as Record<string, unknown> | null;
+      if (er) pushTimelineEvent({ source: "url", verb: "enriched", detail: `Enrichment: ${er.verdict}`, result: `${er.confidence ?? "?"} confidence` });
+    },
   });
 
   const er = enrichMutation.data as Record<string, unknown> | null;
@@ -204,8 +205,16 @@ function UrlPage() {
   }, []);
 
   useEffect(() => {
+    if (runs > prevRuns.current && analysis) {
+      const high = analysis.findings.filter(f => f.sev === "destructive").length;
+      pushTimelineEvent({ source: "url", verb: "analyzed", detail: `Analyzed ${trimmed}`, result: `${analysis.findings.length} findings (${high} high)` });
+    }
+    prevRuns.current = runs;
+  }, [runs, analysis, trimmed]);
+
+  useEffect(() => {
     if (raw.trim()) recentInputs.push(raw);
-  }, [runs]);
+  }, [runs, raw, recentInputs]);
 
   const trimmed = raw.trim();
   const has = trimmed.length > 0;
@@ -329,15 +338,13 @@ function UrlPage() {
   useEffect(() => {
     if (!committed || !analysis?.parsed || !enrichEnabled) return;
     enrichMutation.mutate(refang(trimmed));
-  }, [committed, enrichEnabled, trimmed, analysis?.parsed]);
+  }, [committed, enrichEnabled, trimmed, analysis?.parsed, enrichMutation]);
 
   const state: ToolState = !has ? "idle" : !committed ? "idle" : analysis?.parsed ? "ready" : "error";
   const tone = !analysis ? "muted" : analysis.findings.some((f) => f.sev === "destructive") ? "destructive" : analysis.findings.some((f) => f.sev === "warning") ? "warning" : "success";
 
   const run = () => setRuns((r) => r + 1);
   const clear = () => { setRaw(""); setRuns(0); enrichMutation.reset(); };
-
-  const iocs: { kind: string; value: string }[] = [];
 
   return (
     <PageShell

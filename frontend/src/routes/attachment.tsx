@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
 import { StatusBar, KeyFields, EvidenceCard, Empty, RiskScore, TwoColumnOutput, MetricGrid, CollapsibleSection } from "@/components/output";
 import { useLocker } from "@/lib/locker";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { CopyInline } from "@/components/CopyButton";
 import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, Activity, Copy, Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +54,14 @@ function AttachmentPage() {
   const [hashInput, setHashInput] = useState("");
   const locker = useLocker();
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setZoomedHash(null);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   async function handleUpload() {
     if (!file) return;
     setLoading(true);
@@ -61,6 +70,7 @@ function AttachmentPage() {
     try {
       const res = await uploadMalwareFile(file);
       setResult(res as unknown as ApiResult);
+      pushTimelineEvent({ source: "attachment", verb: "analyzed", detail: `Analyzed ${file.name}`, result: `Score: ${(res as any).summary?.score ?? "?"} — ${(res as any).summary?.total_findings ?? "?"} findings` });
     } catch (e: any) {
       setError(e?.message || "analysis failed");
       toast.error(e?.message || "Upload failed", { description: e?.suggestion });

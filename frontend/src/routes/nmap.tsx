@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
-import { StatusBar, NmapPortSkeleton, DataTable, CodeBlock } from "@/components/output";
+import { StatusBar, DataTable, CodeBlock } from "@/components/output";
 import { TerminalOutput } from "@/components/soc/TerminalOutput";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { useLocker } from "@/lib/locker";
@@ -63,14 +63,6 @@ function parseNmapPorts(stdout: string): { port: string; state: string; service:
     if (/^$|^#|^MAC|^TRACEROUTE|^OS|^Too many|^Warning/i.test(line) && ports.length > 0) break;
   }
   return ports;
-}
-
-function portRiskTone(service: string): "destructive" | "warning" | "success" | "default" {
-  const svc = service.toLowerCase().trim();
-  if (["netbios-ssn","microsoft-ds","kdc","kerberos","ldaps","domain","rpc","epmap","msrpc"].some((p) => svc.startsWith(p))) return "success";
-  if (["ssh","telnet","rdp","vnc","mysql","mssql","oracle","smb","netbios","ldap","snmp","ftp"].some((p) => svc.startsWith(p))) return "destructive";
-  if (["http","https","http-proxy","http-alt","www","nginx","apache","iis","tomcat","dns","smtp","pop3","imap","redis","memcached"].some((p) => svc.startsWith(p))) return "warning";
-  return "default";
 }
 
 function genJsonExport(target: string, mode: ModeKey, timing: TimingKey, result: Record<string, unknown> | null): string {

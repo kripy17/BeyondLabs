@@ -1,7 +1,7 @@
 import {
   MailWarning, Link2, Paperclip, Radar, Wand2,
   Activity, Wrench, Target, ShieldCheck, BookOpen, FileText,
-  LayoutDashboard, Settings, Swords, Terminal, Code2, Search, Hash,
+  LayoutDashboard, Settings, Swords, Code2, Search, Hash,
   Fingerprint, Bug, Users, Shield, Globe, Bookmark, Clock,
 } from "lucide-react";
 

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Panel, SectionBar, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
@@ -54,7 +54,16 @@ function TimelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setSearchQuery(""); setFilterSource(null); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   const events = useMemo(() => {
+    void refreshKey;
     const all = getTimelineEvents();
     let filtered = filterSource ? all.filter((e) => e.source === filterSource) : all;
     if (searchQuery.trim()) {
@@ -70,6 +79,7 @@ function TimelinePage() {
   }, [filterSource, searchQuery, refreshKey]);
 
   const sources = useMemo(() => {
+    void refreshKey;
     const s = new Set(getTimelineEvents().map((e) => e.source));
     return Array.from(s).sort();
   }, [refreshKey]);

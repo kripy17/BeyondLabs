@@ -8,7 +8,7 @@ import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc
 import {
   Database, ArrowRight, Zap, ShieldAlert, Activity, Filter,
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
-  Hash, User, ChevronDown, ChevronRight,
+  Hash, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
@@ -150,7 +150,6 @@ function parsePastedEvents(raw: string, startMin: number): Event[] {
 }
 
 const FIELDS = ["src", "dst", "user", "sig", "sev"] as const;
-type Field = (typeof FIELDS)[number];
 type FilterChip = { field: string; value: string };
 
 function toCsv(rows: Event[]): string {
@@ -262,7 +261,7 @@ function sendArtifactClick(page: string, content: string) {
 }
 
 function SiemPage() {
-  const [q, setQ] = useState("");
+  const [q, _setQ] = useState("");
   const [pasted, setPasted] = useState(() => readInitialPrefill());
   const [range, setRange] = useState<Range>(() => loadPersist<Range>(LOCALSTORE_RANGE, "all"));
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
@@ -270,7 +269,7 @@ function SiemPage() {
   const [apiDetections, setApiDetections] = useState<any[]>([]);
   const [apiMetrics, setApiMetrics] = useState<Record<string, unknown> | null>(null);
   const [apiIocs, setApiIocs] = useState<{ ips?: string[]; urls?: string[]; emails?: string[]; domains?: string[] } | null>(null);
-  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
+  const { filterText, setFilterText, showFilter, setShowFilter } = useOutputFilter();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
@@ -309,7 +308,7 @@ function SiemPage() {
 
   useEffect(() => {
     if (pasted) { flash("Loaded pending artifact from handoff — auto-ingesting"); ingest(pasted); }
-  }, []);
+  }, [pasted, ingest]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") { setExpanded(null); } };

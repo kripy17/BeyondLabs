@@ -1,8 +1,7 @@
 import asyncio
 import json
-import subprocess
-from urllib.request import urlopen, Request
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 
 async def whois_lookup(domain: str) -> dict | None:

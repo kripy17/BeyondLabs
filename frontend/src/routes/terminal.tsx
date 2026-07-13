@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { Panel } from "@/components/soc";
+import { Panel, SendToRow } from "@/components/soc";
 import {
   getBackendUrl, setBackendUrl, pingBackend, runToolRemote,
   type BackendStatus,
@@ -9,6 +9,7 @@ import {
 import {
   Terminal as TerminalIcon, Plug, PlugZap, RefreshCw, Trash2, Download, Plus, X,
 } from "lucide-react";
+import { pushTimelineEvent } from "@/lib/timeline";
 
 export const Route = createFileRoute("/terminal")({ component: TerminalPage });
 
@@ -448,6 +449,7 @@ function TerminalPage() {
         : res.status === "failed" || res.status === "error" ? "err"
         : res.status === "timeout" ? "warn" : "info";
       pushAt(idx, { kind: tone, text: `[${res.status ?? "done"}] exit=${res.return_code ?? "?"}` });
+      pushTimelineEvent({ source: "terminal", verb: res.status === "completed" ? "completed" : res.status === "error" || res.status === "failed" ? "failed" : "timeout", detail: `${name} ${target ?? args ?? ""} — ${res.status} (exit ${res.return_code ?? "?"})`.trim(), target: target, result: res.status ?? "done" });
     } catch (e) {
       pushAt(idx, { kind: "err", text: `request failed: ${(e as Error).message}` });
       setStatus("offline");
@@ -597,7 +599,7 @@ function TerminalPage() {
     if (!historyQuery.trim()) return deduped.slice(0, 50);
     const q = historyQuery.toLowerCase();
     return deduped.filter(h => h.toLowerCase().includes(q)).slice(0, 50);
-  }, [activeSession?.history, historyQuery]);
+  }, [activeSession, historyQuery]);
 
   return (
     <PageShell
@@ -770,6 +772,11 @@ function TerminalPage() {
           <span>Ctrl+L clear</span>
         </div>
       </Panel>
+
+      <SendToRow targets={[
+        { label: "Case Notebook", to: `/case?note=${encodeURIComponent(`Terminal session output:\n${activeSession.lines.slice(-30).map(l => l.text).join("\n")}`)}`, icon: TerminalIcon },
+        { label: "Logs & Alerts", to: "/logs", icon: TerminalIcon },
+      ]} />
     </PageShell>
   );
 }

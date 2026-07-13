@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Copy, Send, Download, X, Check, FileText } from "lucide-react";
+import { Copy } from "lucide-react";
 
 type BulkAction = {
   label: string;

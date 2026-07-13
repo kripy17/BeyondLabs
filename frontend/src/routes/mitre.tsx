@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
 import { ResultBanner, EvidenceCard } from "@/components/output";
 import { sendArtifact } from "@/lib/handoff";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { Target, ArrowRight, CornerDownRight, Database, ShieldAlert, RotateCcw, Search, StickyNote, Download } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
@@ -123,11 +124,21 @@ function MitrePage() {
   const [lookupId, setLookupId] = useState("");
   const [lookupResult, setLookupResult] = useState<{ found: boolean; query: string; technique?: { id: string; name: string; tactic: string; detectionCount: number }; detections: DetectionRule[] } | null>(null);
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setSelected(null); e.preventDefault(); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   const cycleCov = useCallback((tacticId: string, techId: string) => {
     setCov((prev) => {
       const key = techKey(tacticId, techId);
-      const next = { ...prev, [key]: nextCov(prev[key] || "none") };
+      const newVal = nextCov(prev[key] || "none");
+      const next = { ...prev, [key]: newVal };
       saveCov(next);
+      pushTimelineEvent({ source: "mitre", verb: newVal === "none" ? "uncovered" : newVal === "partial" ? "partial-covered" : "fully-covered", detail: `${techId} coverage set to ${newVal}`, target: techId, result: newVal });
       return next;
     });
   }, []);
@@ -135,6 +146,7 @@ function MitrePage() {
   const resetAll = useCallback(() => {
     setCov({});
     localStorage.removeItem(COV_KEY);
+    pushTimelineEvent({ source: "mitre", verb: "reset", detail: "All coverage data cleared" });
   }, []);
 
   const getTechCov = useCallback((tacticId: string, techId: string): Cov => {
@@ -149,9 +161,10 @@ function MitrePage() {
       const m = t.techniques.find((x) => x.id === id);
       if (m) { tacticName = t.name; techName = m.name; break; }
     }
-    if (!tacticName) { setLookupResult({ found: false, query: id, detections: [] }); return; }
+    if (!tacticName) { pushTimelineEvent({ source: "mitre", verb: "lookup-failed", detail: `Technique ${id} not found`, target: id }); setLookupResult({ found: false, query: id, detections: [] }); return; }
     const info = DETECTION_LOOKUP[id];
     const dets = info?.detections || [];
+    pushTimelineEvent({ source: "mitre", verb: "lookup", detail: `${id} — ${techName} (${dets.length} detection rules)`, target: id, result: String(dets.length) });
     setLookupResult({ found: true, query: id, technique: { id, name: techName!, tactic: tacticName, detectionCount: dets.length }, detections: dets });
   }, []);
 

@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Printer, Globe, Link2, Fingerprint, AlertTriangle, CheckCircle, FileText, Activity, HelpCircle } from "lucide-react";
+import { ArrowLeft, Printer, Globe, Link2, Fingerprint, AlertTriangle, CheckCircle, FileText, Activity, HelpCircle, Database } from "lucide-react";
+import { useLocker } from "@/lib/locker";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/report/$caseId")({ component: ReportPage });
 
@@ -64,7 +66,6 @@ function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-const KIND_ORDER: EntryKind[] = ["evidence", "decision", "action", "ioc", "note"];
 const KIND_LABEL: Record<EntryKind, string> = {
   note: "Note", evidence: "Evidence", decision: "Decision", action: "Action", ioc: "IOC",
 };
@@ -72,6 +73,7 @@ const KIND_LABEL: Record<EntryKind, string> = {
 function ReportPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
+  const locker = useLocker();
   const [reportCase, setReportCase] = useState<Case | null>(null);
 
   useEffect(() => {
@@ -192,6 +194,7 @@ function ReportPage() {
               <tbody>
                 {iocEntries.map((e) => {
                   const { icon: Icon, label } = iocIcon(e.body);
+                  const iocType = label === "IP" ? "ipv4" : label === "URL" ? "url" : label === "Hash" ? (e.body.length === 32 ? "md5" : e.body.length === 40 ? "sha1" : e.body.length === 64 ? "sha256" : "unknown") : "unknown";
                   return (
                     <tr key={e.id}>
                       <td>
@@ -200,7 +203,12 @@ function ReportPage() {
                         </span>
                       </td>
                       <td><code className="report-code">{e.body}</code></td>
-                      <td className="report-mono">{formatDate(e.ts)}</td>
+                      <td className="report-mono">
+                        <span>{formatDate(e.ts)}</span>
+                        <button onClick={() => { locker.add({ value: e.body, type: iocType as any, source: "/report" }); toast("Added to locker"); }} className="report-locker-btn" title="Add to IOC locker">
+                          <Database className="report-locker-icon" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -533,7 +541,24 @@ const reportCss = `
     font-family: var(--ba-font-family, monospace);
     font-size: 0.75rem;
     color: var(--color-muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
+  .report-locker-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    color: var(--color-muted-foreground);
+  }
+  .report-locker-btn:hover { opacity: 1; color: var(--color-primary); }
+  .report-locker-icon { width: 0.75rem; height: 0.75rem; }
 
   /* Timeline */
   .report-timeline {

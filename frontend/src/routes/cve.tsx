@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { Panel, SectionBar, Chip } from "@/components/soc";
+import { Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
-import { Search, AlertTriangle, ShieldAlert, Bug, ExternalLink } from "lucide-react";
+import { Search, Copy, Check, ChevronLeft, ChevronRight, Database } from "lucide-react";
+import { toast } from "sonner";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker } from "@/lib/locker";
 
 export const Route = createFileRoute("/cve")({ component: CvePage });
 
@@ -66,15 +69,24 @@ function cvssBg(c: number): string {
   return "bg-green-500/20 border-green-500/40";
 }
 
-function epssBar(epss: number): string {
-  const pct = Math.round(epss * 100);
-  const color = epss >= 0.9 ? "bg-red-500" : epss >= 0.7 ? "bg-orange-500" : epss >= 0.4 ? "bg-yellow-500" : "bg-green-500";
-  return `<div class="h-1.5 w-full rounded-full bg-border/50"><div class="h-1.5 rounded-full ${color}" style="width:${pct}%"></div></div>`;
-}
+const PAGE_SIZE = 10;
 
 function CvePage() {
+  const locker = useLocker();
   const [query, setQuery] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"cvss" | "epss" | "published">("cvss");
+  const [page, setPage] = useState(0);
+  const [copiedId, setCopiedId] = useState("");
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setQuery(""); setSelectedVendor(null); setSeverityFilter("all"); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const vendors = useMemo(() => Array.from(new Set(CVE_DB.map((c) => c.vendor))).sort(), []);
 
@@ -85,46 +97,98 @@ function CvePage() {
       results = results.filter((c) => c.id.toLowerCase().includes(q) || c.description.toLowerCase().includes(q) || c.vendor.toLowerCase().includes(q));
     }
     if (selectedVendor) results = results.filter((c) => c.vendor === selectedVendor);
+    if (severityFilter === "critical") results = results.filter((c) => c.cvss >= 9);
+    else if (severityFilter === "high") results = results.filter((c) => c.cvss >= 7 && c.cvss < 9);
+    else if (severityFilter === "medium") results = results.filter((c) => c.cvss >= 4 && c.cvss < 7);
+    else if (severityFilter === "low") results = results.filter((c) => c.cvss < 4);
+
+    results.sort((a, b) => {
+      if (sortBy === "cvss") return b.cvss - a.cvss;
+      if (sortBy === "epss") return b.epss - a.epss;
+      return new Date(b.published).getTime() - new Date(a.published).getTime();
+    });
     return results;
-  }, [query, selectedVendor]);
+  }, [query, selectedVendor, severityFilter, sortBy]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
+
+  useEffect(() => { setPage(0); }, [query, selectedVendor, severityFilter, sortBy]);
 
   const stats = useMemo(() => ({
-    total: filtered.length,
+    total: CVE_DB.length,
+    filtered: filtered.length,
     critical: filtered.filter((c) => c.cvss >= 9).length,
     kev: filtered.filter((c) => c.kev).length,
     exploitable: filtered.filter((c) => c.exploit.metasploit || c.exploit.nuclei || c.exploit.exploitDb).length,
   }), [filtered]);
 
+  useEffect(() => {
+    if (query || selectedVendor || severityFilter !== "all") pushTimelineEvent({ source: "cve", verb: "searched", detail: query || `filter: ${severityFilter}${selectedVendor ? ` vendor:${selectedVendor}` : ""}`, result: `${filtered.length} results` });
+  }, [filtered]);
+
   return (
     <PageShell
       eyebrow="TOOLS / CVE"
       title="CVE Database"
-      description="CVE lookup with EPSS + KEV badges, exploit availability, and vendor filtering."
+      description="CVE lookup with EPSS + KEV badges, exploit availability, severity filter, and vendor filtering."
       crumbs={[{ label: "Tools" }, { label: "CVE" }]}
       meta={[
-        { label: "total", value: String(stats.total), tone: "primary" },
+        { label: "showing", value: String(stats.filtered), tone: "primary" },
         { label: "critical", value: String(stats.critical), tone: "destructive" },
         { label: "kev", value: String(stats.kev), tone: "warning" },
       ]}
     >
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="relative flex-1 min-w-[240px] max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search CVE ID, description, or vendor…" className="w-full rounded border border-border bg-background/60 py-1.5 pl-8 pr-3 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50" />
+        </div>
+        <div className="flex items-center gap-1">
+          {(["all", "critical", "high", "medium", "low"] as const).map((s) => (
+            <button key={s} onClick={() => setSeverityFilter(s === "all" ? "all" : s)}
+              className={"rounded border px-2 py-1 text-mono text-[10px] uppercase tracking-widest " + (severityFilter === s ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+              {s === "critical" ? "9+" : s === "high" ? "7-8.9" : s === "medium" ? "4-6.9" : s === "low" ? "<4" : "all"}
+            </button>
+          ))}
         </div>
         <select value={selectedVendor || ""} onChange={(e) => setSelectedVendor(e.target.value || null)} className="rounded border border-border bg-background/60 px-2 py-1.5 font-mono text-sm text-foreground outline-none focus:border-primary/50">
           <option value="">All vendors</option>
           {vendors.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "cvss" | "epss" | "published")} className="rounded border border-border bg-background/60 px-2 py-1.5 font-mono text-sm text-foreground outline-none focus:border-primary/50">
+          <option value="cvss">Sort: CVSS</option>
+          <option value="epss">Sort: EPSS</option>
+          <option value="published">Sort: Date</option>
+        </select>
+      </div>
+
+      <div className="flex items-center gap-3 px-1 mb-2 text-mono text-[10px] text-muted-foreground">
+        <span>{stats.filtered} of {stats.total} CVEs</span>
+        <span className="text-border/60">·</span>
+        <span className="text-destructive">{stats.critical} critical</span>
+        <span className="text-border/60">·</span>
+        <span className="text-warning">{stats.kev} KEV</span>
+        <span className="text-border/60">·</span>
+        <span>{stats.exploitable} with exploits</span>
       </div>
 
       <div className="space-y-2">
-        {filtered.map((cve) => (
+        {paged.map((cve) => (
           <div key={cve.id} className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/30">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-sm font-bold text-primary">{cve.id}</span>
+                  <button onClick={() => { locker.add({ value: cve.id, type: "cve", source: "/cve" }); toast("Added CVE to locker"); }}
+                    className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Add to locker">
+                    <Database className="h-3 w-3" />
+                  </button>
+                  <button onClick={() => { navigator.clipboard.writeText(cve.id); setCopiedId(cve.id); setTimeout(() => setCopiedId(""), 1200); }}
+                    className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Copy CVE ID">
+                    {copiedId === cve.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                  </button>
                   <Chip tone={cve.kev ? "destructive" : "default"}>{cve.kev ? "KEV" : "Known"}</Chip>
                   {cve.exploit.metasploit && <Chip tone="destructive">Metasploit</Chip>}
                   {cve.exploit.nuclei && <Chip tone="warning">Nuclei</Chip>}
@@ -154,8 +218,33 @@ function CvePage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <Empty icon={Search} title="No CVEs found" hint="Try a different search term or clear vendor filter." />}
+        {filtered.length === 0 && <Empty icon={Search} title="No CVEs found" hint="Try a different search term, severity, or clear vendor filter." />}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground disabled:opacity-30">
+            <ChevronLeft className="h-3 w-3" /> Prev
+          </button>
+          <span className="text-mono text-[11px] text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono text-[10px] uppercase text-muted-foreground hover:text-foreground disabled:opacity-30">
+            Next <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {filtered.length > 0 && stats.filtered > 0 && (
+        <div className="mt-4">
+          <SendToRow targets={[
+            { label: "Detection Editor", to: "/detection", icon: Search },
+            { label: "Case Notebook", to: "/case", icon: Database },
+          ]} />
+        </div>
+      )}
     </PageShell>
   );
 }

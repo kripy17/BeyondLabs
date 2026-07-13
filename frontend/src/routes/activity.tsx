@@ -1,19 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip } from "@/components/soc";
+import { SectionBar, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { getTimelineEvents, clearTimeline, type TimelineEvent } from "@/lib/timeline";
 import { toast } from "sonner";
-import { Activity, Clock, Filter, Search, Trash2, RefreshCw, CalendarDays } from "lucide-react";
+import { Activity, Search, Trash2, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/activity")({ component: ActivityPage });
-
-const SOURCE_ICONS: Record<string, string> = {
-  parser: "parser", phishing: "phish", url: "url", nmap: "nmap",
-  chef: "chef", siem: "siem", recon: "recon", sigma: "sigma",
-  diff: "diff", tool: "tool",
-};
 
 function groupEvents(events: TimelineEvent[]): { label: string; events: TimelineEvent[] }[] {
   const now = new Date();
@@ -35,6 +29,14 @@ function ActivityPage() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [filterSource, setFilterSource] = useState<string>("all");
   const [searchText, setSearchText] = useState("");
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && searchText) { setSearchText(""); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [searchText]);
 
   const refresh = useCallback(() => {
     const all = getTimelineEvents();

@@ -86,7 +86,6 @@ const TOK_CLASS: Record<Tok["k"], string> = {
   ws:    "",
 };
 
-type Field = "ip" | "user" | "proc" | "host" | "sig";
 type FilterChip = { field: string; value: string };
 
 const TS_RE = /\b\d{2}:\d{2}:\d{2}\b/;
@@ -278,7 +277,7 @@ export function LogsViewer({ showSectionBars = true }: { showSectionBars?: boole
   const [input, setInput] = useState(() => readInitialPrefill());
   const [chips, setChips] = useState<FilterChip[]>(() => loadPersist<FilterChip[]>(LOCALSTORE_CHIPS, []));
   const [range, setRange] = useState<Range>(() => loadPersist<Range>(LOCALSTORE_RANGE, "all"));
-  const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
+  const { filterText, setFilterText, showFilter, setShowFilter } = useOutputFilter();
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);

@@ -14,7 +14,7 @@ export function CopyAsDropdown({ value, label }: { value: string; label?: string
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<CopyAsOption | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!open) return;

@@ -4,10 +4,11 @@ import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
 import { KeyFields, EvidenceCard, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
-import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Activity, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, StickyNote, Save, X, ListFilter, Info } from "lucide-react";
+import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, Save, X, ListFilter, Info } from "lucide-react";
 import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule } from "@/api/detection";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
+import { pushTimelineEvent } from "@/lib/timeline";
 import { toast } from "sonner";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
@@ -160,7 +161,6 @@ function genId() { return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random(
 type ValidationMsg = { type: "error" | "warning"; msg: string; line?: number };
 function validateRule(rule: string, fmt: Format): ValidationMsg[] {
   const out: ValidationMsg[] = [];
-  const lines = rule.split("\n");
   if (!rule.trim()) { out.push({ type: "error", msg: "Rule body is empty" }); return out; }
   if (fmt === "sigma") {
     if (!/^[a-z]/m.test(rule)) out.push({ type: "error", msg: "Sigma rules should start with a top-level YAML key" });
@@ -238,19 +238,6 @@ function analyzeRule(rule: string, fmt: Format): RuleField[] {
   }
   return fields;
 }
-
-const DETECTION_REF = `
-### Detection sources
-| Source | Format | Description |
-|--------|--------|-------------|
-| **Sigma** | .yml | Generic SIEM rule format |
-| **YARA** | .yar | File/memory signature |
-| **KQL** | .kql | Defender/Azure query |
-#### Related pages
-- [MITRE Coverage →](/mitre) -- track detection coverage per technique
-- [SOC Guide →](/guide) -- playbook-aligned detection context
-- [IDS Engine →](#ids-engine) -- Suricata/Snort rule builder
-`;
 
 function DetectionPage() {
   const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
@@ -331,6 +318,14 @@ function DetectionPage() {
   /* ── Validation & analysis ── */
   const [showAnalysis, setShowAnalysis] = useState(false);
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setShowLib(false); setShowAnalysis(false); setIdsShowPanel(false); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   const validation = useMemo(() => validateRule(rule, fmt), [rule, fmt]);
   const analysis = useMemo(() => analyzeRule(rule, fmt), [rule, fmt]);
   const hasErrors = validation.some(v => v.type === "error");
@@ -351,12 +346,13 @@ function DetectionPage() {
       const text = [rule, event].filter(Boolean).join("\n");
       const res = await mapMitre(text);
       setMitreResults(res as MitreResult);
+      pushTimelineEvent({ source: "detection", verb: "mapped", detail: `MITRE mapping for ${fmt} rule`, result: `${(res as MitreResult).techniques?.length ?? 0} techniques` });
     } catch (e: any) {
       setMitreError(e?.message || "MITRE mapping failed");
     } finally {
       setMitreLoading(false);
     }
-  }, [rule, event, mitreLoading]);
+  }, [rule, event, mitreLoading, fmt]);
 
   const handleGenerate = useCallback(async () => {
     if (genLoading || !genDescription.trim()) return;
@@ -370,12 +366,13 @@ function DetectionPage() {
         "",
       );
       setGenResult(res);
+      pushTimelineEvent({ source: "detection", verb: "generated", detail: `Generated ${fmt} rule: ${genDescription.slice(0, 60)}`, result: genSeverity });
     } catch (e: any) {
       setGenError(e?.message || "Rule generation failed");
     } finally {
       setGenLoading(false);
     }
-  }, [genDescription, genSeverity, genLoading]);
+  }, [genDescription, genSeverity, genLoading, fmt]);
 
   const loadGenerated = () => {
     if (genResult?.sigma_yaml) {
@@ -404,6 +401,7 @@ function DetectionPage() {
     setSavedRules(next);
     saveRules(next);
     setLibNotice(`Saved "${name}"`);
+    pushTimelineEvent({ source: "detection", verb: existing >= 0 ? "updated-rule" : "saved-rule", detail: `${existing >= 0 ? "Updated" : "Saved"} ${fmt} rule: ${name}`, result: `${tags.length} tags` });
     setTimeout(() => setLibNotice(""), 2000);
   };
   const loadRule = (r: SavedRule) => {

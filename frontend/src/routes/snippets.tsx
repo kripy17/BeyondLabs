@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { SectionBar, Panel, Chip } from "@/components/soc";
+import { Panel, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { Bookmark, Search, Plus, Copy, Check, Download, Upload, Trash2, Pencil, X, Save } from "lucide-react";
 import { toast } from "sonner";
+import { pushTimelineEvent } from "@/lib/timeline";
 
 export const Route = createFileRoute("/snippets")({ component: SnippetsPage });
 
@@ -33,7 +34,6 @@ function loadAll(): Snippet[] {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return SEED;
     const user: Snippet[] = JSON.parse(raw);
-    const seedIds = new Set(SEED.map((s) => s.id));
     return [...SEED.filter((s) => !user.some((u) => u.id === s.id)), ...user];
   } catch { return SEED; }
 }
@@ -57,6 +57,14 @@ function SnippetsPage() {
 
   useEffect(() => { saveAll(snippets); }, [snippets]);
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && editing) { setEditing(null); e.preventDefault(); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [editing]);
+
   const filtered = useMemo(() => {
     let s = snippets;
     if (catFilter !== "all") s = s.filter((sn) => sn.category === catFilter);
@@ -76,16 +84,19 @@ function SnippetsPage() {
     else { setEditing({ id: "" }); setEditName(""); setEditCategory("SIEM"); setEditContent(""); setEditTags(""); }
   };
 
-  const saveEdit = () => {
+  const saveEdit = useCallback(() => {
     if (!editName.trim() || !editContent.trim()) return;
     const tags = editTags.split(",").map((t) => t.trim()).filter(Boolean);
     if (editing?.id) {
       setSnippets((prev) => prev.map((s) => s.id === editing.id ? { ...s, name: editName.trim(), category: editCategory, content: editContent, tags } : s));
+      pushTimelineEvent({ source: "snippets", verb: "updated", detail: `Edited snippet: ${editName.trim()}`, result: editCategory });
     } else {
-      setSnippets((prev) => [...prev, { id: newId(), name: editName.trim(), category: editCategory, content: editContent, tags }]);
+      const id = newId();
+      setSnippets((prev) => [...prev, { id, name: editName.trim(), category: editCategory, content: editContent, tags }]);
+      pushTimelineEvent({ source: "snippets", verb: "created", detail: `Created snippet: ${editName.trim()}`, target: id, result: editCategory });
     }
     setEditing(null);
-  };
+  }, [editName, editCategory, editContent, editTags, editing]);
 
   const copyText = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -93,11 +104,12 @@ function SnippetsPage() {
     setTimeout(() => setCopied(""), 1200);
   };
 
-  const deleteSnip = (id: string) => {
+  const deleteSnip = useCallback((id: string) => {
     if (id.startsWith("seed-")) return;
     const snip = snippets.find((s) => s.id === id);
     setSnippets((prev) => prev.filter((s) => s.id !== id));
     if (snip) {
+      pushTimelineEvent({ source: "snippets", verb: "deleted", detail: `Deleted snippet: ${snip.name}`, result: snip.category });
       toast("Snippet deleted", {
         action: {
           label: "Undo",
@@ -105,7 +117,7 @@ function SnippetsPage() {
         },
       });
     }
-  };
+  }, [snippets]);
 
   const exportAll = () => {
     const userOnly = snippets.filter((s) => !s.id.startsWith("seed-"));

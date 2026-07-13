@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { Panel, SectionBar, Chip } from "@/components/soc";
+import { Panel, Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
-import { Shield, AlertTriangle, CheckCircle, XCircle, TestTube, RotateCcw } from "lucide-react";
+import { Shield, CheckCircle, XCircle, TestTube, BarChart3, Copy, Check, Database, Search } from "lucide-react";
+import { pushTimelineEvent } from "@/lib/timeline";
 
 export const Route = createFileRoute("/sigma-tester")({ component: SigmaTesterPage });
 
@@ -84,7 +85,42 @@ detection:
   },
 ];
 
-type MatchResult = { string: string; matched: boolean };
+type MatchResult = { string: string; matched: boolean; category?: string; severity?: "high" | "medium" | "low" };
+
+const YARA_CHECKS: { label: string; rx: RegExp; category: string; severity: "high" | "medium" | "low" }[] = [
+  { label: "System.Net.WebClient", rx: /System\.Net\.WebClient/i, category: "Download Cradle", severity: "high" },
+  { label: "Invoke-WebRequest / iwr", rx: /Invoke-WebRequest|iwr\b/i, category: "Download Cradle", severity: "high" },
+  { label: "curl / wget presence", rx: /\bcurl\b|\bwget\b/i, category: "Download Cradle", severity: "medium" },
+  { label: "DownloadFile method", rx: /DownloadFile/i, category: "File Download", severity: "high" },
+  { label: "bypass flag", rx: /\bbypass\b/i, category: "Execution Policy", severity: "medium" },
+  { label: "base64/high-entropy string", rx: /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/, category: "Encoding", severity: "medium" },
+  { label: "URL pattern", rx: /https?:\/\/[^\s)"']+/i, category: "Network", severity: "low" },
+  { label: "IP-address pattern", rx: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/, category: "Network", severity: "low" },
+  { label: "encoded powershell (-EncodedCommand)", rx: /-EncodedCommand|-e\s+[A-Za-z0-9+/=]{20,}/i, category: "Execution Policy", severity: "high" },
+  { label: "file download (.exe/.ps1/.dll)", rx: /\.(exe|ps1|dll|vbs|bat|msi)\b/i, category: "File Download", severity: "high" },
+  { label: "Start-Process / Invoke-Expression", rx: /Start-Process|Invoke-Expression|iex\b/i, category: "Execution", severity: "high" },
+  { label: "New-Object", rx: /New-Object\s+/i, category: "Instantiation", severity: "medium" },
+];
+
+const SIGMA_CHECKS: { label: string; rx: RegExp; category: string; severity: "high" | "medium" | "low" }[] = [
+  { label: "EventID: 4688 (process creation)", rx: /EventID:\s*4688/, category: "Process Creation", severity: "medium" },
+  { label: "EventID: 3 (network connection)", rx: /EventID:\s*3/, category: "Network", severity: "medium" },
+  { label: "Initiated: true", rx: /Initiated:\s*true/, category: "Network", severity: "low" },
+  { label: "powershell command line", rx: /powershell/i, category: "Process", severity: "low" },
+  { label: "ExecutionPolicy Bypass", rx: /ExecutionPolicy.*Bypass/i, category: "Execution Policy", severity: "high" },
+  { label: "NoProfile flag", rx: /-NoProfile/i, category: "Execution Policy", severity: "medium" },
+  { label: "Suspicious destination port (4444/1337/8080/8443)", rx: /(4444|1337|8080|8443)/, category: "Network", severity: "high" },
+  { label: "Suspicious IP range (185.220.101.x)", rx: /185\.220\.101\./, category: "Network", severity: "high" },
+  { label: "EncodedCommand present", rx: /-EncodedCommand/i, category: "Execution", severity: "high" },
+  { label: "DownloadFile or WebClient", rx: /(DownloadFile|WebClient)/i, category: "File Download", severity: "high" },
+  { label: "URL in command line", rx: /https?:\/\/[^\s)"']+/i, category: "Network", severity: "low" },
+  { label: "Registry key modification", rx: /(HKLM|HKCU|CurrentVersion|Run\b)/i, category: "Persistence", severity: "high" },
+  { label: "Service creation/modification", rx: /(CreateService|sc\s+create|New-Service)/i, category: "Persistence", severity: "high" },
+];
+
+const SEV_TONE: Record<string, "destructive" | "warning" | "default"> = {
+  high: "destructive", medium: "warning", low: "default",
+};
 
 function SigmaTesterPage() {
   const [tab, setTab] = useState<"yara" | "sigma">("yara");
@@ -92,6 +128,15 @@ function SigmaTesterPage() {
   const [sample, setSample] = useState(YARA_EXAMPLES[0].sample);
   const [results, setResults] = useState<MatchResult[]>([]);
   const [tested, setTested] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setTested(false); setResults([]); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   function loadExample(idx: number) {
     const examples = tab === "yara" ? YARA_EXAMPLES : SIGMA_EXAMPLES;
@@ -101,55 +146,41 @@ function SigmaTesterPage() {
 
   function handleTest() {
     setTested(true);
-    if (tab === "yara") {
-      const strings: MatchResult[] = [];
-      const stringRxs = [
-        { label: "System.Net.WebClient", rx: /System\.Net\.WebClient/i },
-        { label: "Invoke-WebRequest", rx: /Invoke-WebRequest/i },
-        { label: "curl", rx: /curl/i },
-        { label: "wget", rx: /wget/i },
-        { label: "DownloadFile", rx: /DownloadFile/i },
-        { label: "bypass", rx: /bypass/i },
-        { label: "base64/high-entropy string", rx: /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/ },
-        { label: "URL pattern", rx: /https?:\/\/[^\s)"']+/i },
-        { label: "IP-address pattern", rx: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/ },
-        { label: "encoded powershell (-EncodedCommand)", rx: /-EncodedCommand|-e\s+[A-Za-z0-9+/=]{20,}/i },
-        { label: "file download (.exe/.ps1/.dll)", rx: /\.(exe|ps1|dll|vbs|bat|msi)\b/i },
-      ];
-      for (const s of stringRxs) {
-        strings.push({ string: s.label, matched: s.rx.test(sample) });
-      }
-      setResults(strings);
-    } else {
-      const checks: MatchResult[] = [];
-      const checksList = [
-        { label: "EventID: 4688 (process creation)", rx: /EventID:\s*4688/ },
-        { label: "EventID: 3 (network connection)", rx: /EventID:\s*3/ },
-        { label: "Initiated: true", rx: /Initiated:\s*true/ },
-        { label: "powershell command line", rx: /powershell/i },
-        { label: "ExecutionPolicy Bypass", rx: /ExecutionPolicy.*Bypass/i },
-        { label: "NoProfile flag", rx: /-NoProfile/i },
-        { label: "Suspicious destination port (4444/1337/8080/8443)", rx: /(4444|1337|8080|8443)/ },
-        { label: "Suspicious IP range (185.220.101.x)", rx: /185\.220\.101\./ },
-        { label: "EncodedCommand present", rx: /-EncodedCommand/i },
-        { label: "DownloadFile or WebClient", rx: /(DownloadFile|WebClient)/i },
-        { label: "URL in command line", rx: /https?:\/\/[^\s)"']+/i },
-      ];
-      for (const c of checksList) {
-        checks.push({ string: c.label, matched: c.rx.test(sample) });
-      }
-      setResults(checks);
-    }
+    const checks = tab === "yara" ? YARA_CHECKS : SIGMA_CHECKS;
+    const matched: MatchResult[] = checks.map((c) => ({
+      string: c.label,
+      matched: c.rx.test(sample),
+      category: c.category,
+      severity: c.severity,
+    }));
+    setResults(matched);
+    const count = matched.filter((r) => r.matched).length;
+    pushTimelineEvent({ source: "sigma-tester", verb: "tested", detail: `${tab} rule`, result: `${count}/${matched.length} matched` });
   }
 
   const matchCount = results.filter((r) => r.matched).length;
+  const pct = results.length > 0 ? Math.round((matchCount / results.length) * 100) : 0;
+
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, MatchResult[]>();
+    for (const r of results) {
+      const cat = r.category || "General";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(r);
+    }
+    return Array.from(map.entries());
+  }, [results]);
 
   return (
     <PageShell
       eyebrow="TOOLS / RULE TESTER"
       title="YARA & Sigma Rule Tester"
-      description="Paste a YARA or Sigma rule alongside your sample — see which conditions matched and which didn't, line by line."
+      description="Paste a YARA or Sigma rule alongside your sample — see which conditions matched and which didn't, grouped by category."
       crumbs={[{ label: "Tools" }, { label: "Rule Tester" }]}
+      meta={tested ? [
+        { label: "matched", value: `${matchCount}/${results.length}`, tone: matchCount > 0 ? "destructive" : "primary" },
+        { label: "coverage", value: `${pct}%`, tone: "primary" },
+      ] : undefined}
     >
       <div className="flex items-center gap-2 mb-4">
         <button onClick={() => { setTab("yara"); loadExample(0); }} className={"rounded border px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (tab === "yara" ? "border-primary bg-primary/15 text-primary" : "border-border bg-card/40 text-muted-foreground hover:text-foreground")}>
@@ -166,6 +197,12 @@ function SigmaTesterPage() {
             </button>
           ))}
         </div>
+        {tested && (
+          <button onClick={() => { navigator.clipboard.writeText(results.map(r => `${r.matched ? "✓" : "✗"} ${r.string}`).join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+            className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+            {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -185,29 +222,46 @@ function SigmaTesterPage() {
         </Panel>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <button onClick={handleTest}
           className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
           <TestTube className="h-3.5 w-3.5" /> Test Rule
         </button>
         {tested && (
-          <span className="text-mono text-[11px] text-muted-foreground">
-            {matchCount}/{results.length} conditions matched
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-24 rounded-full bg-border/50">
+              <div className={"h-2 rounded-full transition-all " + (pct > 50 ? "bg-destructive" : pct > 20 ? "bg-warning" : "bg-success")} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-mono text-[11px] text-muted-foreground">
+              {matchCount}/{results.length} conditions matched ({pct}%)
+            </span>
+          </div>
         )}
       </div>
 
       {tested && (
         <Panel title="Results" bodyClassName="p-0">
           <div className="divide-y divide-border/50">
-            {results.map((r, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                {r.matched
-                  ? <CheckCircle className="h-4 w-4 shrink-0 text-success" />
-                  : <XCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                }
-                <span className={"font-mono text-sm " + (r.matched ? "text-foreground/90" : "text-muted-foreground")}>{r.string}</span>
-                <Chip tone={r.matched ? "success" : "default"}>{r.matched ? "MATCH" : "NO MATCH"}</Chip>
+            {groupedResults.map(([category, items]) => (
+              <div key={category}>
+                <div className="flex items-center gap-2 bg-card/20 px-4 py-1.5">
+                  <BarChart3 className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{category}</span>
+                  <Chip tone="default">{items.filter(i => i.matched).length}/{items.length}</Chip>
+                </div>
+                {items.map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2 hover:bg-card/20">
+                    {r.matched
+                      ? <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      : <XCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    }
+                    <span className={"font-mono text-sm flex-1 " + (r.matched ? "text-foreground/90" : "text-muted-foreground")}>{r.string}</span>
+                    {r.severity && (
+                      <Chip tone={SEV_TONE[r.severity]}>{r.severity}</Chip>
+                    )}
+                    <Chip tone={r.matched ? "success" : "default"}>{r.matched ? "MATCH" : "NO MATCH"}</Chip>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -215,11 +269,24 @@ function SigmaTesterPage() {
             {matchCount === 0
               ? "No conditions matched the sample — review your rule"
               : matchCount === results.length
-                ? "All conditions matched!"
-                : `${matchCount}/${results.length} conditions matched`
+                ? "All conditions matched — rule is firing broadly"
+                : `${matchCount}/${results.length} conditions matched — ${pct}% coverage`
             }
           </div>
         </Panel>
+      )}
+
+      {!tested && (
+        <Empty icon={Shield} title="Test a rule" hint="Select a tab, load an example, or paste your own YARA/Sigma rule and sample data, then click Test Rule." />
+      )}
+
+      {tested && (
+        <div className="mt-4">
+          <SendToRow targets={[
+            { label: "Detection Editor", to: "/detection", icon: Search },
+            { label: "Case Notebook", to: "/case", icon: Database },
+          ]} />
+        </div>
       )}
     </PageShell>
   );

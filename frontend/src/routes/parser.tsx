@@ -5,12 +5,12 @@ import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SendToRow, SectionBar, Panel, Chip } from "@/components/soc";
 import { StatusBar, ResultBanner, EvidenceCard } from "@/components/output";
 import {
-  Zap, Terminal, ArrowRight, Database, Mail, Link2,
+  Zap, Terminal, ArrowRight, Mail, Link2,
   FileWarning, Activity, Globe, Hash, AtSign, Bug, Crosshair, Network, Copy, Check,
   Sparkles, FileText, Workflow, AlertTriangle, ShieldAlert, Key, Download,
   Scan, Loader2,
 } from "lucide-react";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS, refang, defang, entropy, scanSecrets, type Secret } from "@/lib/ioc-patterns";
+import { SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS, refang, defang, entropy, scanSecrets, type Secret } from "@/lib/ioc-patterns";
 import { useLocker, type LockerItem } from "@/lib/locker";
 import { IocChip } from "@/components/IocChip";
 import { AttachButton } from "@/components/AttachButton";
@@ -169,7 +169,7 @@ function genCmdSignals(t: string): Signal[] {
   return s;
 }
 
-function genGeneralSignals(iocs: Record<string, string[]>, total: number): Signal[] {
+function genGeneralSignals(iocs: Record<string, string[]>): Signal[] {
   const s: Signal[] = [];
   const active = Object.values(iocs).filter((v) => v.length).length;
   if (active >= 4) s.push({ title: "Multiple IOC types", severity: "info", reason: `${active} IOC families detected - broad indicator diversity`, action: "Correlate across workspaces" });
@@ -190,12 +190,12 @@ function scanCmdLines(t: string): CmdFinding[] {
   return f;
 }
 
-function collectSignals(input: string, iocs: Record<string, string[]>, total: number): Signal[] {
+function collectSignals(input: string, iocs: Record<string, string[]>): Signal[] {
   return [
     ...genEmailSignals(input),
     ...genUrlSignals(iocs.URL),
     ...genCmdSignals(input),
-    ...genGeneralSignals(iocs, total),
+    ...genGeneralSignals(iocs),
   ];
 }
 
@@ -264,8 +264,7 @@ function ParserPage() {
   const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
-  const [showRecent, setShowRecent] = useState(false);
-  const recentInputs = useRecentInputs("parser");
+  const { items: recentItems, push: pushRecent, clear: clearRecent } = useRecentInputs("parser");
   const deepScanMutation = useMutation({
     mutationFn: async ({ inputText, hasDomains, hasIps, hasEmails }: { inputText: string; hasDomains: boolean; hasIps: boolean; hasEmails: boolean }) => {
       const r: Record<string, unknown> = {};
@@ -322,7 +321,7 @@ function ParserPage() {
 
     const secrets = scanSecrets(t);
     const cmds = scanCmdLines(t);
-    const signals = collectSignals(t, iocs, total);
+    const signals = collectSignals(t, iocs);
     const mitre = collectMitre(iocs, signals, cmds);
     const urlAnalysis = iocs.URL.length ? iocs.URL.map((u) => {
       try {
@@ -346,14 +345,14 @@ function ParserPage() {
 
   useEffect(() => {
     if (!input.trim()) return;
-    const timer = setTimeout(() => recentInputs.push(input), 2000);
+    const timer = setTimeout(() => pushRecent(input), 2000);
     return () => clearTimeout(timer);
-  }, [input]);
+  }, [input, pushRecent]);
 
   const copy = (k: string, txt: string) => { try { navigator.clipboard.writeText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
 
-  const kinds = result ? Object.entries(result.iocs).filter(([, v]) => v.length) : [];
-  const visible = result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [];
+  const kinds = useMemo(() => result ? Object.entries(result.iocs).filter(([, v]) => v.length) : [], [result]);
+  const visible = useMemo(() => result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [], [result, tab, kinds]);
   const transform = defanged ? defang : refang;
 
   const flatIocs = useMemo(() => {
@@ -363,7 +362,7 @@ function ParserPage() {
   }, [visible]);
 
   const navigate = useNavigate();
-  const { index: iocIndex, selected: selectedIoc } = usePanelNav(flatIocs, {
+  const { selected: selectedIoc } = usePanelNav(flatIocs, {
     onCopy: (item) => {
       navigator.clipboard.writeText(transform(item.value));
       toast.success("Copied");
@@ -394,7 +393,7 @@ function ParserPage() {
       hasIps,
       hasEmails,
     });
-  }, [result, input, hasDomains, hasIps, hasEmails]);
+  }, [result, input, hasDomains, hasIps, hasEmails, deepScanMutation]);
 
   const OSINT_TOOLS_PER_KIND: Record<string, { label: string; url: (v: string) => string }[]> = {
     URL: [
@@ -506,17 +505,17 @@ function ParserPage() {
         run={{ label: "parse", icon: Zap, hint: "⌘↵", onClick: () => { /* auto-parsed */ }, disabled: !input.trim() }}
       />
 
-      {recentInputs.items.length > 0 && (
+      {recentItems.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 rounded border border-border/50 bg-card/30 px-2.5 py-1.5">
           <span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/70">recent</span>
-          {recentInputs.items.slice(0, 8).map((item, i) => (
-            <button key={i} onClick={() => { setInput(item); recentInputs.push(item); }}
+          {recentItems.slice(0, 8).map((item, i) => (
+            <button key={i} onClick={() => { setInput(item); pushRecent(item); }}
               className="max-w-[160px] truncate rounded border border-border/40 bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
               title={item}
             >{item.slice(0, 40)}{item.length > 40 ? "…" : ""}</button>
           ))}
-          {recentInputs.items.length > 8 && <span className="text-mono ba-text-3xs text-muted-foreground/50">+{recentInputs.items.length - 8} more</span>}
-          <button onClick={() => recentInputs.clear()} className="ml-auto text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/50 hover:text-destructive">clear</button>
+          {recentItems.length > 8 && <span className="text-mono ba-text-3xs text-muted-foreground/50">+{recentItems.length - 8} more</span>}
+          <button onClick={clearRecent} className="ml-auto text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/50 hover:text-destructive">clear</button>
         </div>
       )}
 

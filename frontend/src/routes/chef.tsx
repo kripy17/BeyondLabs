@@ -2,28 +2,22 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { takePendingArtifact } from "@/lib/handoff";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker, guessType } from "@/lib/locker";
+import { toast } from "sonner";
 import {
   ChefHat, Search, Star, X, GripVertical, Copy, Check, Eraser, Trash2,
   ArrowDown, ArrowUp, RotateCcw, FileDown, BookMarked,
   Clock, ArrowDownToLine, ArrowUpFromLine, Settings2, Upload, Download, Send, AlertTriangle,
-  WrapText,
+  WrapText, Database,
 } from "lucide-react";
-import OPS, { OP_BY_ID, DEFAULT_FAVS, CATEGORIES, type Op, type Cat, type RecipeStep } from "@/lib/chef-ops";
+import OPS, { OP_BY_ID, DEFAULT_FAVS, CATEGORIES, type Op, type RecipeStep } from "@/lib/chef-ops";
 
 export const Route = createFileRoute("/chef")({ component: ChefPage });
-
-const PRESETS: { id: string; steps: RecipeStep[]; sample?: string }[] = [
-  {
-    id: "smart-decode",
-    steps: ["from-base64", "from-base64url", "url-decode", "from-hex", "unicode-unescape", "jwt-decode"].map((id) => createStep(id)),
-    sample: "aHR0cHM6Ly9leGFtcGxlLmNvbS9sb2dpbj91c2VyPWFkbWlu",
-  },
-];
 
 function createStep(opId: string, opts: Record<string, any> = {}): RecipeStep {
   return { id: crypto.randomUUID(), operationId: opId, options: opts };
 }
-function stepOptions(step: RecipeStep) { return step.options || {}; }
 function serializeRecipe(r: RecipeStep[]) { return r.map((s) => ({ operationId: s.operationId, options: s.options })); }
 function normalizeRecipeItems(arr: any[]): RecipeStep[] {
   if (!Array.isArray(arr)) return [];
@@ -72,6 +66,7 @@ type SavedBake = { id: string; name: string; recipe: { operationId: string; opti
 
 function ChefPage() {
   const navigate = useNavigate();
+  const locker = useLocker();
   const [input, setInput] = useState("");
   const [recipe, setRecipe] = useState<RecipeStep[]>([]);
   const [output, setOutput] = useState<string>("");
@@ -97,6 +92,14 @@ function ChefPage() {
   const [showSendMenu, setShowSendMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const outputStale = !autoBake && !!output && outputSig !== input + recipe.map((s) => s.operationId).join(",");
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setShowMoreMenu(false); setShowSendMenu(false); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // Hydrate persisted state + inbound handoff
   useEffect(() => {
@@ -156,6 +159,8 @@ function ChefPage() {
           steps.push({label: op.label, output: acc, status: "success"});
         }
         setOutput(acc); setOutputSig(input + recipe.map((s) => s.operationId).join(",")); setError(""); setStepOutputs(steps); setNotice("");
+        const recipeLabel = recipe.map((s) => OP_BY_ID[s.operationId]?.label ?? s.operationId).slice(0, 3).join(" → ");
+        pushTimelineEvent({ source: "chef", verb: "baked", detail: `Recipe: ${recipeLabel}${recipe.length > 3 ? "…" : ""}`, result: `${Array.from(acc).length} chars` });
       } catch (e: any) {
         const msg = e?.message ?? "pipeline error";
         setStepOutputs((s) => [...s, {label: "error", output: msg, status: "failed"}]);
@@ -203,13 +208,6 @@ function ChefPage() {
     navigator.clipboard.writeText(md); setNotice("Markdown summary copied"); setTimeout(() => setNotice(""), 1500);
   };
 
-  const loadPreset = (idOrSteps: string | RecipeStep[]) => {
-    if (Array.isArray(idOrSteps)) { setRecipe(idOrSteps as RecipeStep[]); return; }
-    const preset = PRESETS.find((p) => p.id === idOrSteps);
-    if (!preset) { setRecipe([createStep(idOrSteps)]); return; }
-    setRecipe(normalizeRecipeItems(preset.steps));
-    if (preset.sample) setInput(preset.sample);
-  };
   const clearAll = () => { setRecipe([]); setInput(""); setOutput(""); setError(""); setNotice(""); };
   const saveBake = () => {
     const blob = new Blob([JSON.stringify({ input, recipe: serializeRecipe(recipe), output }, null, 2)], { type: "application/json" });
@@ -237,6 +235,7 @@ function ChefPage() {
     if (!name) return;
     setLibrary((l) => [{ id: crypto.randomUUID(), name, recipe: serializeRecipe(recipe), ts: Date.now() }, ...l].slice(0, 20));
     setNotice(`Saved "${name}" to library`);
+    pushTimelineEvent({ source: "chef", verb: "saved-recipe", detail: `Saved recipe: ${name}`, result: `${recipe.length} steps` });
   };
 
   const loadSample = () => {
@@ -696,8 +695,9 @@ function ChefPage() {
                 return unique > 0 ? `${k}:${unique}` : null;
               }).filter(Boolean);
               return counts.length > 0 ? (
-                <div className="border-t border-divider-strong px-3 py-1 text-mono ba-text-2xs text-muted-foreground">
-                  IOC: {counts.join(" · ")}
+                <div className="border-t border-divider-strong px-3 py-1 text-mono ba-text-2xs text-muted-foreground flex items-center gap-2">
+                  <span>IOC: {counts.join(" · ")}</span>
+                  <button onClick={() => { Object.entries(iocRx).flatMap(([_, rx]) => { const m = output.match(rx); return m ? [...new Set(m)] : []; }).forEach((v) => locker.add({ value: v, type: guessType(v), source: "chef" })); toast("IOCs added to locker"); }} className="ml-auto inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary" title="Add all IOCs to locker"><Database className="h-3 w-3" /> add to locker</button>
                 </div>
               ) : null;
             })()}

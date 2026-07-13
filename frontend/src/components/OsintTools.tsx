@@ -279,7 +279,6 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1100);
   }
 
-  const KindIcon = KIND_META[kind].icon;
   const cli = cliFor(kind, v);
 
   return (

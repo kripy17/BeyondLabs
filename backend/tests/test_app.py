@@ -7,7 +7,10 @@ client = TestClient(app)
 def test_health_endpoint_returns_ok():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["version"] == "0.1.0"
+    assert isinstance(data["uptime_s"], (int, float))
 
 
 def test_root_endpoint_identifies_api():

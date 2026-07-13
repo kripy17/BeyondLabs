@@ -9,11 +9,10 @@ import { KeyFields, Empty, EvidenceCard, ResultBanner, PhishingVerdictSkeleton }
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { takePendingArtifact, sendArtifact } from "@/lib/handoff";
 import { analyzeFullEmail, safeAnalyzeUrl } from "@/api/backend";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
+import { SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
 import { useLocker, type LockerItem } from "@/lib/locker";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity, Lightbulb } from "lucide-react";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity } from "lucide-react";
 import { ExplainThisButton } from "@/components/ExplainThis";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
@@ -207,29 +206,6 @@ function detectLookalike(from: string, replyTo: string, returnPath: string): str
   return flags;
 }
 
-function isLookalike(domain: string, known: string): boolean {
-  if (!domain || !known) return false;
-  const d = domain.toLowerCase().replace(/[\[\]]/g, "");
-  const k = known.toLowerCase().replace(/[\[\]]/g, "");
-  if (d === k) return false;
-  const edits = (a: string, b: string): number => {
-    const m = a.length, n = b.length;
-    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
-    for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    return dp[m][n];
-  };
-  const dist = edits(d, k);
-  const maxLen = Math.max(d.length, k.length);
-  return dist > 0 && dist <= 2 && maxLen > 5;
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "");
-}
-
 function analyzeUrls(urls: string[]): { value: string; suspicious: boolean; badges: { label: string; tone: "warning" | "destructive" | "info" | "success" }[] }[] {
   return urls.map((u) => {
     const badges: { label: string; tone: "warning" | "destructive" | "info" | "success" }[] = [];
@@ -265,7 +241,7 @@ function genMarkdown(input: string, data: any, iocs: any): string {
   return lines.join("\n");
 }
 
-function genJsonExport(data: any, iocs: any): string {
+function genJsonExport(data: any, _iocs: any): string {
   const exportData = {
     version: "1.0",
     generated: new Date().toISOString(),
@@ -280,35 +256,6 @@ function genJsonExport(data: any, iocs: any): string {
   return JSON.stringify(exportData, null, 2);
 }
 
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-border bg-card/40 p-4">
-        <Skeleton className="mb-2 h-4 w-1/4" />
-        <Skeleton className="mb-1 h-8 w-1/3" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-      <div className="grid gap-4 grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-md border border-border bg-card/40 p-4">
-            <Skeleton className="mb-2 h-3 w-1/3" />
-            <Skeleton className="h-6 w-1/4" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-4 grid-cols-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="rounded-md border border-border bg-card/40 p-4">
-            <Skeleton className="mb-2 h-3 w-1/3" />
-            <Skeleton className="mb-1 h-4 w-3/4" />
-            <Skeleton className="mb-1 h-4 w-1/2" />
-            <Skeleton className="h-4 w-2/3" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function EmptyPreview() {
   const cards = [
@@ -383,11 +330,11 @@ function PhishingPage() {
       setNotice(`Loaded ${pendingRef.current.kind} from ${pendingRef.current.source}`);
       pendingRef.current = null;
     }
-  }, []);
+  }, [input]);
 
   useEffect(() => {
     if (input.trim()) recentInputs.push(input);
-  }, [runs]);
+  }, [runs, input, recentInputs]);
 
   const flashNotice = (msg: string) => {
     setNotice(msg);
@@ -964,12 +911,10 @@ function PhishingPage() {
 
 function buildFromApi(apiResult: Record<string, any> | null, input: string, committed: boolean) {
   if (!apiResult || !committed) return null;
-  const refanged = refang(input);
   const body = extractBody(input);
   const headers = extractHeaders(input);
 
   const ha = apiResult.header_analysis || {};
-  const ba = apiResult.body_analysis || {};
   const bs = apiResult.body_signals || {};
   const auth = ha.authentication || {};
   const hdrs = ha.headers || {};

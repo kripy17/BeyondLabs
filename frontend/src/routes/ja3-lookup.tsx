@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { Panel, SectionBar, Chip } from "@/components/soc";
-import { Empty } from "@/components/output";
-import { Search, Fingerprint, Monitor, Globe } from "lucide-react";
+import { Panel, Chip, SendToRow } from "@/components/soc";
+import { Search, Fingerprint, Monitor, Copy, Check, Database } from "lucide-react";
+import { toast } from "sonner";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker } from "@/lib/locker";
 
 export const Route = createFileRoute("/ja3-lookup")({ component: Ja3LookupPage });
 
@@ -31,7 +33,6 @@ const JA3_DB: Ja3Entry[] = [
   { hash: "c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4", type: "JA3", malware: "PlugX", firstSeen: "2021-03", lastSeen: "2024-08" },
   { hash: "d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5", type: "JA3", malware: "DarkComet", firstSeen: "2020-06", lastSeen: "2023-12" },
   { hash: "e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6", type: "JA3", malware: "njRAT", firstSeen: "2020-09", lastSeen: "2024-01" },
-  // JA4 entries
   { hash: "ja4_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0", type: "JA4", malware: "Cobalt Strike", firstSeen: "2023-01", lastSeen: "2024-09" },
   { hash: "ja4_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1", type: "JA4", malware: "Sliver", firstSeen: "2023-06", lastSeen: "2024-09" },
   { hash: "ja4_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2", type: "JA4", malware: "Brute Ratel C4", firstSeen: "2023-08", lastSeen: "2024-07" },
@@ -72,9 +73,19 @@ const UA_DB: UaEntry[] = [
 ];
 
 function Ja3LookupPage() {
+  const locker = useLocker();
   const [ja3Query, setJa3Query] = useState("");
   const [uaQuery, setUaQuery] = useState("");
   const [tab, setTab] = useState<"ja3" | "ua">("ja3");
+  const [copiedHash, setCopiedHash] = useState("");
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setJa3Query(""); setUaQuery(""); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const ja3Filtered = useMemo(() => {
     const q = ja3Query.toLowerCase();
@@ -82,11 +93,40 @@ function Ja3LookupPage() {
     return JA3_DB.filter((e) => e.hash.toLowerCase().includes(q) || e.malware.toLowerCase().includes(q));
   }, [ja3Query]);
 
+  useEffect(() => {
+    if (ja3Query) pushTimelineEvent({ source: "ja3-lookup", verb: "searched", detail: `ja3: ${ja3Query}`, result: `${ja3Filtered.length} results` });
+  }, [ja3Filtered]);
+
+  const ja3Stats = useMemo(() => ({
+    total: JA3_DB.length,
+    ja3: JA3_DB.filter((e) => e.type === "JA3").length,
+    ja4: JA3_DB.filter((e) => e.type === "JA4").length,
+    filtered: ja3Filtered.length,
+    malware: new Set(JA3_DB.map((e) => e.malware)).size,
+  }), [ja3Filtered]);
+
   const uaFiltered = useMemo(() => {
     const q = uaQuery.toLowerCase();
     if (!q) return UA_DB;
     return UA_DB.filter((e) => e.ua.toLowerCase().includes(q) || e.type.toLowerCase().includes(q) || e.os.toLowerCase().includes(q));
   }, [uaQuery]);
+
+  useEffect(() => {
+    if (uaQuery) pushTimelineEvent({ source: "ja3-lookup", verb: "searched", detail: `ua: ${uaQuery}`, result: `${uaFiltered.length} results` });
+  }, [uaFiltered]);
+
+  const uaStats = useMemo(() => ({
+    total: UA_DB.length,
+    filtered: uaFiltered.length,
+    types: new Set(UA_DB.map((e) => e.type)).size,
+  }), [uaFiltered]);
+
+  function copyAll(entries: { hash: string }[]) {
+    const text = entries.map((e) => e.hash).join("\n");
+    navigator.clipboard.writeText(text);
+    setCopiedHash("__all__");
+    setTimeout(() => setCopiedHash(""), 1200);
+  }
 
   return (
     <PageShell
@@ -94,6 +134,11 @@ function Ja3LookupPage() {
       title="JA3/JA4 & UA Lookup"
       description="Lookup JA3/JA4 TLS fingerprints and User-Agent strings — identify tools, malware, and scanners."
       crumbs={[{ label: "Tools" }, { label: "JA3/UA" }]}
+      meta={[
+        { label: "JA3/JA4", value: String(ja3Stats.total), tone: "primary" },
+        { label: "malware", value: String(ja3Stats.malware), tone: "destructive" },
+        { label: "UA", value: String(uaStats.total), tone: "primary" },
+      ]}
     >
       <div className="flex items-center gap-2 mb-4">
         <button onClick={() => setTab("ja3")} className={"rounded border px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (tab === "ja3" ? "border-primary bg-primary/15 text-primary" : "border-border bg-card/40 text-muted-foreground hover:text-foreground")}>
@@ -105,24 +150,48 @@ function Ja3LookupPage() {
       </div>
 
       {tab === "ja3" ? (
-        <Panel title="JA3/JA4 Fingerprints" bodyClassName="p-0">
+        <Panel
+          title="JA3/JA4 Fingerprints"
+          bodyClassName="p-0"
+          actions={
+            <button onClick={() => copyAll(ja3Filtered)}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+              {copiedHash === "__all__" ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy all</>}
+            </button>
+          }
+        >
           <div className="border-b border-border p-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input value={ja3Query} onChange={(e) => setJa3Query(e.target.value)} placeholder="Search hash or malware family…" className="w-full rounded border border-border bg-background/60 py-1.5 pl-8 pr-3 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50" />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input value={ja3Query} onChange={(e) => setJa3Query(e.target.value)} placeholder="Search hash or malware family…" className="w-full rounded border border-border bg-background/60 py-1.5 pl-8 pr-3 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50" />
+              </div>
+              <span className="text-mono text-[10px] text-muted-foreground whitespace-nowrap">{ja3Stats.filtered}/{ja3Stats.total} · {ja3Stats.ja3} JA3 · {ja3Stats.ja4} JA4</span>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="border-b border-border text-left text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground"><th className="px-3 py-2">Hash</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Malware</th><th className="px-3 py-2">First Seen</th><th className="px-3 py-2">Last Seen</th></tr></thead>
+              <thead><tr className="border-b border-border text-left text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground"><th className="px-3 py-2">Hash</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Malware</th><th className="px-3 py-2">First Seen</th><th className="px-3 py-2">Last Seen</th><th className="px-3 py-2 w-10"></th><th className="px-3 py-2 w-10"></th></tr></thead>
               <tbody className="divide-y divide-border/50">
                 {ja3Filtered.map((e, i) => (
-                  <tr key={i} className="hover:bg-card/30">
+                  <tr key={i} className="group hover:bg-card/30">
                     <td className="px-3 py-2"><code className="font-mono text-[11px] text-foreground/90">{e.hash.slice(0, 32)}…</code></td>
                     <td className="px-3 py-2"><Chip tone={e.type === "JA4" ? "warning" : "primary"}>{e.type}</Chip></td>
                     <td className="px-3 py-2"><span className="font-mono text-sm text-foreground/90">{e.malware}</span></td>
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{e.firstSeen}</td>
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{e.lastSeen}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => { locker.add({ value: e.hash, type: "ja3", source: "/ja3-lookup" }); toast("Added hash to locker"); }}
+                        className="opacity-0 group-hover:opacity-100 grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary transition-all" title="Add to locker">
+                        <Database className="h-3 w-3" />
+                      </button>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => { navigator.clipboard.writeText(e.hash); setCopiedHash(e.hash); setTimeout(() => setCopiedHash(""), 1200); }}
+                        className="opacity-0 group-hover:opacity-100 grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary transition-all">
+                        {copiedHash === e.hash ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -130,7 +199,13 @@ function Ja3LookupPage() {
           </div>
         </Panel>
       ) : (
-        <Panel title="User-Agent Database" bodyClassName="p-0">
+        <Panel
+          title="User-Agent Database"
+          bodyClassName="p-0"
+          actions={
+            <span className="text-mono text-[10px] text-muted-foreground">{uaStats.filtered}/{uaStats.total} · {uaStats.types} types</span>
+          }
+        >
           <div className="border-b border-border p-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -139,14 +214,20 @@ function Ja3LookupPage() {
           </div>
           <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
             <table className="w-full">
-              <thead><tr className="border-b border-border text-left text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground sticky top-0 bg-background"><th className="px-3 py-2">User-Agent</th><th className="px-3 py-2 w-20">Type</th><th className="px-3 py-2 w-20">OS</th><th className="px-3 py-2 w-20">Frequency</th></tr></thead>
+              <thead><tr className="border-b border-border text-left text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground sticky top-0 bg-background"><th className="px-3 py-2">User-Agent</th><th className="px-3 py-2 w-20">Type</th><th className="px-3 py-2 w-20">OS</th><th className="px-3 py-2 w-24">Frequency</th><th className="px-3 py-2 w-10"></th></tr></thead>
               <tbody className="divide-y divide-border/50">
                 {uaFiltered.map((e, i) => (
-                  <tr key={i} className="hover:bg-card/30">
+                  <tr key={i} className="group hover:bg-card/30">
                     <td className="max-w-xs px-3 py-2"><code className="block truncate font-mono text-[11px] text-foreground/90" title={e.ua}>{e.ua}</code></td>
                     <td className="px-3 py-2"><Chip tone={e.type === "Scanner" ? "destructive" : e.type === "Bot" ? "warning" : e.type === "Library" ? "primary" : "default"}>{e.type}</Chip></td>
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{e.os}</td>
                     <td className="px-3 py-2"><Chip tone={e.freq === "Very High" ? "success" : e.freq === "High" ? "primary" : "default"}>{e.freq}</Chip></td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => { locker.add({ value: e.ua, type: "ua", source: "/ja3-lookup" }); toast("Added UA to locker"); }}
+                        className="opacity-0 group-hover:opacity-100 grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary transition-all" title="Add to locker">
+                        <Database className="h-3 w-3" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -154,6 +235,13 @@ function Ja3LookupPage() {
           </div>
         </Panel>
       )}
+
+      <div className="mt-4">
+        <SendToRow targets={[
+          { label: "Detection Editor", to: "/detection", icon: Search },
+          { label: "Case Notebook", to: "/case", icon: Database },
+        ]} />
+      </div>
     </PageShell>
   );
 }
