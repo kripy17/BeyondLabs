@@ -484,28 +484,30 @@ export function LogsViewer({ showSectionBars = true }: { showSectionBars?: boole
       ) : (
         <OutputFilter query={filterText.toLowerCase()}>
         <div className="space-y-3">
-          <ResultBanner
-            badge="log_decision"
-            caseId={`BA-LG-${parsed.allLines.length}`}
-            title={parsed.classification}
-            subtitle={`Routing lead: ${parsed.mitre} · ${findings.length} detection(s)`}
-            reasons={[
-              parsed.failures > 0 ? `${parsed.failures} authentication failure(s)` : "",
-              parsed.events.length ? parsed.events.join(", ") : "",
-              parsed.urls.length ? `${parsed.urls.length} URL(s) extracted` : "",
-              parsed.sigs[0] ?? "",
-              findings.find((f) => f.sev === "destructive") ? `Critical finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
-            ].filter(Boolean) as string[]}
-            metrics={[
-              { label: "IPs", value: parsed.ips.length, tone: "primary" },
-              { label: "Users", value: parsed.users.length },
-              { label: "Procs", value: parsed.procs.length, tone: parsed.procs.length ? "warning" : "default" },
-              { label: "Findings", value: findings.length, tone: findings.length > 0 ? "warning" : "default" },
-            ]}
-          />
+          <div className="pointer-events-none select-none">
+            <ResultBanner
+              badge="log_decision"
+              caseId={`BA-LG-${parsed.allLines.length}`}
+              title={parsed.classification}
+              subtitle={`Routing lead: ${parsed.mitre} · ${findings.length} detection(s)`}
+              reasons={[
+                parsed.failures > 0 ? `${parsed.failures} authentication failure(s)` : "",
+                parsed.events.length ? parsed.events.join(", ") : "",
+                parsed.urls.length ? `${parsed.urls.length} URL(s) extracted` : "",
+                parsed.sigs[0] ?? "",
+                findings.find((f) => f.sev === "destructive") ? `Critical finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
+              ].filter(Boolean) as string[]}
+              metrics={[
+                { label: "IPs", value: parsed.ips.length, tone: "primary" },
+                { label: "Users", value: parsed.users.length },
+                { label: "Procs", value: parsed.procs.length, tone: parsed.procs.length ? "warning" : "default" },
+                { label: "Findings", value: findings.length, tone: findings.length > 0 ? "warning" : "default" },
+              ]}
+            />
+          </div>
 
           {/* Tabbed log viewer */}
-          <Panel title="Log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`}
+          <Panel title="Log viewer" icon={FileText} meta={`${filteredLines.length} line(s) shown`} collapsible storageKey="ba.panel.logs.viewer" defaultCollapsed={filteredLines.length > 200}
             actions={
               <div className="flex items-center gap-1">
                 {(["painted", "raw", "table"] as const).map((m) => (

@@ -10,10 +10,9 @@ import { GROUPS, findItem, type WorkspaceItem } from "@/lib/workspaces";
 import { usePrefs, getBrandIcon } from "@/lib/prefs";
 import { useActiveCase } from "@/lib/case";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { BackendPill } from "@/components/BackendPill";
 import { cn } from "@/lib/utils";
 
-const PRIMARY_GROUPS = new Set(["Overview", "Triage", "Recon", "SIEM", "Offensive", "Tools", "Detection"]);
+const PRIMARY_GROUPS = new Set(["Overview", "Detection", "Recon", "Investigate", "Case", "SIEM", "Offensive", "Tools", "System"]);
 
 function Row({
   item, active, pinned, onTogglePin, collapsed,
@@ -127,9 +126,6 @@ export function AppSidebar() {
         </Link>
 
         <div className="group-data-[collapsible=icon]:hidden px-2 pb-2 space-y-1">
-          <div className="flex items-center justify-between rounded-md border border-sidebar-border/70 bg-sidebar-accent/20 px-2 py-1">
-            <BackendPill />
-          </div>
           {activeCase && (
             <Link to="/case" className="flex items-center gap-1.5 rounded-md border border-sidebar-border/70 bg-sidebar-accent/20 px-2 py-1 text-mono text-[10px] text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
               <Notebook className="h-3 w-3 shrink-0 text-primary/70" />
@@ -169,13 +165,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/70 gap-1 p-2">
-        <div className="group-data-[collapsible=icon]:flex justify-center py-1 hidden">
-          <BackendPill />
-        </div>
         <div className="group-data-[collapsible=icon]:hidden">
-          <div className="flex items-center justify-between px-1 py-0.5">
-            <BackendPill />
-          </div>
           <ThemeSwitcher />
         </div>
 

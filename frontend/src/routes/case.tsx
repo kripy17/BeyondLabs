@@ -5,9 +5,11 @@ import { takePendingCaseEntry } from "@/lib/handoff";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { ResultBanner, KeyFields, Empty } from "@/components/output";
+import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 import {
   Notebook, Plus, Copy, Download, Trash2, FileText, Tag, X,
   ArrowRight, Database, ShieldAlert, Pencil, Check, Search, FolderOpen, ClipboardList,
+  StickyNote, Siren, GitBranch, Crosshair, Activity, MessageSquare,
 } from "lucide-react";
 
 export const Route = createFileRoute("/case")({ component: CasePage });
@@ -28,6 +30,12 @@ const LS_ACTIVE = "ba.cases.active";
 
 const KIND_TONE: Record<EntryKind, "default" | "primary" | "warning" | "success" | "destructive"> = {
   note: "default", evidence: "primary", decision: "warning", action: "success", ioc: "destructive",
+};
+const KIND_ICON: Record<EntryKind, typeof StickyNote> = {
+  note: StickyNote, evidence: Search, decision: GitBranch, action: Crosshair, ioc: Siren,
+};
+const KIND_COLOR: Record<EntryKind, string> = {
+  note: "bg-muted-foreground/40", evidence: "bg-primary/60", decision: "bg-warning/60", action: "bg-success/60", ioc: "bg-destructive/60",
 };
 
 function loadCases(): Case[] {
@@ -65,6 +73,45 @@ function autoDetectKind(text: string): EntryKind {
   return "note";
 }
 
+type TemplateDef = {
+  id: string;
+  label: string;
+  icon: import("lucide-react").LucideIcon;
+  entries: { kind: EntryKind; body: string }[];
+};
+const CASE_TEMPLATES: TemplateDef[] = [
+  {
+    id: "phishing", label: "Phishing Triage", icon: ShieldAlert,
+    entries: [
+      { kind: "evidence", body: "## Header Analysis\n- **From:** \n- **Reply-To:** \n- **SPF:** \n- **DKIM:** \n- **DMARC:**" },
+      { kind: "evidence", body: "## URL Analysis\n- **Original:** \n- **Redirect:** \n- **VT:**" },
+      { kind: "evidence", body: "## Attachment\n- **Name:** \n- **Hash:** \n- **VT ratio:**" },
+      { kind: "decision", body: "**Verdict:** [malicious / suspicious / benign]" },
+      { kind: "action", body: "**Action:** [block sender / delete / escalate]" },
+    ],
+  },
+  {
+    id: "ransomware", label: "Ransomware Triage", icon: Siren,
+    entries: [
+      { kind: "evidence", body: "## Access\n- **Method:** \n- **Source IP:** \n- **User:**" },
+      { kind: "evidence", body: "## Affected\n- **Hosts:** \n- **Count:**" },
+      { kind: "evidence", body: "## Ransom Note\n- **File:** \n- **Contact:**" },
+      { kind: "evidence", body: "## IOCs\n- **Hashes:** \n- **C2 IPs:** \n- **Registry:**" },
+      { kind: "decision", body: "**Verdict:** [confirmed / suspicious / FP]" },
+      { kind: "action", body: "**Action:** [isolate / block IOCs / notify]" },
+    ],
+  },
+  {
+    id: "suspicious-login", label: "Suspicious Login", icon: Activity,
+    entries: [
+      { kind: "evidence", body: "## Event\n- **Time:** \n- **User:** \n- **Source IP:** \n- **Geo:** \n- **UA:**" },
+      { kind: "evidence", body: "## Risk\n- **Same IP before:** \n- **Impossible travel:** \n- **Known malicious IP:**" },
+      { kind: "decision", body: "**Verdict:** [compromised / suspicious / valid]" },
+      { kind: "action", body: "**Action:** [reset password / block IP / escalate]" },
+    ],
+  },
+];
+
 function CasePage() {
   const [cases, setCases] = useState<Case[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -80,6 +127,13 @@ function CasePage() {
   const [entryFilter, setEntryFilter] = useState("");
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"timeline" | "notebook">("timeline");
+  const [notebookMd, setNotebookMd] = useState("");
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [annotations, setAnnotations] = useState<Record<string, string>>({});
+  const [annotatingEntry, setAnnotatingEntry] = useState<string | null>(null);
+  const [annotationDraft, setAnnotationDraft] = useState("");
 
   const active = cases.find(c => c.id === activeId);
 
@@ -151,8 +205,34 @@ function CasePage() {
     setDraft("");
   }
 
-  function removeEntry(id: string) {
-    updateActive(c => ({ ...c, entries: c.entries.filter(e => e.id !== id) }));
+  function removeEntry(id: string, body: string) {
+    const caseId = activeId;
+    if (!active) return;
+    const snapshot = active.entries.find(e => e.id === id);
+    setCases(prev => prev.map(c => c.id === caseId ? { ...c, entries: c.entries.filter(e => e.id !== id) } : c));
+    if (snapshot) {
+      toast("Entry deleted", {
+        action: {
+          label: "Undo",
+          onClick: () => { setCases(prev => prev.map(c => c.id === caseId ? { ...c, entries: [...c.entries, snapshot] } : c)); },
+        },
+      });
+    }
+  }
+
+  function applyTemplate(tpl: TemplateDef) {
+    if (!active) return;
+    updateActive(c => {
+      const newEntries = tpl.entries.map((e, i) => ({
+        id: newId("e"),
+        ts: new Date(Date.now() + i * 1000).toISOString(),
+        kind: e.kind,
+        body: e.body,
+      }));
+      return { ...c, entries: [...c.entries, ...newEntries] };
+    });
+    setTemplateOpen(false);
+    toast.success(`Template "${tpl.label}" applied`);
   }
 
   function addTag() {
@@ -206,6 +286,55 @@ function CasePage() {
       exportedAt: new Date().toISOString(),
       case: active,
     }, null, 2);
+  }, [active]);
+
+  const handoffReport = useMemo(() => {
+    if (!active) return "";
+    const lines: string[] = [];
+    lines.push(`# Handoff Report: ${active.title}`);
+    lines.push(`**Case ID:** \`${active.id}\``);
+    lines.push(`**Status:** ${active.state}`);
+    lines.push(`**Generated:** ${new Date().toISOString()}`);
+    lines.push("");
+    lines.push("---");
+    lines.push("## 1. Summary");
+    lines.push(`Total entries: ${active.entries.length}`);
+    lines.push("");
+    const byKindH: Record<EntryKind, number> = { note: 0, evidence: 0, decision: 0, action: 0, ioc: 0 };
+    active.entries.forEach(e => { if (byKindH[e.kind] !== undefined) byKindH[e.kind]++; });
+    for (const [k, v] of Object.entries(byKindH)) { if (v) lines.push(`- **${k}**: ${v} entries`); }
+    lines.push("");
+    lines.push("## 2. IOCs");
+    const iocTextH = active.entries.filter(e => e.kind === "ioc").map(e => e.body).join("\n");
+    const ips = [...new Set(iocTextH.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g) || [])];
+    const urls = [...new Set(iocTextH.match(/https?:\/\/[^\s)"']+/g) || [])];
+    const hashes32 = [...new Set(iocTextH.match(/\b[a-f0-9]{32}\b/ig) || [])];
+    const hashes64 = [...new Set(iocTextH.match(/\b[a-f0-9]{64}\b/ig) || [])];
+    if (ips.length) { lines.push("### IP Addresses"); ips.forEach(ip => lines.push(`- \`${ip}\``)); }
+    if (urls.length) { lines.push("### URLs"); urls.forEach(u => lines.push(`- \`${u}\``)); }
+    if (hashes32.length) { lines.push("### Hashes (MD5/SHA1)"); hashes32.forEach(h => lines.push(`- \`${h}\``)); }
+    if (hashes64.length) { lines.push("### Hashes (SHA256)"); hashes64.forEach(h => lines.push(`- \`${h}\``)); }
+    lines.push("");
+    const decActions = active.entries.filter(e => e.kind === "decision" || e.kind === "action");
+    if (decActions.length) {
+      lines.push("## 3. Decisions & Actions");
+      decActions.forEach(d => lines.push(`- **${d.kind}:** ${d.body}`));
+      lines.push("");
+    }
+    lines.push("## 4. Timeline");
+    for (const section of ["evidence", "decision", "action", "ioc", "note"] as EntryKind[]) {
+      const items = active.entries.filter(e => e.kind === section);
+      if (!items.length) continue;
+      lines.push(`### ${section.charAt(0).toUpperCase() + section.slice(1)}`);
+      items.forEach(e => {
+        const d = new Date(e.ts);
+        lines.push(`- \`${d.toLocaleString()}\` ${e.body}`);
+      });
+      lines.push("");
+    }
+    lines.push("---");
+    lines.push(`*Report generated by BeyondLabs at ${new Date().toISOString()}*`);
+    return lines.join("\n");
   }, [active]);
 
   const markdown = useMemo(() => {
@@ -279,6 +408,55 @@ function CasePage() {
     a.click();
     URL.revokeObjectURL(a.href);
   }
+  function downloadHtml() {
+    if (!active) return;
+    const entries = [...active.entries].reverse();
+    const rows = entries.map((e: Entry) => {
+      const d = new Date(e.ts);
+      const ts = d.toLocaleString();
+      return `<tr>
+        <td style="padding:6px 8px;white-space:nowrap;color:#888;font-family:monospace;font-size:11px">${ts}</td>
+        <td style="padding:6px 8px"><span style="display:inline-block;padding:1px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;font-family:monospace;background:${KIND_COLOR[e.kind].replace("bg-", "#").replace("/60", "30")};color:${KIND_COLOR[e.kind].replace("bg-", "#").replace("/60", "")}">${e.kind}</span></td>
+        <td style="padding:6px 8px;font-family:monospace;font-size:13px;color:#ddd;white-space:pre-wrap">${e.body.replace(/</g, "&lt;")}</td>
+      </tr>`;
+    }).join("\n");
+    const iocEntries = active.entries.filter(e => e.kind === "ioc");
+    const iocs: string[] = [];
+    const ipRe = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g;
+    const urlRe = /https?:\/\/[^\s)"']+/g;
+    const hashRe = /\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b/ig;
+    iocEntries.forEach(e => {
+      (e.body.match(ipRe) || []).forEach((m: string) => { if (!iocs.includes(m)) iocs.push(m); });
+      (e.body.match(urlRe) || []).forEach((m: string) => { if (!iocs.includes(m)) iocs.push(m); });
+      (e.body.match(hashRe) || []).forEach((m: string) => { if (!iocs.includes(m)) iocs.push(m); });
+    });
+    const iocHtml = iocs.length ? iocs.map((io: string) => `<code style="display:inline-block;background:#1a1a2e;border:1px solid #2a2a3e;border-radius:3px;padding:2px 8px;margin:2px 4px;font-size:11px;color:#f88">${io.replace(/</g, "&lt;")}</code>`).join(" ") : "<em>none</em>";
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${active.title} - Case Report</title><style>
+      body{background:#0d0d1a;color:#ccc;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:40px;max-width:900px;margin:0 auto;line-height:1.5}
+      h1{color:#fff;font-size:20px;letter-spacing:0.05em;font-weight:600}
+      h2{color:#aaa;font-size:14px;text-transform:uppercase;letter-spacing:0.12em;margin-top:32px}
+      .meta{display:flex;gap:24px;flex-wrap:wrap;font-size:12px;color:#888;margin:16px 0 32px}
+      .meta dt{font-weight:600;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:0.1em}
+      .meta dd{margin:2px 0 0 0;color:#ccc;font-family:monospace}
+      table{border-collapse:collapse;width:100%;font-size:13px}
+      th{text-align:left;padding:6px 8px;border-bottom:1px solid #2a2a3e;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600}
+      td{border-bottom:1px solid #1a1a2e}
+      .footer{margin-top:48px;font-size:10px;color:#555;border-top:1px solid #1a1a2e;padding-top:16px}
+</style></head><body>
+      <h1>${active.title}</h1>
+      <dl class="meta"><div><dt>Case ID</dt><dd>${active.id}</dd></div><div><dt>Opened</dt><dd>${new Date(active.createdAt).toLocaleString()}</dd></div><div><dt>State</dt><dd>${active.state}</dd></div><div><dt>Entries</dt><dd>${active.entries.length}</dd></div>${active.tags.length ? `<div><dt>Tags</dt><dd>${active.tags.join(", ")}</dd></div>` : ""}</dl>
+      <h2>Extracted IOCs</h2><p>${iocHtml}</p>
+      <h2>Timeline (${active.entries.length} entries)</h2>
+      <table><thead><tr><th>Timestamp</th><th>Kind</th><th>Body</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="footer">Generated by BeyondLabs · ${new Date().toISOString()}</div>
+</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${active.title}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -324,19 +502,21 @@ function CasePage() {
       }
     >
       {active && (
-        <ResultBanner
-          badge={active.state === "active" ? "case_open" : "case_closed"}
-          caseId={active.id}
-          title={active.title}
-          subtitle={active.tags.length ? `tags · ${active.tags.join(" · ")}` : "no tags yet"}
-          metrics={[
-            { label: "Entries", value: active.entries.length, tone: "primary" },
-            { label: "Evidence", value: counts.evidence },
-            { label: "Decisions", value: counts.decision, tone: "warning" },
-            { label: "Actions", value: counts.action, tone: "success" },
-            { label: "IOCs", value: counts.ioc, tone: "destructive" },
-          ]}
-        />
+        <div className="pointer-events-none select-none">
+          <ResultBanner
+            badge={active.state === "active" ? "case_open" : "case_closed"}
+            caseId={active.id}
+            title={active.title}
+            subtitle={active.tags.length ? `tags · ${active.tags.join(" · ")}` : "no tags yet"}
+            metrics={[
+              { label: "Entries", value: active.entries.length, tone: "primary" },
+              { label: "Evidence", value: counts.evidence },
+              { label: "Decisions", value: counts.decision, tone: "warning" },
+              { label: "Actions", value: counts.action, tone: "success" },
+              { label: "IOCs", value: counts.ioc, tone: "destructive" },
+            ]}
+          />
+        </div>
       )}
 
       <div className="grid gap-4 grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
@@ -442,6 +622,32 @@ function CasePage() {
                 </div>
               </Panel>
 
+              <Panel title="Templates" priority="secondary" icon={ClipboardList}
+                actions={
+                  <button onClick={() => setTemplateOpen(o => !o)} className="text-mono ba-text-2xs uppercase tracking-widest text-primary">
+                    {templateOpen ? "collapse" : "expand"}
+                  </button>
+                }
+              >
+                {templateOpen ? (
+                  <div className="space-y-1.5">
+                    {CASE_TEMPLATES.map(tpl => (
+                      <button key={tpl.id} onClick={() => applyTemplate(tpl)}
+                        className="group flex w-full items-center gap-2 rounded border border-border/60 bg-background/40 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      >
+                        <tpl.icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-mono ba-text-sm text-foreground/90">{tpl.label}</div>
+                          <div className="text-mono ba-text-2xs text-muted-foreground">{tpl.entries.length} entries</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-mono ba-text-2xs text-muted-foreground/70">Apply a pre-populated checklist template</div>
+                )}
+              </Panel>
+
               <SectionBar id="IN" label="Intake · new entry" />
               <Panel>
                 <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -473,43 +679,113 @@ function CasePage() {
                 </div>
               </Panel>
 
-              <SectionBar id="OT" label="Timeline" meta={`${active.entries.length} entries`} />
+              {/* IOC extraction summary */}
+              {active.entries.some(e => e.kind === "ioc") && (
+                <Panel title="Extracted IOCs" icon={Siren} priority="secondary">
+                  {(() => {
+                    const allText = active.entries.filter(e => e.kind === "ioc").map(e => e.body).join("\n");
+                    const iocRx = { "IPs": /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "URLs": /https?:\/\/[^\s)"']+/g, "Hashes 32": /\b[a-f0-9]{32}\b/ig, "Hashes 40": /\b[a-f0-9]{40}\b/ig, "Hashes 64": /\b[a-f0-9]{64}\b/ig };
+                    return Object.entries(iocRx).map(([k, rx]) => {
+                      const matches = allText.match(rx);
+                      if (!matches) return null;
+                      const unique = [...new Set(matches)];
+                      return unique.length > 0 ? (
+                        <div key={k} className="mb-2 last:mb-0">
+                          <div className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground mb-1">{k} ({unique.length})</div>
+                          <div className="flex flex-wrap gap-1">
+                            {unique.slice(0, 10).map((v, i) => <Chip key={i} tone="destructive">{v}</Chip>)}
+                            {unique.length > 10 && <Chip tone="default">+{unique.length - 10} more</Chip>}
+                          </div>
+                        </div>
+                      ) : null;
+                    }).filter(Boolean);
+                  })()}
+                </Panel>
+              )}
+
+              <div className="flex items-center gap-1 border-b border-border pb-1 mb-2">
+                {(["timeline", "notebook"] as const).map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={"rounded px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest " + (activeTab === tab ? "border border-primary/50 bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
+                  >{tab === "timeline" ? `Timeline (${active.entries.length})` : "Notebook"}</button>
+                ))}
+              </div>
+
+              {activeTab === "timeline" ? (
+                <>
+              <SectionBar id="OT" label="Timeline" meta={`${active.entries.length} entries`}
+                action={
+                  <div className="flex items-center gap-1">
+                    {(["", "note", "evidence", "decision", "action", "ioc"] as const).map(k => (
+                      <button key={k} onClick={() => setEntryFilter(entryFilter === k ? "" : k)}
+                        className={"rounded px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest " + (entryFilter === k ? "border border-primary/50 bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
+                        {k || "all"}
+                      </button>
+                    ))}
+                  </div>
+                }
+              />
               <Panel title="Case timeline" icon={Notebook} bodyClassName="p-0">
                 {active.entries.length === 0 ? (
                   <div className="p-4"><Empty title="No entries yet" hint="Append your first observation, decision, or IOC above." /></div>
                 ) : (
                   <>
-                    <div className="border-b border-border/50 px-3 py-2">
-                      <input
-                        value={entryFilter}
-                        onChange={e => setEntryFilter(e.target.value)}
-                        placeholder="filter entries…"
-                        className="w-full rounded border border-divider-strong bg-background/60 px-2 py-1 text-mono text-[10.5px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
-                      />
-                    </div>
                     <ul className="divide-y divide-border/50">
                       {[...filteredEntries].reverse().map(e => {
                       const d = new Date(e.ts);
                       const short = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+                      const Icon = KIND_ICON[e.kind];
+                      const annotation = annotations[e.id];
                       return (
-                        <li key={e.id} className="group grid grid-cols-[70px_100px_1fr_auto_auto] items-start gap-3 px-4 py-2.5">
-                          <div className="text-mono ba-text-2xs text-muted-foreground" title={e.ts}>{short}</div>
-                          <div><Chip tone={KIND_TONE[e.kind]}>{e.kind}</Chip></div>
-                          <div className="whitespace-pre-wrap ba-text-base text-foreground/90">{e.body}</div>
-                          <button
-                            onClick={() => copyEntryBody(e.id, e.body)}
-                            className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary"
-                            title="Copy entry"
-                          >
-                            {copiedEntryId === e.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                          </button>
-                          <button
-                            onClick={() => removeEntry(e.id)}
-                            className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                            title="Delete entry"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                        <li key={e.id} className="group px-4 py-2.5">
+                          <div className="grid grid-cols-[70px_100px_1fr_auto] items-start gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${KIND_COLOR[e.kind]}`} />
+                              <div className="text-mono ba-text-2xs text-muted-foreground" title={e.ts}>{short}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Icon className={`h-3 w-3 ${KIND_COLOR[e.kind].replace("bg-", "text-").replace("/60", "/70")}`} />
+                              <Chip tone={KIND_TONE[e.kind]}>{e.kind}</Chip>
+                            </div>
+                            <div className="whitespace-pre-wrap ba-text-base text-foreground/90">{e.body}</div>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => { setAnnotatingEntry(annotatingEntry === e.id ? null : e.id); setAnnotationDraft(annotations[e.id] || ""); }}
+                                className={"opacity-0 transition-opacity group-hover:opacity-100 " + (annotation ? "text-warning" : "text-muted-foreground hover:text-primary")} title="Annotate entry">
+                                <MessageSquare className="h-3 w-3" />
+                              </button>
+                              {e.kind === "ioc" ? (
+                                <CopyAsDropdown value={e.body} label={e.body} />
+                              ) : (
+                                <button onClick={() => copyEntryBody(e.id, e.body)}
+                                  className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-primary" title="Copy entry">
+                                  {copiedEntryId === e.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                                </button>
+                              )}
+                              <button onClick={() => removeEntry(e.id, e.body)}
+                                className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive" title="Delete entry">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                          {annotatingEntry === e.id && (
+                            <div className="ml-[70px] mt-2 flex items-start gap-2">
+                              <input
+                                autoFocus
+                                value={annotationDraft}
+                                onChange={e => setAnnotationDraft(e.target.value)}
+                                placeholder="Add a note to this entry…"
+                                className="min-w-0 flex-1 rounded border border-divider-strong bg-background/40 px-2 py-1 text-mono ba-text-sm text-foreground outline-none focus:border-primary/50"
+                              />
+                              <button onClick={() => { setAnnotations(prev => ({ ...prev, [e.id]: annotationDraft })); setAnnotatingEntry(null); }}
+                                className="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-mono ba-text-2xs uppercase text-primary hover:bg-primary/20">save</button>
+                            </div>
+                          )}
+                          {annotation && annotatingEntry !== e.id && (
+                            <div className="ml-[70px] mt-1 border-l-2 border-warning/40 pl-2">
+                              <span className="text-mono ba-text-2xs text-warning/80">annotation: </span>
+                              <span className="text-mono ba-text-sm text-foreground/70">{annotation}</span>
+                            </div>
+                          )}
                         </li>
                       );
                     })}
@@ -517,6 +793,28 @@ function CasePage() {
                   </>
                 )}
               </Panel>
+                </>
+              ) : (
+                <Panel title="Investigation Notebook" icon={Notebook}>
+                  <textarea
+                    value={notebookMd}
+                    onChange={e => setNotebookMd(e.target.value)}
+                    rows={12}
+                    placeholder={"Write investigation notes in markdown...\n\n# Observations\n- \n\n# Analysis\n- \n\n# Next Steps\n- "}
+                    className="w-full resize-y rounded border border-divider-strong bg-background/60 p-3 text-mono ba-text-sm text-foreground outline-none focus:border-primary/50 mb-3"
+                  />
+                  <div className="rounded border border-border/60 bg-background/30 p-3">
+                    {notebookMd.split('\n').map((line, i) => {
+                      if (line.startsWith('# ')) return <h1 key={i} className="text-base font-semibold text-foreground mt-2 mb-1">{line.slice(2)}</h1>;
+                      if (line.startsWith('## ')) return <h2 key={i} className="text-sm font-semibold text-foreground/90 mt-2 mb-1">{line.slice(3)}</h2>;
+                      if (line.startsWith('### ')) return <h3 key={i} className="text-xs font-semibold text-foreground/80 mt-1.5 mb-0.5">{line.slice(4)}</h3>;
+                      if (line.startsWith('- ')) return <li key={i} className="text-mono ba-text-sm text-foreground/80 ml-4 list-disc">{line.slice(2)}</li>;
+                      if (line.trim() === '') return <br key={i} />;
+                      return <p key={i} className="text-mono ba-text-sm text-foreground/80 my-0.5">{line}</p>;
+                    })}
+                  </div>
+                </Panel>
+              )}
 
               <Panel title="Case metadata" priority="secondary">
                 <KeyFields items={[
@@ -538,6 +836,9 @@ function CasePage() {
                     <button onClick={download} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                       <Download className="h-3 w-3" /> .md
                     </button>
+                    <button onClick={downloadHtml} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                      <Download className="h-3 w-3" /> .html
+                    </button>
                     <button onClick={() => { const blob = new Blob([caseJson], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}.json`; a.click(); }} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono ba-text-2xs uppercase text-primary hover:bg-primary/20">
                       <Download className="h-3 w-3" /> .json
                     </button>
@@ -552,6 +853,32 @@ function CasePage() {
                 }
               >
                 <pre className="max-h-80 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90">{markdown}</pre>
+              </Panel>
+
+              <Panel title="Handoff Report (L2/IR)" priority="secondary" icon={ClipboardList}
+                actions={
+                  <button onClick={() => setShowHandoff(o => !o)} className="text-mono ba-text-2xs uppercase tracking-widest text-primary">
+                    {showHandoff ? "hide" : "show"}
+                  </button>
+                }
+              >
+                {showHandoff ? (
+                  <>
+                    <pre className="max-h-96 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90 whitespace-pre-wrap">{handoffReport}</pre>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button onClick={async () => { try { await navigator.clipboard.writeText(handoffReport); toast.success("Handoff report copied"); } catch {} }}
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                        <Copy className="h-3 w-3" /> copy
+                      </button>
+                      <button onClick={() => { const blob = new Blob([handoffReport], { type: "text/markdown" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${active?.title ?? "case"}-handoff.md`; a.click(); }}
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+                        <Download className="h-3 w-3" /> .md
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-mono ba-text-2xs text-muted-foreground/70">Consolidated L2/IR handoff report with IOC summary, decisions, and timeline</div>
+                )}
               </Panel>
 
               <SendToRow targets={[

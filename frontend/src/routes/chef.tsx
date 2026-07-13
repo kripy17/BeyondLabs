@@ -12,7 +12,13 @@ import OPS, { OP_BY_ID, DEFAULT_FAVS, CATEGORIES, type Op, type Cat, type Recipe
 
 export const Route = createFileRoute("/chef")({ component: ChefPage });
 
-const PRESETS: { id: string; steps: RecipeStep[]; sample?: string }[] = [];
+const PRESETS: { id: string; steps: RecipeStep[]; sample?: string }[] = [
+  {
+    id: "smart-decode",
+    steps: ["from-base64", "from-base64url", "url-decode", "from-hex", "unicode-unescape", "jwt-decode"].map((id) => createStep(id)),
+    sample: "aHR0cHM6Ly9leGFtcGxlLmNvbS9sb2dpbj91c2VyPWFkbWlu",
+  },
+];
 
 function createStep(opId: string, opts: Record<string, any> = {}): RecipeStep {
   return { id: crypto.randomUUID(), operationId: opId, options: opts };

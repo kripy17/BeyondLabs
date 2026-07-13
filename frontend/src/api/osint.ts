@@ -70,16 +70,18 @@ export function runHackingtoolTool({
   toolId,
   target = "",
   args = "",
+  signal,
 }: {
   categoryId: string
   toolId: string
   target?: string
   args?: string
+  signal?: AbortSignal
 }) {
   return postJson("/api/hackingtool/run", {
     category_id: categoryId,
     tool_id: toolId,
     target,
     args,
-  }, 180000)
+  }, 180000, signal)
 }

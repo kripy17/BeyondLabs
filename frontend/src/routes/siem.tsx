@@ -566,23 +566,25 @@ function SiemPage() {
 
       {/* AnalystOutputCard-style summary */}
         <OutputFilter query={filterText.toLowerCase()}>
-        <ResultBanner
-          badge="siem_summary"
-        title={`${filtered.length} events · ${findings.length} detection lead(s)`}
-        subtitle={activeEvents.length ? `${activeEvents.length} total event(s) · ` + (chips.length ? `filtered: ${chips.map((c) => `${c.field}=${c.value}`).join(" · ")}` : "click cells to pin filters, use range pills to scope") : "Paste logs above and click ingest to begin."}
-        reasons={[
-          `${activeEvents.length} total event(s), ${filtered.length} visible`,
-          fieldTopSrc !== "—" ? `Top source: ${fieldTopSrc}` : "",
-          findings.find((f) => f.sev === "destructive") ? `Destructive finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
-          `${mitre.length} MITRE technique(s) mapped`,
-        ].filter(Boolean) as string[]}
-        metrics={[
-          { label: "Events",   value: filtered.length, tone: "primary" },
-          { label: "Top src",  value: fieldTopSrc },
-          { label: "Highest",  value: highCount, tone: highCount ? "warning" : "default" },
-          { label: "Findings", value: findings.length, tone: findings.some((f) => f.sev === "destructive") ? "destructive" : findings.some((f) => f.sev === "warning") ? "warning" : "default" },
-        ]}
-      />
+        <div className="pointer-events-none select-none">
+          <ResultBanner
+            badge="siem_summary"
+            title={`${filtered.length} events · ${findings.length} detection lead(s)`}
+            subtitle={activeEvents.length ? `${activeEvents.length} total event(s) · ` + (chips.length ? `filtered: ${chips.map((c) => `${c.field}=${c.value}`).join(" · ")}` : "click cells to pin filters, use range pills to scope") : "Paste logs above and click ingest to begin."}
+            reasons={[
+              `${activeEvents.length} total event(s), ${filtered.length} visible`,
+              fieldTopSrc !== "—" ? `Top source: ${fieldTopSrc}` : "",
+              findings.find((f) => f.sev === "destructive") ? `Destructive finding: ${findings.find((f) => f.sev === "destructive")?.title}` : "",
+              `${mitre.length} MITRE technique(s) mapped`,
+            ].filter(Boolean) as string[]}
+            metrics={[
+              { label: "Events",   value: filtered.length, tone: "primary" },
+              { label: "Top src",  value: fieldTopSrc },
+              { label: "Highest",  value: highCount, tone: highCount ? "warning" : "default" },
+              { label: "Findings", value: findings.length, tone: findings.some((f) => f.sev === "destructive") ? "destructive" : findings.some((f) => f.sev === "warning") ? "warning" : "default" },
+            ]}
+          />
+        </div>
 
       {/* SIEM Summary Narrative toggle */}
       {has && (

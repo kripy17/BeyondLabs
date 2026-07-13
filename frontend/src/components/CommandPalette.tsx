@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
-import { GROUPS, findItem } from "@/lib/workspaces";
+import { GROUPS, findItem, type WorkspaceItem } from "@/lib/workspaces";
 import { useRecents } from "@/lib/recents";
 import { useTheme, THEMES } from "@/lib/theme";
 import { usePrefs } from "@/lib/prefs";
 import { useLocker } from "@/lib/locker";
 import { Plus, Palette, RotateCcw, Sparkles, Search, PackageOpen } from "lucide-react";
+import Fuse from "fuse.js";
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const navigate = useNavigate();
@@ -21,6 +22,26 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   }, [open]);
 
   const go = (url: string) => { onOpenChange(false); navigate({ to: url }); };
+
+  const fuse = useMemo(() => new Fuse(
+    GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, _group: g.label }))),
+    { keys: ["title", "desc", "group"], threshold: 0.3, distance: 80 }
+  ), []);
+
+  const fuzzyItems: (WorkspaceItem & { _group: string })[] = useMemo(() => {
+    if (!searchValue.trim()) return GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, _group: g.label })));
+    return fuse.search(searchValue).map((r) => r.item);
+  }, [searchValue, fuse]);
+
+  const fuzzyGrouped = useMemo(() => {
+    const map = new Map<string, (WorkspaceItem & { _group: string })[]>();
+    for (const it of fuzzyItems) {
+      const g = it._group;
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(it);
+    }
+    return Array.from(map.entries());
+  }, [fuzzyItems]);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -62,9 +83,9 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </>
         )}
 
-        {GROUPS.map((g) => (
-          <CommandGroup key={g.label} heading={g.label}>
-            {g.items.map((it) => {
+        {fuzzyGrouped.map(([groupLabel, items]) => (
+          <CommandGroup key={groupLabel} heading={groupLabel}>
+            {items.map((it) => {
               const Icon = it.icon;
               return (
                 <CommandItem key={it.url} onSelect={() => go(it.url)} value={`${it.title} ${it.desc} ${it.group}`}>
@@ -129,6 +150,18 @@ const SHORTCUTS = [
   { key: "Esc", action: "Close search / clear input" },
   { key: "↑↓", action: "Navigate search results" },
   { key: "↵", action: "Open selected result" },
+  { key: "g p", action: "Go to Parser" },
+  { key: "g f", action: "Go to Phishing" },
+  { key: "g u", action: "Go to URL Analyzer" },
+  { key: "g r", action: "Go to Recon" },
+  { key: "g m", action: "Go to MITRE" },
+  { key: "g c", action: "Go to Case" },
+  { key: "g s", action: "Go to Snippets" },
+  { key: "g d", action: "Go to Detection" },
+  { key: "g t", action: "Go to Toolkit" },
+  { key: "g h", action: "Go to Command Deck" },
+  { key: "g a", action: "Go to Activity Feed" },
+  { key: "n",   action: "New case" },
 ] as const;
 
 const PANEL_SHORTCUTS = [

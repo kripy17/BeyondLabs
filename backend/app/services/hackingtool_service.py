@@ -152,16 +152,25 @@ def _check_tool(binary: str) -> bool:
         return False
 
 
+_tool_map_cache = None
+
+def _get_tool_map():
+    global _tool_map_cache
+    if _tool_map_cache is not None:
+        return _tool_map_cache
+    tool_map = {}
+    for cat in get_categories().get("categories", []):
+        for tool in cat["tools"]:
+            tool_map[tool["id"]] = tool
+    _tool_map_cache = tool_map
+    return tool_map
+
 def run_tool(category_id: str, tool_id: str, target: str = "", args: str = "") -> dict:
     ht_dir = _ensure_dir()
     if not ht_dir:
         return {"error": "hackingtool not found"}
 
-    tool_map = {}
-    for cat in get_categories().get("categories", []):
-        for tool in cat["tools"]:
-            tool_map[tool["id"]] = tool
-
+    tool_map = _get_tool_map()
     tool = tool_map.get(tool_id)
     if not tool:
         binary = tool_id

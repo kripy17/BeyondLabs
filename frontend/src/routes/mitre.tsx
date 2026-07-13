@@ -4,7 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, SendToRow, Chip } from "@/components/soc";
 import { ResultBanner, EvidenceCard } from "@/components/output";
 import { sendArtifact } from "@/lib/handoff";
-import { Target, ArrowRight, Database, ShieldAlert, RotateCcw, Search, StickyNote, Download } from "lucide-react";
+import { Target, ArrowRight, CornerDownRight, Database, ShieldAlert, RotateCcw, Search, StickyNote, Download } from "lucide-react";
 
 export const Route = createFileRoute("/mitre")({ component: MitrePage });
 
@@ -36,6 +36,44 @@ const cell: Record<Cov, string> = {
   none:    "border-border/50 bg-background/30 text-muted-foreground hover:border-warning/30",
   partial: "border-warning/40 bg-warning/10 text-warning hover:border-warning/60",
   full:    "border-success/40 bg-success/15 text-success hover:border-success/60",
+};
+
+type DetectionRule = { name: string; status: "Active" | "Draft" | "Alert-only" | "Block"; type: string; confidence: "high" | "medium" | "low" };
+type DetectionInfo = { name: string; tactic: string; detections: DetectionRule[] };
+
+const DETECTION_LOOKUP: Record<string, DetectionInfo> = {
+  T1566: {
+    name: "Phishing",
+    tactic: "Initial Access",
+    detections: [
+      { name: "Phishing detection sig #1 (Sigma)", status: "Active", type: "Sigma", confidence: "high" },
+      { name: "Email gateway block (rule)", status: "Block", type: "Email Gateway", confidence: "high" },
+    ],
+  },
+  "T1059.001": {
+    name: "PowerShell",
+    tactic: "Execution",
+    detections: [
+      { name: "PowerShell logging (EventID 4104)", status: "Active", type: "Windows Event", confidence: "high" },
+      { name: "Command line auditing (EventID 4688)", status: "Active", type: "Windows Event", confidence: "medium" },
+    ],
+  },
+  T1027: {
+    name: "Obfuscated Files or Information",
+    tactic: "Defense Evasion",
+    detections: [
+      { name: "Entropy-based detection (custom YARA)", status: "Draft", type: "YARA", confidence: "medium" },
+      { name: "Base64 decode monitoring", status: "Alert-only", type: "Sigma", confidence: "low" },
+    ],
+  },
+  T1190: {
+    name: "Exploit Public-Facing Application",
+    tactic: "Initial Access",
+    detections: [
+      { name: "WAF rule: SQL injection block", status: "Block", type: "WAF", confidence: "high" },
+      { name: "Nessus plugin #12345", status: "Active", type: "Nessus", confidence: "medium" },
+    ],
+  },
 };
 
 function loadCov(): Record<string, Cov> {
@@ -82,6 +120,8 @@ function MitrePage() {
   const [noteTech, setNoteTech] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [matrixSearch, setMatrixSearch] = useState("");
+  const [lookupId, setLookupId] = useState("");
+  const [lookupResult, setLookupResult] = useState<{ found: boolean; query: string; technique?: { id: string; name: string; tactic: string; detectionCount: number }; detections: DetectionRule[] } | null>(null);
 
   const cycleCov = useCallback((tacticId: string, techId: string) => {
     setCov((prev) => {
@@ -100,6 +140,20 @@ function MitrePage() {
   const getTechCov = useCallback((tacticId: string, techId: string): Cov => {
     return cov[techKey(tacticId, techId)] || "none";
   }, [cov]);
+
+  const doLookup = useCallback((techId: string) => {
+    const id = techId.trim().toUpperCase();
+    let tacticName: string | null = null;
+    let techName: string | null = null;
+    for (const t of TACTICS) {
+      const m = t.techniques.find((x) => x.id === id);
+      if (m) { tacticName = t.name; techName = m.name; break; }
+    }
+    if (!tacticName) { setLookupResult({ found: false, query: id, detections: [] }); return; }
+    const info = DETECTION_LOOKUP[id];
+    const dets = info?.detections || [];
+    setLookupResult({ found: true, query: id, technique: { id, name: techName!, tactic: tacticName, detectionCount: dets.length }, detections: dets });
+  }, []);
 
   const stats = useMemo(() => {
     const all = TACTICS.flatMap((t) => t.techniques.map((tech) => ({ ...tech, tacticId: t.id })));
@@ -171,22 +225,128 @@ function MitrePage() {
       description="Interactive coverage matrix — click techniques to cycle none → partial → full. Stored locally in your browser."
       crumbs={[{ label: "Detection" }, { label: "MITRE" }]}
     >
-      <ResultBanner
-        badge="coverage"
-        title={`${pct}% weighted coverage`}
-        subtitle={`${stats.full} full · ${stats.partial} partial · ${stats.none} none`}
-        metrics={[
-          { label: "Tactics",    value: TACTICS.length, tone: "primary" },
-          { label: "Techniques", value: stats.total },
-          { label: "Full",       value: stats.full, tone: "success" },
-          { label: "Gaps",       value: stats.none, tone: "warning" },
-        ]}
-      />
+      <div className="pointer-events-none select-none">
+        <ResultBanner
+          badge="coverage"
+          title={`${pct}% weighted coverage`}
+          subtitle={`${stats.full} full · ${stats.partial} partial · ${stats.none} none`}
+          metrics={[
+            { label: "Tactics",    value: TACTICS.length, tone: "primary" },
+            { label: "Techniques", value: stats.total },
+            { label: "Full",       value: stats.full, tone: "success" },
+            { label: "Gaps",       value: stats.none, tone: "warning" },
+          ]}
+        />
+      </div>
 
       <div className="grid gap-3 grid-cols-2">
         {gapFindings.map((f, i) => (
           <EvidenceCard key={i} severity={f.sev} title={f.title} reason={f.reason} action={f.action} limitation="Click technique cells to update status. Coverage data is stored in browser localStorage." />
         ))}
+      </div>
+
+      <div className="mb-3">
+        <Panel title="Technique Detection Lookup" icon={Search} collapsible defaultCollapsed storageKey="beyondlabs.mitre.detection-lookup.collapsed" meta="reverse lookup TID → detection rules">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <CornerDownRight className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={lookupId}
+                  onChange={e => setLookupId(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter" && lookupId.trim()) doLookup(lookupId.trim()); }}
+                  placeholder="Enter technique ID, e.g. T1566, T1059.001…"
+                  className="h-8 w-full rounded border border-border bg-background/60 pl-8 pr-2 text-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+                />
+              </div>
+              <button
+                onClick={() => lookupId.trim() && doLookup(lookupId.trim())}
+                className="inline-flex h-8 items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20"
+              >
+                <Search className="h-3 w-3" /> Look up
+              </button>
+              {lookupResult && (
+                <button
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify(lookupResult, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = `detection-lookup-${lookupResult.technique?.id || "unknown"}-${Date.now()}.json`; a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded border border-border px-2.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="h-3 w-3" /> Export
+                </button>
+              )}
+            </div>
+
+            {lookupResult && !lookupResult.found && (
+              <div className="rounded border border-warning/40 bg-warning/10 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-warning" />
+                  <span className="text-mono text-[11px] text-warning">
+                    No match for <strong>{lookupResult.query}</strong>. Check the technique ID and try again.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {lookupResult && lookupResult.found && (
+              <div className="space-y-3">
+                <div className="rounded border border-border/50 bg-card/40 px-3 py-2.5">
+                  <div className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Technique</div>
+                  <div className="mt-0.5 flex items-baseline gap-2">
+                    <span className="text-base text-foreground">{lookupResult.technique!.id}</span>
+                    <span className="text-sm text-foreground/70">— {lookupResult.technique!.name}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Chip tone="info">{lookupResult.technique!.tactic}</Chip>
+                    {lookupResult.technique!.detectionCount > 0 ? (
+                      <Chip tone="success">{lookupResult.technique!.detectionCount} detection{lookupResult.technique!.detectionCount !== 1 ? "s" : ""}</Chip>
+                    ) : (
+                      <Chip tone="destructive">No detection rules</Chip>
+                    )}
+                  </div>
+                </div>
+
+                {lookupResult.detections.length === 0 ? (
+                  <div className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-mono text-[11px] text-destructive/90">
+                    No detection rule mapped to this technique. Consider creating a detection rule.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {lookupResult.detections.map((d, i) => {
+                      const statusTone: Record<string, "success" | "warning" | "info" | "primary"> = {
+                        Active: "success", Draft: "warning", "Alert-only": "info", Block: "primary",
+                      };
+                      const confTone: Record<string, "success" | "warning" | "destructive"> = {
+                        high: "success", medium: "warning", low: "destructive",
+                      };
+                      return (
+                        <div key={i} className="flex items-center justify-between rounded border border-border/40 bg-card/30 px-3 py-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="truncate text-[12px] text-foreground/90">{d.name}</span>
+                            <Chip tone="default">{d.type}</Chip>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Chip tone={statusTone[d.status] || "default"}>{d.status}</Chip>
+                            <Chip tone={confTone[d.confidence] || "default"}>{d.confidence}</Chip>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!lookupResult && (
+              <div className="rounded border border-border/30 bg-card/20 px-3 py-4 text-center text-mono text-[11px] text-muted-foreground">
+                Enter a MITRE ATT&CK technique ID above to look up detection coverage.
+              </div>
+            )}
+          </div>
+        </Panel>
       </div>
 
       <div className="mb-3 flex items-center justify-between">
@@ -252,7 +412,7 @@ function MitrePage() {
             }
           />
           <div className="-mx-1 overflow-x-auto px-1 pb-1">
-            <div className="grid min-w-[920px] grid-cols-5 gap-2 min-w-0">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
               {TACTICS.map((t) => {
                 const q = matrixSearch.trim().toLowerCase();
                 const ts = t.techniques.filter((x) => {

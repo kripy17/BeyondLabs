@@ -1,18 +1,18 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter, useNavigate } from "@tanstack/react-router";
+import { Outlet, Link, createRootRouteWithContext, useRouter, useLocation } from "@tanstack/react-router";
 
 import { ThemeProvider } from "@/lib/theme";
 import { PrefsProvider } from "@/lib/prefs";
 import { LockerProvider, useLocker } from "@/lib/locker";
-import { useRouteRecorder, useRecents, clearRecents } from "@/lib/recents";
-import { findItem } from "@/lib/workspaces";
+import { useRouteRecorder } from "@/lib/recents";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ActiveCaseBar } from "@/components/ActiveCaseBar";
 import { Toaster } from "@/components/Toaster";
 import { IocLockerTrigger, IocLockerPanel } from "@/components/IocLocker";
-import { X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { sendToCase } from "@/lib/handoff";
+import { StickyNote, Pen } from "lucide-react";
 
 
 function NotFoundComponent() {
@@ -99,39 +99,6 @@ function RouteRecorder() {
   return null;
 }
 
-function RecentStrip() {
-  const recents = useRecents().slice(0, 5);
-  const navigate = useNavigate();
-
-  if (recents.length === 0) return null;
-
-  return (
-    <div className="flex w-full items-center gap-1.5 overflow-x-auto border-b border-border/50 px-3 py-1.5">
-      {recents.map((url) => {
-        const item = findItem(url);
-        const Icon: LucideIcon | undefined = item?.icon;
-        return (
-          <button
-            key={url}
-            onClick={() => navigate({ to: url })}
-            className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-0.5 text-mono ba-text-2xs text-muted-foreground hover:border-primary/50 hover:text-primary shrink-0"
-          >
-            {Icon && <Icon className="size-3" />}
-            <span>{item?.title ?? url}</span>
-          </button>
-        );
-      })}
-      <button
-        onClick={clearRecents}
-        className="ml-auto inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground hover:border-destructive/50 hover:text-destructive shrink-0"
-        title="Clear recents"
-      >
-        <X className="size-3" />
-      </button>
-    </div>
-  );
-}
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [lockerOpen, setLockerOpen] = useState(false);
@@ -144,7 +111,7 @@ function RootComponent() {
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset className="w-full">
-              <RecentStrip />
+              <ActiveCaseBar />
               <RouteRecorder />
               <Outlet />
               <LockerUI open={lockerOpen} onOpenChange={setLockerOpen} />
@@ -158,10 +125,121 @@ function RootComponent() {
   );
 }
 
+function ActiveCaseAttach() {
+  const [showPanel, setShowPanel] = useState(false);
+  const [text, setText] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setShowPanel(false);
+    };
+    if (showPanel) { document.addEventListener("mousedown", onClick); return () => document.removeEventListener("mousedown", onClick); }
+  }, [showPanel]);
+
+  const activeId = (() => { try { return localStorage.getItem("ba.cases.active") || ""; } catch { return ""; } })();
+  const hasActive = activeId.length > 0;
+
+  const doAttach = () => {
+    if (!text.trim() || !hasActive) return;
+    sendToCase({ body: text.trim(), source: location.pathname, kind: "evidence" });
+    setText("");
+    setShowPanel(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => hasActive && setShowPanel((o) => !o)}
+        title={hasActive ? "Attach to active case" : "No active case"}
+        className={"fixed bottom-4 right-16 z-40 grid h-9 w-9 place-items-center rounded-full border shadow-sm transition-all " + (hasActive ? "border-primary/50 bg-primary/15 text-primary hover:bg-primary/25" : "border-border/50 bg-card/40 text-muted-foreground/50 cursor-not-allowed")}
+      >
+        <StickyNote className="h-4 w-4" />
+      </button>
+      {showPanel && hasActive && (
+        <div ref={panelRef} className="fixed bottom-16 right-16 z-50 w-72 rounded-md border border-border bg-popover p-3 shadow-lg">
+          <p className="mb-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Attach to case <span className="text-primary">{activeId}</span></p>
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doAttach(); } if (e.key === "Escape") setShowPanel(false); }}
+            placeholder="Evidence text…"
+            rows={3}
+            className="w-full rounded border border-border bg-background/60 p-2 text-mono text-[11px] text-foreground outline-none focus:border-primary/50 resize-none"
+          />
+          <div className="mt-1.5 flex items-center justify-between">
+            <span className="text-mono text-[9px] text-muted-foreground/60">⌘↵ to attach</span>
+            <button onClick={doAttach} disabled={!text.trim()} className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-mono text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40">
+              attach
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Scratchpad() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const textRef = useRef(text);
+  textRef.current = text;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { const v = localStorage.getItem("ba.scratchpad"); if (v) setText(v); } catch {}
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try { localStorage.setItem("ba.scratchpad", textRef.current); } catch {}
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) { document.addEventListener("mousedown", onClick); return () => document.removeEventListener("mousedown", onClick); }
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Scratchpad"
+        className={"fixed bottom-4 left-4 z-40 grid h-9 w-9 place-items-center rounded-full border shadow-sm transition-all " + (open ? "border-primary/50 bg-primary/15 text-primary" : "border-border/50 bg-card/40 text-muted-foreground hover:border-primary/30 hover:text-primary")}
+      >
+        <Pen className="h-4 w-4" />
+      </button>
+      {open && (
+        <div ref={panelRef} className="fixed bottom-16 left-4 z-50 w-72 rounded-md border border-border bg-popover p-3 shadow-lg">
+          <p className="mb-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Scratchpad</p>
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+            placeholder="Quick notes…"
+            rows={6}
+            className="w-full rounded border border-border bg-background/60 p-2 text-mono text-[11px] text-foreground outline-none focus:border-primary/50 resize-none"
+          />
+          <div className="mt-1 text-right text-mono text-[9px] text-muted-foreground/60">auto-saves</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LockerUI({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { count } = useLocker();
   return (
     <>
+      <ActiveCaseAttach />
+      <Scratchpad />
       <IocLockerTrigger onClick={() => onOpenChange(true)} count={count} />
       <IocLockerPanel open={open} onClose={() => onOpenChange(false)} />
     </>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
@@ -75,192 +75,231 @@ type ToolInputField = {
   placeholder?: string;
   defaultValue?: string | number | boolean;
   options?: { label: string; value: string }[];
+  /** Field group label for visual grouping */
+  group?: string;
+  /** Short contextual hint shown below the field */
+  hint?: string;
   /** If set, the value is joined with the flag (e.g. "-p 80,443"). If null, value is a positional arg. */
   flag?: string | null;
 };
 type ToolSchema = { fields: ToolInputField[] };
 
+const TOOL_INFO: Record<string, { heading: string; hint: string }> = {
+  nmap: { heading: "Port scan & service detection", hint: "Scans open ports, detects services & OS. Use presets for common configurations." },
+  dig: { heading: "DNS lookup utility", hint: "Query DNS records for domains. Supports A, AAAA, MX, NS, TXT, and more." },
+  ping: { heading: "ICMP reachability check", hint: "Test host reachability. Use count to limit packets." },
+  hydra: { heading: "Online password brute-forcer", hint: "Brute-force login credentials over SSH, FTP, HTTP, and more." },
+  sqlmap: { heading: "SQL injection automation", hint: "Detect and exploit SQL injection flaws. Start with batch mode." },
+  gobuster: { heading: "Directory & DNS brute-force", hint: "Brute-force directories, DNS subdomains, or vhosts." },
+  ffuf: { heading: "Web fuzzer", hint: "Fuzz URLs, parameters, and more using a wordlist." },
+  theharvester: { heading: "Email & subdomain OSINT", hint: "Gather emails, names, subdomains, and IPs from public sources." },
+  whois: { heading: "Domain/IP registration lookup", hint: "Look up ownership and registration details." },
+  nslookup: { heading: "DNS query tool", hint: "Query DNS name servers for records." },
+  traceroute: { heading: "Network path tracer", hint: "Trace the route packets take to reach a host." },
+  curl: { heading: "HTTP client & debugger", hint: "Make HTTP requests with custom headers, methods, and bodies." },
+  nikto: { heading: "Web server scanner", hint: "Scan web servers for known vulnerabilities and misconfigurations." },
+  nuclei: { heading: "YAML-based vulnerability scanner", hint: "Fast, template-based vulnerability scanning." },
+  whatweb: { heading: "Web technology fingerprint", hint: "Identify CMS, frameworks, and server software." },
+  wpscan: { heading: "WordPress vulnerability scanner", hint: "Enumerate plugins, themes, users, and vulnerabilities." },
+  dnsrecon: { heading: "DNS enumeration", hint: "Enumerate DNS records with multiple scan types." },
+  amass: { heading: "Attack surface mapping", hint: "Map network attack surface using passive and active techniques." },
+  sublist3r: { heading: "Subdomain enumeration", hint: "Enumerate subdomains using search engines and DNS." },
+  dirb: { heading: "Web content scanner", hint: "Discover hidden files and directories." },
+  wafw00f: { heading: "WAF detection", hint: "Detect if a web server is behind a WAF." },
+  hashcat: { heading: "GPU-accelerated hash cracker", hint: "Crack hashes using dictionary and rule-based attacks." },
+  john: { heading: "John the Ripper", hint: "Offline password cracking with multiple formats." },
+  searchsploit: { heading: "Exploit database search", hint: "Search local Exploit-DB for known vulnerabilities." },
+  binwalk: { heading: "Firmware analysis", hint: "Analyze, extract, and reverse firmware images." },
+  foremost: { heading: "File carving", hint: "Recover deleted files from disk images." },
+  volatility3: { heading: "Memory forensics", hint: "Analyze memory dumps for processes, network, registry." },
+  trivy: { heading: "Vulnerability scanner", hint: "Scan containers, filesystems, repos, and K8s for CVEs." },
+  impacket: { heading: "AD protocol toolkit", hint: "Execute Active Directory attacks and enumeration." },
+  responder: { heading: "LLMNR/NBT-NS poisoning", hint: "Poison LLMNR/NBT-NS/MDNS for credential capture." },
+  bloodhound: { heading: "AD attack path mapper", hint: "Map Active Directory relationships and attack paths." },
+  stegocracker: { heading: "Steganography brute-force", hint: "Brute-force hidden data in files using a wordlist." },
+};
+
 const TOOL_SCHEMAS: Record<string, ToolSchema> = {
   nmap: { fields: [
-    { key: "target", label: "Target", type: "text", placeholder: "scanme.nmap.org", flag: null },
-    { key: "ports", label: "Ports", type: "text", placeholder: "22,80,443", defaultValue: "1000", flag: "-p" },
-    { key: "scan_type", label: "Scan type", type: "dropdown", options: [{label:"SYN stealth",value:"-sS"},{label:"TCP connect",value:"-sT"},{label:"UDP",value:"-sU"},{label:"Ping",value:"-sn"}], defaultValue: "-sS", flag: "" },
-    { key: "service_detect", label: "Service detect", type: "toggle", defaultValue: true, flag: "-sV" },
-    { key: "os_detect", label: "OS detection", type: "toggle", defaultValue: false, flag: "-O" },
-    { key: "aggressive", label: "Aggressive", type: "toggle", defaultValue: false, flag: "-A" },
-    { key: "script", label: "Script scan", type: "dropdown", options: [{label:"None",value:""},{label:"Default",value:"-sC"},{label:"Vuln",value:"--script=vuln"},{label:"Safe",value:"--script=safe"}], defaultValue: "", flag: "" },
+    { key: "target", label: "Target", group: "Target", type: "text", placeholder: "scanme.nmap.org", flag: null },
+    { key: "ports", label: "Ports", group: "Scan Options", type: "text", placeholder: "22,80,443", defaultValue: "1000", flag: "-p", hint: "Comma-separated or range (e.g. 1-1000)" },
+    { key: "scan_type", label: "Scan type", group: "Scan Options", type: "dropdown", options: [{label:"SYN stealth",value:"-sS"},{label:"TCP connect",value:"-sT"},{label:"UDP",value:"-sU"},{label:"Ping",value:"-sn"}], defaultValue: "-sS", flag: "" },
+    { key: "service_detect", label: "Service detect", group: "Detection", type: "toggle", defaultValue: true, flag: "-sV" },
+    { key: "os_detect", label: "OS detection", group: "Detection", type: "toggle", defaultValue: false, flag: "-O" },
+    { key: "aggressive", label: "Aggressive", group: "Detection", type: "toggle", defaultValue: false, flag: "-A" },
+    { key: "script", label: "Script scan", group: "Scripting", type: "dropdown", options: [{label:"None",value:""},{label:"Default",value:"-sC"},{label:"Vuln",value:"--script=vuln"},{label:"Safe",value:"--script=safe"}], defaultValue: "", flag: "" },
   ]},
   dig: { fields: [
-    { key: "domain", label: "Domain", type: "text", placeholder: "example.com", flag: null },
-    { key: "type", label: "Record type", type: "dropdown", options: [{label:"ANY",value:"ANY"},{label:"A",value:"A"},{label:"AAAA",value:"AAAA"},{label:"MX",value:"MX"},{label:"NS",value:"NS"},{label:"TXT",value:"TXT"},{label:"CNAME",value:"CNAME"},{label:"SOA",value:"SOA"}], defaultValue: "ANY", flag: "" },
-    { key: "server", label: "DNS server", type: "text", placeholder: "8.8.8.8 (optional)", defaultValue: "", flag: "@" },
+    { key: "domain", label: "Domain", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "type", label: "Record type", group: "Query", type: "dropdown", options: [{label:"ANY",value:"ANY"},{label:"A",value:"A"},{label:"AAAA",value:"AAAA"},{label:"MX",value:"MX"},{label:"NS",value:"NS"},{label:"TXT",value:"TXT"},{label:"CNAME",value:"CNAME"},{label:"SOA",value:"SOA"}], defaultValue: "ANY", flag: "" },
+    { key: "server", label: "DNS server", group: "Server", type: "text", placeholder: "8.8.8.8 (optional)", defaultValue: "", flag: "@", hint: "Defaults to system resolver" },
   ]},
   ping: { fields: [
-    { key: "host", label: "Host", type: "text", placeholder: "8.8.8.8", flag: null },
-    { key: "count", label: "Count", type: "number", placeholder: "4", defaultValue: 4, flag: "-c" },
-    { key: "flood", label: "Flood", type: "toggle", defaultValue: false, flag: "-f" },
+    { key: "host", label: "Host", group: "Target", type: "text", placeholder: "8.8.8.8", flag: null },
+    { key: "count", label: "Count", group: "Options", type: "number", placeholder: "4", defaultValue: 4, flag: "-c", hint: "Number of echo requests" },
+    { key: "flood", label: "Flood", group: "Options", type: "toggle", defaultValue: false, flag: "-f" },
   ]},
   hydra: { fields: [
-    { key: "target", label: "Target", type: "text", placeholder: "192.168.1.1", flag: null },
-    { key: "username", label: "Username", type: "text", placeholder: "root", defaultValue: "", flag: "-l" },
-    { key: "userlist", label: "User wordlist", type: "text", placeholder: "/path/to/users.txt", defaultValue: "", flag: "-L" },
-    { key: "password", label: "Password", type: "text", placeholder: "admin", defaultValue: "", flag: "-p" },
-    { key: "wordlist", label: "Password wordlist", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", defaultValue: "", flag: "-P" },
-    { key: "service", label: "Service", type: "dropdown", options: [{label:"ssh",value:"ssh"},{label:"ftp",value:"ftp"},{label:"http-post-form",value:"http-post-form"},{label:"https-post-form",value:"https-post-form"},{label:"mysql",value:"mysql"},{label:"rdp",value:"rdp"},{label:"smb",value:"smb"}], defaultValue: "ssh", flag: "" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "16", defaultValue: 16, flag: "-t" },
+    { key: "target", label: "Target", group: "Target", type: "text", placeholder: "192.168.1.1", flag: null },
+    { key: "service", label: "Service", group: "Target", type: "dropdown", options: [{label:"ssh",value:"ssh"},{label:"ftp",value:"ftp"},{label:"http-post-form",value:"http-post-form"},{label:"https-post-form",value:"https-post-form"},{label:"mysql",value:"mysql"},{label:"rdp",value:"rdp"},{label:"smb",value:"smb"}], defaultValue: "ssh", flag: "" },
+    { key: "username", label: "Username", group: "Credentials", type: "text", placeholder: "root", defaultValue: "", flag: "-l", hint: "Single username" },
+    { key: "userlist", label: "User wordlist", group: "Credentials", type: "text", placeholder: "/path/to/users.txt", defaultValue: "", flag: "-L", hint: "Path to username wordlist" },
+    { key: "password", label: "Password", group: "Credentials", type: "text", placeholder: "admin", defaultValue: "", flag: "-p", hint: "Single password" },
+    { key: "wordlist", label: "Password wordlist", group: "Credentials", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", defaultValue: "", flag: "-P", hint: "Path to password wordlist" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "16", defaultValue: 16, flag: "-t", hint: "Parallel tasks" },
   ]},
   sqlmap: { fields: [
-    { key: "url", label: "URL", type: "text", placeholder: "http://example.com/page?id=1", flag: null },
-    { key: "level", label: "Level", type: "dropdown", options: [{label:"1",value:"1"},{label:"2",value:"2"},{label:"3",value:"3"},{label:"4",value:"4"},{label:"5",value:"5"}], defaultValue: "1", flag: "--level=" },
-    { key: "risk", label: "Risk", type: "dropdown", options: [{label:"1",value:"1"},{label:"2",value:"2"},{label:"3",value:"3"}], defaultValue: "1", flag: "--risk=" },
-    { key: "batch", label: "Batch mode", type: "toggle", defaultValue: true, flag: "--batch" },
-    { key: "dbs", label: "Enumerate DBs", type: "toggle", defaultValue: false, flag: "--dbs" },
-    { key: "tables", label: "Enumerate tables", type: "toggle", defaultValue: false, flag: "--tables" },
-    { key: "dump", label: "Dump data", type: "toggle", defaultValue: false, flag: "--dump" },
+    { key: "url", label: "URL", group: "Target", type: "text", placeholder: "http://example.com/page?id=1", flag: null, hint: "The injectable URL" },
+    { key: "level", label: "Level", group: "Exploit", type: "dropdown", options: [{label:"1",value:"1"},{label:"2",value:"2"},{label:"3",value:"3"},{label:"4",value:"4"},{label:"5",value:"5"}], defaultValue: "1", flag: "--level=", hint: "Tests depth (1–5)" },
+    { key: "risk", label: "Risk", group: "Exploit", type: "dropdown", options: [{label:"1",value:"1"},{label:"2",value:"2"},{label:"3",value:"3"}], defaultValue: "1", flag: "--risk=" },
+    { key: "batch", label: "Batch mode", group: "Options", type: "toggle", defaultValue: true, flag: "--batch" },
+    { key: "dbs", label: "Enumerate DBs", group: "Options", type: "toggle", defaultValue: false, flag: "--dbs" },
+    { key: "tables", label: "Enumerate tables", group: "Options", type: "toggle", defaultValue: false, flag: "--tables" },
+    { key: "dump", label: "Dump data", group: "Options", type: "toggle", defaultValue: false, flag: "--dump" },
   ]},
   gobuster: { fields: [
-    { key: "mode", label: "Mode", type: "dropdown", options: [{label:"dir",value:"dir"},{label:"dns",value:"dns"},{label:"vhost",value:"vhost"},{label:"fuzz",value:"fuzz"}], defaultValue: "dir", flag: "" },
-    { key: "url", label: "Target URL/Domain", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: "-w" },
-    { key: "extensions", label: "Extensions", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-x" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "10", defaultValue: 10, flag: "-t" },
+    { key: "mode", label: "Mode", group: "Mode", type: "dropdown", options: [{label:"dir",value:"dir"},{label:"dns",value:"dns"},{label:"vhost",value:"vhost"},{label:"fuzz",value:"fuzz"}], defaultValue: "dir", flag: "" },
+    { key: "url", label: "Target URL/Domain", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "wordlist", label: "Wordlist", group: "Target", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: "-w" },
+    { key: "extensions", label: "Extensions", group: "Options", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-x", hint: "Comma-separated" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "10", defaultValue: 10, flag: "-t" },
   ]},
   ffuf: { fields: [
-    { key: "url", label: "Target URL", type: "text", placeholder: "http://example.com/FUZZ", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: "-w" },
-    { key: "extensions", label: "Extensions", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-e" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "40", defaultValue: 40, flag: "-t" },
-    { key: "recursion", label: "Recursion", type: "toggle", defaultValue: false, flag: "-recursion" },
+    { key: "url", label: "Target URL", group: "Target", type: "text", placeholder: "http://example.com/FUZZ", flag: null, hint: "Use FUZZ keyword as placeholder" },
+    { key: "wordlist", label: "Wordlist", group: "Target", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: "-w" },
+    { key: "extensions", label: "Extensions", group: "Options", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-e" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "40", defaultValue: 40, flag: "-t" },
+    { key: "recursion", label: "Recursion", group: "Options", type: "toggle", defaultValue: false, flag: "-recursion" },
   ]},
   theharvester: { fields: [
-    { key: "domain", label: "Domain", type: "text", placeholder: "example.com", flag: null },
-    { key: "source", label: "Source", type: "dropdown", options: [{label:"Google",value:"google"},{label:"Bing",value:"bing"},{label:"LinkedIn",value:"linkedin"},{label:"All",value:"all"}], defaultValue: "google", flag: "-b" },
-    { key: "limit", label: "Results", type: "number", placeholder: "50", defaultValue: 50, flag: "-l" },
+    { key: "domain", label: "Domain", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "source", label: "Source", group: "Source", type: "dropdown", options: [{label:"Google",value:"google"},{label:"Bing",value:"bing"},{label:"LinkedIn",value:"linkedin"},{label:"All",value:"all"}], defaultValue: "google", flag: "-b" },
+    { key: "limit", label: "Results", group: "Source", type: "number", placeholder: "50", defaultValue: 50, flag: "-l" },
   ]},
   whois: { fields: [
-    { key: "query", label: "Domain/IP", type: "text", placeholder: "example.com", flag: null },
+    { key: "query", label: "Domain/IP", group: "Target", type: "text", placeholder: "example.com", flag: null },
   ]},
   nslookup: { fields: [
-    { key: "query", label: "Domain/IP", type: "text", placeholder: "example.com", flag: null },
-    { key: "type", label: "Type", type: "dropdown", options: [{label:"A",value:"-type=A"},{label:"AAAA",value:"-type=AAAA"},{label:"MX",value:"-type=MX"},{label:"NS",value:"-type=NS"},{label:"TXT",value:"-type=TXT"}, {label:"ANY",value:"-type=ANY"}], defaultValue: "-type=A", flag: "" },
-    { key: "server", label: "Server", type: "text", placeholder: "8.8.8.8 (optional)", defaultValue: "", flag: null },
+    { key: "query", label: "Domain/IP", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "type", label: "Type", group: "Options", type: "dropdown", options: [{label:"A",value:"-type=A"},{label:"AAAA",value:"-type=AAAA"},{label:"MX",value:"-type=MX"},{label:"NS",value:"-type=NS"},{label:"TXT",value:"-type=TXT"}, {label:"ANY",value:"-type=ANY"}], defaultValue: "-type=A", flag: "" },
+    { key: "server", label: "Server", group: "Options", type: "text", placeholder: "8.8.8.8 (optional)", defaultValue: "", flag: "" },
   ]},
   traceroute: { fields: [
-    { key: "host", label: "Host", type: "text", placeholder: "8.8.8.8", flag: null },
-    { key: "max_hops", label: "Max hops", type: "number", placeholder: "30", defaultValue: 30, flag: "-m" },
-    { key: "port", label: "Port", type: "number", placeholder: "80 (optional)", defaultValue: "", flag: "-p" },
+    { key: "host", label: "Host", group: "Target", type: "text", placeholder: "8.8.8.8", flag: null },
+    { key: "max_hops", label: "Max hops", group: "Options", type: "number", placeholder: "30", defaultValue: 30, flag: "-m" },
+    { key: "port", label: "Port", group: "Options", type: "number", placeholder: "80 (optional)", defaultValue: "", flag: "-p" },
   ]},
   curl: { fields: [
-    { key: "url", label: "URL", type: "text", placeholder: "https://example.com", flag: null },
-    { key: "method", label: "Method", type: "dropdown", options: [{label:"GET",value:""},{label:"HEAD",value:"-I"},{label:"POST",value:"-X POST"},{label:"PUT",value:"-X PUT"},{label:"DELETE",value:"-X DELETE"}], defaultValue: "", flag: "" },
-    { key: "headers", label: "Headers", type: "text", placeholder: "-H 'Authorization: ...'", defaultValue: "", flag: "" },
-    { key: "follow", label: "Follow redirects", type: "toggle", defaultValue: false, flag: "-L" },
-    { key: "verbose", label: "Verbose", type: "toggle", defaultValue: false, flag: "-v" },
-    { key: "data", label: "Request body", type: "text", placeholder: "key=value", defaultValue: "", flag: "-d" },
+    { key: "url", label: "URL", group: "Target", type: "text", placeholder: "https://example.com", flag: null },
+    { key: "method", label: "Method", group: "Request", type: "dropdown", options: [{label:"GET",value:""},{label:"HEAD",value:"-I"},{label:"POST",value:"-X POST"},{label:"PUT",value:"-X PUT"},{label:"DELETE",value:"-X DELETE"}], defaultValue: "", flag: "" },
+    { key: "headers", label: "Headers", group: "Request", type: "text", placeholder: "-H 'Authorization: ...'", defaultValue: "", flag: "", hint: "Pass raw header flags" },
+    { key: "data", label: "Request body", group: "Request", type: "text", placeholder: "key=value", defaultValue: "", flag: "-d" },
+    { key: "follow", label: "Follow redirects", group: "Options", type: "toggle", defaultValue: false, flag: "-L" },
+    { key: "verbose", label: "Verbose", group: "Options", type: "toggle", defaultValue: false, flag: "-v" },
   ]},
   nikto: { fields: [
-    { key: "host", label: "Host", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "port", label: "Port", type: "number", placeholder: "80", defaultValue: 80, flag: "-port" },
-    { key: "ssl", label: "SSL", type: "toggle", defaultValue: false, flag: "-ssl" },
-    { key: "tuning", label: "Tuning", type: "text", placeholder: "1 2 3", defaultValue: "", flag: "-Tuning" },
+    { key: "host", label: "Host", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "port", label: "Port", group: "Target", type: "number", placeholder: "80", defaultValue: 80, flag: "-port" },
+    { key: "ssl", label: "SSL", group: "Options", type: "toggle", defaultValue: false, flag: "-ssl" },
+    { key: "tuning", label: "Tuning", group: "Options", type: "text", placeholder: "1 2 3", defaultValue: "", flag: "-Tuning", hint: "Space-separated tuning values" },
   ]},
   nuclei: { fields: [
-    { key: "target", label: "Target", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "severity", label: "Severity", type: "dropdown", options: [{label:"All",value:""},{label:"Critical",value:"-severity critical"},{label:"High",value:"-severity high"},{label:"Medium",value:"-severity medium"},{label:"Low",value:"-severity low"},{label:"All",value:"-severity low,medium,high,critical"}], defaultValue: "-severity low,medium,high,critical", flag: "" },
-    { key: "tags", label: "Tags", type: "text", placeholder: "cve,tech,panel", defaultValue: "", flag: "-tags" },
-    { key: "rate_limit", label: "Rate limit", type: "number", placeholder: "150", defaultValue: 150, flag: "-rl" },
+    { key: "target", label: "Target", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "severity", label: "Severity", group: "Scan", type: "dropdown", options: [{label:"All",value:""},{label:"Critical",value:"-severity critical"},{label:"High",value:"-severity high"},{label:"Medium",value:"-severity medium"},{label:"Low",value:"-severity low"},{label:"All",value:"-severity low,medium,high,critical"}], defaultValue: "-severity low,medium,high,critical", flag: "" },
+    { key: "tags", label: "Tags", group: "Scan", type: "text", placeholder: "cve,tech,panel", defaultValue: "", flag: "-tags" },
+    { key: "rate_limit", label: "Rate limit", group: "Performance", type: "number", placeholder: "150", defaultValue: 150, flag: "-rl" },
   ]},
   whatweb: { fields: [
-    { key: "url", label: "URL", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "aggression", label: "Aggression", type: "dropdown", options: [{label:"1 — Stealthy",value:"1"},{label:"2 — Default",value:"2"},{label:"3 — Aggressive",value:"3"},{label:"4 — Heavy",value:"4"}], defaultValue: "3", flag: "--aggression" },
-    { key: "verbose", label: "Verbose", type: "toggle", defaultValue: false, flag: "--verbose" },
+    { key: "url", label: "URL", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "aggression", label: "Aggression", group: "Options", type: "dropdown", options: [{label:"1 — Stealthy",value:"1"},{label:"2 — Default",value:"2"},{label:"3 — Aggressive",value:"3"},{label:"4 — Heavy",value:"4"}], defaultValue: "3", flag: "--aggression" },
+    { key: "verbose", label: "Verbose", group: "Options", type: "toggle", defaultValue: false, flag: "--verbose" },
   ]},
   wpscan: { fields: [
-    { key: "url", label: "WordPress URL", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "enumerate", label: "Enumerate", type: "dropdown", options: [{label:"Vuln plugins+themes+users",value:"--enumerate vp,vt,u"},{label:"All plugins",value:"--enumerate ap"},{label:"All themes",value:"--enumerate at"},{label:"Users",value:"--enumerate u"},{label:"Full",value:"--enumerate ap,at,cb,dbe"}], defaultValue: "--enumerate vp,vt,u", flag: "" },
-    { key: "api_token", label: "WPScan API token", type: "text", placeholder: "(optional)", defaultValue: "", flag: "--api-token" },
+    { key: "url", label: "WordPress URL", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "enumerate", label: "Enumerate", group: "Scan", type: "dropdown", options: [{label:"Vuln plugins+themes+users",value:"--enumerate vp,vt,u"},{label:"All plugins",value:"--enumerate ap"},{label:"All themes",value:"--enumerate at"},{label:"Users",value:"--enumerate u"},{label:"Full",value:"--enumerate ap,at,cb,dbe"}], defaultValue: "--enumerate vp,vt,u", flag: "" },
+    { key: "api_token", label: "WPScan API token", group: "Options", type: "text", placeholder: "(optional)", defaultValue: "", flag: "--api-token" },
   ]},
   dnsrecon: { fields: [
-    { key: "domain", label: "Domain", type: "text", placeholder: "example.com", flag: null },
-    { key: "type", label: "Scan type", type: "dropdown", options: [{label:"Standard records",value:"-t std"},{label:"Brute force subdomains",value:"-t brt"},{label:"Zone transfer",value:"-t axfr"},{label:"Reverse lookup",value:"-t rvl"},{label:"SRV records",value:"-t srv"}], defaultValue: "-t std", flag: "" },
-    { key: "wordlist", label: "Wordlist (brute)", type: "text", placeholder: "/path/to/subdomains.txt (optional)", defaultValue: "", flag: "-D" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "10", defaultValue: 10, flag: "--threads" },
+    { key: "domain", label: "Domain", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "type", label: "Scan type", group: "Scan", type: "dropdown", options: [{label:"Standard records",value:"-t std"},{label:"Brute force subdomains",value:"-t brt"},{label:"Zone transfer",value:"-t axfr"},{label:"Reverse lookup",value:"-t rvl"},{label:"SRV records",value:"-t srv"}], defaultValue: "-t std", flag: "" },
+    { key: "wordlist", label: "Wordlist (brute)", group: "Scan", type: "text", placeholder: "/path/to/subdomains.txt (optional)", defaultValue: "", flag: "-D" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "10", defaultValue: 10, flag: "--threads" },
   ]},
   amass: { fields: [
-    { key: "domain", label: "Domain", type: "text", placeholder: "example.com", flag: null },
-    { key: "mode", label: "Mode", type: "dropdown", options: [{label:"Passive",value:"-passive"},{label:"Active",value:"-active"},{label:"Intel",value:"intel"}], defaultValue: "-passive", flag: "" },
-    { key: "org", label: "Org name (Intel)", type: "text", placeholder: "(optional for intel mode)", defaultValue: "", flag: "-org" },
+    { key: "domain", label: "Domain", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "mode", label: "Mode", group: "Mode", type: "dropdown", options: [{label:"Passive",value:"-passive"},{label:"Active",value:"-active"},{label:"Intel",value:"intel"}], defaultValue: "-passive", flag: "" },
+    { key: "org", label: "Org name (Intel)", group: "Mode", type: "text", placeholder: "(optional for intel mode)", defaultValue: "", flag: "-org", hint: "Only for intel mode" },
   ]},
   sublist3r: { fields: [
-    { key: "domain", label: "Domain", type: "text", placeholder: "example.com", flag: null },
-    { key: "ports", label: "Ports", type: "text", placeholder: "80,443 (optional)", defaultValue: "", flag: "-p" },
-    { key: "verbose", label: "Verbose", type: "toggle", defaultValue: false, flag: "-v" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "30", defaultValue: 30, flag: "-t" },
+    { key: "domain", label: "Domain", group: "Target", type: "text", placeholder: "example.com", flag: null },
+    { key: "ports", label: "Ports", group: "Options", type: "text", placeholder: "80,443 (optional)", defaultValue: "", flag: "-p" },
+    { key: "verbose", label: "Verbose", group: "Options", type: "toggle", defaultValue: false, flag: "-v" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "30", defaultValue: 30, flag: "-t" },
   ]},
   dirb: { fields: [
-    { key: "url", label: "Target URL", type: "text", placeholder: "http://example.com", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: null },
-    { key: "extensions", label: "Extensions", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-X" },
-    { key: "threads", label: "Threads", type: "number", placeholder: "10", defaultValue: 10, flag: "-t" },
+    { key: "url", label: "Target URL", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "wordlist", label: "Wordlist", group: "Target", type: "text", placeholder: "/usr/share/wordlists/dirb/common.txt", flag: null },
+    { key: "extensions", label: "Extensions", group: "Options", type: "text", placeholder: "php,txt,html", defaultValue: "", flag: "-X" },
+    { key: "threads", label: "Threads", group: "Performance", type: "number", placeholder: "10", defaultValue: 10, flag: "-t" },
   ]},
   wafw00f: { fields: [
-    { key: "url", label: "Target URL", type: "text", placeholder: "http://example.com", flag: null },
+    { key: "url", label: "Target URL", group: "Target", type: "text", placeholder: "http://example.com", flag: null },
   ]},
   hashcat: { fields: [
-    { key: "hash_file", label: "Hash file", type: "text", placeholder: "/path/to/hashes.txt", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", flag: null },
-    { key: "mode", label: "Hash type", type: "dropdown", options: [{label:"MD5",value:"0"},{label:"SHA1",value:"100"},{label:"SHA256",value:"1400"},{label:"bcrypt",value:"3200"},{label:"NTLM",value:"1000"}], defaultValue: "0", flag: "-m" },
-    { key: "rules", label: "Rules file", type: "text", placeholder: "(optional)", defaultValue: "", flag: "-r" },
+    { key: "hash_file", label: "Hash file", group: "Input", type: "text", placeholder: "/path/to/hashes.txt", flag: null },
+    { key: "wordlist", label: "Wordlist", group: "Input", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", flag: null },
+    { key: "mode", label: "Hash type", group: "Mode", type: "dropdown", options: [{label:"MD5",value:"0"},{label:"SHA1",value:"100"},{label:"SHA256",value:"1400"},{label:"bcrypt",value:"3200"},{label:"NTLM",value:"1000"}], defaultValue: "0", flag: "-m" },
+    { key: "rules", label: "Rules file", group: "Mode", type: "text", placeholder: "(optional)", defaultValue: "", flag: "-r" },
   ]},
   john: { fields: [
-    { key: "hash_file", label: "Hash file", type: "text", placeholder: "/path/to/hashes.txt", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", defaultValue: "", flag: "--wordlist=" },
-    { key: "format", label: "Format", type: "text", placeholder: "raw-md5 (optional)", defaultValue: "", flag: "--format=" },
+    { key: "hash_file", label: "Hash file", group: "Input", type: "text", placeholder: "/path/to/hashes.txt", flag: null },
+    { key: "wordlist", label: "Wordlist", group: "Input", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", defaultValue: "", flag: "--wordlist=" },
+    { key: "format", label: "Format", group: "Mode", type: "text", placeholder: "raw-md5 (optional)", defaultValue: "", flag: "--format=" },
   ]},
   searchsploit: { fields: [
-    { key: "query", label: "Search term", type: "text", placeholder: "Apache 2.4.49", flag: null },
-    { key: "exact", label: "Exact match", type: "toggle", defaultValue: false, flag: "-e" },
-    { key: "case_sensitive", label: "Case-sensitive", type: "toggle", defaultValue: false, flag: "-c" },
-    { key: "title", label: "Title only", type: "toggle", defaultValue: false, flag: "-t" },
+    { key: "query", label: "Search term", group: "Search", type: "text", placeholder: "Apache 2.4.49", flag: null, hint: "Keyword or CVE ID" },
+    { key: "exact", label: "Exact match", group: "Options", type: "toggle", defaultValue: false, flag: "-e" },
+    { key: "case_sensitive", label: "Case-sensitive", group: "Options", type: "toggle", defaultValue: false, flag: "-c" },
+    { key: "title", label: "Title only", group: "Options", type: "toggle", defaultValue: false, flag: "-t" },
   ]},
   binwalk: { fields: [
-    { key: "file", label: "File path", type: "text", placeholder: "/path/to/firmware.bin", flag: null },
-    { key: "extract", label: "Extract", type: "toggle", defaultValue: false, flag: "-e" },
-    { key: "me", label: "Extract + matryoshka", type: "toggle", defaultValue: false, flag: "-Me" },
+    { key: "file", label: "File path", group: "Input", type: "text", placeholder: "/path/to/firmware.bin", flag: null },
+    { key: "extract", label: "Extract", group: "Actions", type: "toggle", defaultValue: false, flag: "-e" },
+    { key: "me", label: "Extract + matryoshka", group: "Actions", type: "toggle", defaultValue: false, flag: "-Me", hint: "Recursive extraction" },
   ]},
   foremost: { fields: [
-    { key: "file", label: "File path", type: "text", placeholder: "/path/to/image.dd", flag: null },
-    { key: "output", label: "Output dir", type: "text", placeholder: "/tmp/foremost_output", defaultValue: "", flag: "-o" },
-    { key: "types", label: "File types", type: "text", placeholder: "jpeg,png,gif", defaultValue: "", flag: "-t" },
+    { key: "file", label: "File path", group: "Input", type: "text", placeholder: "/path/to/image.dd", flag: null },
+    { key: "output", label: "Output dir", group: "Options", type: "text", placeholder: "/tmp/foremost_output", defaultValue: "", flag: "-o" },
+    { key: "types", label: "File types", group: "Options", type: "text", placeholder: "jpeg,png,gif", defaultValue: "", flag: "-t" },
   ]},
   volatility3: { fields: [
-    { key: "file", label: "Memory image", type: "text", placeholder: "/path/to/memory.dump", flag: null },
-    { key: "profile", label: "Profile", type: "text", placeholder: "Win10x64_19041", defaultValue: "", flag: null },
-    { key: "plugin", label: "Plugin", type: "dropdown", options: [{label:"pslist",value:"windows.pslist"},{label:"pstree",value:"windows.pstree"},{label:"netscan",value:"windows.netscan"},{label:"cmdline",value:"windows.cmdline.CmdLine"},{label:"filescan",value:"windows.filescan"},{label:"registry",value:"windows.registry"}], defaultValue: "windows.pslist", flag: null },
+    { key: "file", label: "Memory image", group: "Input", type: "text", placeholder: "/path/to/memory.dump", flag: null },
+    { key: "profile", label: "Profile", group: "Input", type: "text", placeholder: "Win10x64_19041", defaultValue: "", flag: null, hint: "Auto-detected if omitted" },
+    { key: "plugin", label: "Plugin", group: "Analysis", type: "dropdown", options: [{label:"pslist",value:"windows.pslist"},{label:"pstree",value:"windows.pstree"},{label:"netscan",value:"windows.netscan"},{label:"cmdline",value:"windows.cmdline.CmdLine"},{label:"filescan",value:"windows.filescan"},{label:"registry",value:"windows.registry"}], defaultValue: "windows.pslist", flag: null, hint: "Analysis plugin to run" },
   ]},
   trivy: { fields: [
-    { key: "target", label: "Target", type: "text", placeholder: "alpine:latest or /path/to/project", flag: null },
-    { key: "scan_type", label: "Scan type", type: "dropdown", options: [{label:"Container image",value:"image"},{label:"Filesystem",value:"filesystem"},{label:"Git repo",value:"repo"},{label:"K8s cluster",value:"k8s"}], defaultValue: "image", flag: "" },
-    { key: "severity", label: "Min severity", type: "dropdown", options: [{label:"CRITICAL",value:"CRITICAL"},{label:"HIGH",value:"HIGH"},{label:"MEDIUM",value:"MEDIUM"},{label:"LOW",value:"LOW"},{label:"All",value:"CRITICAL,HIGH,MEDIUM,LOW"}], defaultValue: "CRITICAL,HIGH", flag: "--severity" },
-    { key: "format", label: "Output format", type: "dropdown", options: [{label:"table",value:"table"},{label:"json",value:"json"},{label:"sarif",value:"sarif"}], defaultValue: "table", flag: "--format" },
+    { key: "target", label: "Target", group: "Target", type: "text", placeholder: "alpine:latest or /path/to/project", flag: null },
+    { key: "scan_type", label: "Scan type", group: "Target", type: "dropdown", options: [{label:"Container image",value:"image"},{label:"Filesystem",value:"filesystem"},{label:"Git repo",value:"repo"},{label:"K8s cluster",value:"k8s"}], defaultValue: "image", flag: "" },
+    { key: "severity", label: "Min severity", group: "Output", type: "dropdown", options: [{label:"CRITICAL",value:"CRITICAL"},{label:"HIGH",value:"HIGH"},{label:"MEDIUM",value:"MEDIUM"},{label:"LOW",value:"LOW"},{label:"All",value:"CRITICAL,HIGH,MEDIUM,LOW"}], defaultValue: "CRITICAL,HIGH", flag: "--severity" },
+    { key: "format", label: "Output format", group: "Output", type: "dropdown", options: [{label:"table",value:"table"},{label:"json",value:"json"},{label:"sarif",value:"sarif"}], defaultValue: "table", flag: "--format" },
   ]},
   impacket: { fields: [
-    { key: "script", label: "Script", type: "dropdown", options: [{label:"secretsdump",value:"secretsdump"},{label:"psexec",value:"psexec"},{label:"smbexec",value:"smbexec"},{label:"wmiexec",value:"wmiexec"},{label:"GetADUsers",value:"GetADUsers"},{label:"GetNPUsers",value:"GetNPUsers"}], defaultValue: "secretsdump", flag: null },
-    { key: "target", label: "Target", type: "text", placeholder: "domain/user:pass@target", flag: null },
+    { key: "script", label: "Script", group: "Mode", type: "dropdown", options: [{label:"secretsdump",value:"secretsdump"},{label:"psexec",value:"psexec"},{label:"smbexec",value:"smbexec"},{label:"wmiexec",value:"wmiexec"},{label:"GetADUsers",value:"GetADUsers"},{label:"GetNPUsers",value:"GetNPUsers"}], defaultValue: "secretsdump", flag: null },
+    { key: "target", label: "Target", group: "Target", type: "text", placeholder: "domain/user:pass@target", flag: null },
   ]},
   responder: { fields: [
-    { key: "interface", label: "Interface", type: "text", placeholder: "eth0", flag: "-I" },
-    { key: "mode", label: "Mode", type: "dropdown", options: [{label:"Analyze only",value:"-A"},{label:"Full",value:""},{label:"DHCP",value:"--dhcp"},{label:"HTTP/FTP/SMB/LDAP",value:"-w"},{label:"Only NBT-NS",value:"--NBTNS"}], defaultValue: "", flag: "" },
-    { key: "verbose", label: "Verbose", type: "toggle", defaultValue: false, flag: "-v" },
+    { key: "interface", label: "Interface", group: "Target", type: "text", placeholder: "eth0", flag: "-I" },
+    { key: "mode", label: "Mode", group: "Mode", type: "dropdown", options: [{label:"Analyze only",value:"-A"},{label:"Full",value:""},{label:"DHCP",value:"--dhcp"},{label:"HTTP/FTP/SMB/LDAP",value:"-w"},{label:"Only NBT-NS",value:"--NBTNS"}], defaultValue: "", flag: "" },
+    { key: "verbose", label: "Verbose", group: "Options", type: "toggle", defaultValue: false, flag: "-v" },
   ]},
   bloodhound: { fields: [
-    { key: "method", label: "Method", type: "dropdown", options: [{label:"Collector",value:"-c"},{label:"Ingest",value:"-u"}], defaultValue: "-c", flag: null },
-    { key: "target", label: "Target/Domain", type: "text", placeholder: "DOMAIN.local", flag: null },
-    { key: "username", label: "Username", type: "text", placeholder: "user (optional)", defaultValue: "", flag: "-u" },
+    { key: "method", label: "Method", group: "Mode", type: "dropdown", options: [{label:"Collector",value:"-c"},{label:"Ingest",value:"-u"}], defaultValue: "-c", flag: "" },
+    { key: "target", label: "Target/Domain", group: "Target", type: "text", placeholder: "DOMAIN.local", flag: null },
+    { key: "username", label: "Username", group: "Options", type: "text", placeholder: "user (optional)", defaultValue: "", flag: "-u" },
   ]},
   stegocracker: { fields: [
-    { key: "file", label: "File path", type: "text", placeholder: "/path/to/stego_file", flag: null },
-    { key: "wordlist", label: "Wordlist", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", flag: null },
+    { key: "file", label: "File path", group: "Input", type: "text", placeholder: "/path/to/stego_file", flag: null },
+    { key: "wordlist", label: "Wordlist", group: "Input", type: "text", placeholder: "/usr/share/wordlists/rockyou.txt", flag: null },
   ]},
 };
 
@@ -279,12 +318,85 @@ function buildArgsFromSchema(toolId: string, fields: Record<string, any>): strin
       // flag contains the entire value already (e.g. "--severity high" or "-p")
       parts.push(String(val));
     } else if (f.type === "number" || f.type === "text") {
-      parts.push(`${f.flag} ${val}`);
+      if (f.flag === "@") {
+        parts.push(`@${val}`);
+      } else {
+        parts.push(`${f.flag} ${val}`);
+      }
     } else if (f.type === "toggle") {
       if (val) parts.push(f.flag ?? "");
     }
   });
   return parts.join(" ");
+}
+
+function renderGroupedFields(
+  schema: ToolSchema,
+  toolId: string,
+  getFieldVals: (id: string) => Record<string, any>,
+  setFieldVal: (toolId: string, key: string, val: any) => void,
+) {
+  const groups = new Map<string, ToolInputField[]>();
+  schema.fields.forEach(f => {
+    const g = f.group || "General";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(f);
+  });
+  return (
+    <div className="divide-y divide-border">
+      {[...groups.keys()].map(groupName => (
+        <div key={groupName} className="p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{groupName}</span>
+            <span className="h-px flex-1 bg-divider-soft" />
+          </div>
+          <div className="grid gap-x-3 gap-y-2.5 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+            {groups.get(groupName)!.map(f => {
+              const val = getFieldVals(toolId)[f.key] ?? f.defaultValue ?? (f.type === "toggle" ? false : "");
+              return (
+                <div key={f.key}>
+                  <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{f.label}</label>
+                  {f.type === "toggle" ? (
+                    <button
+                      onClick={() => setFieldVal(toolId, f.key, !val)}
+                      className={"inline-flex items-center gap-1.5 rounded border px-2 py-1 text-mono ba-text-sm transition-colors " + (val ? "border-primary/50 bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
+                    >
+                      <span className={"h-3 w-3 rounded border " + (val ? "border-primary bg-primary" : "border-border")}>
+                        {val && <Check className="h-2.5 w-2.5 text-background" />}
+                      </span>
+                      {f.label}
+                    </button>
+                  ) : f.type === "dropdown" ? (
+                    <select
+                      value={String(val)}
+                      onChange={e => setFieldVal(toolId, f.key, e.target.value)}
+                      className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none focus:border-primary/50"
+                    >
+                      {f.options?.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === "number" ? "number" : "text"}
+                      value={String(val)}
+                      onChange={e => setFieldVal(toolId, f.key, f.type === "number" ? Number(e.target.value) : e.target.value)}
+                      placeholder={f.placeholder}
+                      spellCheck={false}
+                      className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
+                    />
+                  )}
+                  {f.hint && (
+                    <p className="mt-0.5 text-mono text-[9px] leading-tight text-muted-foreground/60">{f.hint}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function defaultFieldValues(toolId: string): Record<string, any> {
@@ -357,6 +469,12 @@ function HackingToolkitPage() {
   const [nmapConfirmed, setNmapConfirmed] = useState(false);
   const [nmapMode, setNmapMode] = useState("service");
   const [scanStartTime, setScanStartTime] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const cancelRun = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
 
   const NMAP_MODES = useMemo(() => [
     { k: "discovery", label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes." },
@@ -494,8 +612,9 @@ function HackingToolkitPage() {
   const schema = activeTool ? TOOL_SCHEMAS[activeTool.id] : null;
 
   const target = activeTool ? (schema ? getTargetFromSchema(activeTool.id, getFieldVals(activeTool.id)) : (targets[activeTool.id] ?? "")) : "";
-  const args = activeTool ? (schema ? buildArgsFromSchema(activeTool.id, getFieldVals(activeTool.id)) : (argsMap[activeTool.id] ?? "")) : "";
-  const cmd = activeTool ? [activeTool.binary, target, args].filter(Boolean).join(" ") : "";
+  const args = activeTool ? (argsMap[activeTool.id] ?? (schema ? buildArgsFromSchema(activeTool.id, getFieldVals(activeTool.id)) : "")) : "";
+  const effectiveArgs = activeTool && activeTool.id === "nmap" ? [args, `-${nmapTiming}`].filter(Boolean).join(" ") : args;
+  const cmd = activeTool ? [activeTool.binary, target, effectiveArgs].filter(Boolean).join(" ") : "";
   const output = activeTool ? outputs[activeTool.id] : null;
 
   function selectTool(catId: string, toolId: string) {
@@ -522,16 +641,19 @@ function HackingToolkitPage() {
       toast.error("Confirm you have permission to scan this target first.");
       return;
     }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setRunning(activeTool.id);
     setScanStartTime(Date.now());
     setOutputs((p) => ({ ...p, [activeTool.id]: null }));
     try {
-      const finalArgs = activeTool.id === "nmap" && !args ? NMAP_MODES.find(m => m.k === nmapMode)?.args ?? args : args;
       const res: any = await runHackingtoolTool({
         categoryId: activeCat.id,
         toolId: activeTool.id,
         target,
-        args,
+        args: effectiveArgs,
+        signal: controller.signal,
       });
       const body = res.stdout || res.stderr || res.error || JSON.stringify(res, null, 2);
       const status = res.error ? "error" : (res.status === "completed" ? "completed" : "failed");
@@ -541,7 +663,7 @@ function HackingToolkitPage() {
         toolName: activeTool.name,
         binary: activeTool.binary,
         catName: activeCat.name,
-        target, args,
+        target, args: effectiveArgs,
         command: res.command || cmd,
         status,
         body,
@@ -565,7 +687,7 @@ function HackingToolkitPage() {
       const entry: HistoryEntry = {
         id: genId(), toolId: activeTool.id, toolName: activeTool.name,
         binary: activeTool.binary, catName: activeCat.name,
-        target, args, command: cmd, status: "error", body, ts: Date.now(),
+        target, args: effectiveArgs, command: cmd, status: "error", body, ts: Date.now(),
       };
       setHistory(prev => { const next = [entry, ...prev].slice(0, MAX_HISTORY); saveHistory(next); return next; });
       setOutputs((p) => ({
@@ -816,48 +938,7 @@ function HackingToolkitPage() {
                   <div>
                     <SectionBar id="IN" label="Intake" meta={schema ? "structured inputs" : "target · args · preset"} />
                     <Panel bodyClassName="p-0">
-                      {schema ? (
-                        <div className="grid gap-x-3 gap-y-2 grid-cols-[repeat(auto-fill,minmax(180px,1fr))] p-3">
-                          {schema.fields.map(f => {
-                            const val = getFieldVals(activeTool.id)[f.key] ?? f.defaultValue ?? (f.type === "toggle" ? false : "");
-                            return (
-                              <div key={f.key}>
-                                <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{f.label}</label>
-                                {f.type === "toggle" ? (
-                                  <button
-                                    onClick={() => setFieldVal(activeTool.id, f.key, !val)}
-                                    className={"inline-flex items-center gap-1.5 rounded border px-2 py-1 text-mono ba-text-sm transition-colors " + (val ? "border-primary/50 bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
-                                  >
-                                    <span className={"h-3 w-3 rounded border " + (val ? "border-primary bg-primary" : "border-border")}>
-                                      {val && <Check className="h-2.5 w-2.5 text-background" />}
-                                    </span>
-                                    {f.label}
-                                  </button>
-                                ) : f.type === "dropdown" ? (
-                                  <select
-                                    value={String(val)}
-                                    onChange={e => setFieldVal(activeTool.id, f.key, e.target.value)}
-                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none focus:border-primary/50"
-                                  >
-                                    {f.options?.map(o => (
-                                      <option key={o.value} value={o.value}>{o.label}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type={f.type === "number" ? "number" : "text"}
-                                    value={String(val)}
-                                    onChange={e => setFieldVal(activeTool.id, f.key, f.type === "number" ? Number(e.target.value) : e.target.value)}
-                                    placeholder={f.placeholder}
-                                    spellCheck={false}
-                                    className="w-full rounded-md border border-border bg-background/60 px-2 py-1.5 text-mono ba-text-base text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50"
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
+                      {schema ? renderGroupedFields(schema, activeTool.id, getFieldVals, setFieldVal) : (
                         <div className="grid gap-0 grid-cols-[1fr_1fr]">
                           <div className="border-b border-divider-strong p-3 border-b-0 border-r">
                             <label className="mb-1 block text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Target</label>
@@ -907,7 +988,7 @@ function HackingToolkitPage() {
                               {NMAP_MODES.map((m) => (
                                 <button
                                   key={m.k}
-                                  onClick={() => { setNmapMode(m.k); setArgsMap((p) => ({ ...p, nmap: m.args })); }}
+                                  onClick={() => { setNmapMode(m.k); setArgsMap((p) => ({ ...p, nmap: [m.args, `-${nmapTiming}`].filter(Boolean).join(" ") })); }}
                                   className={"rounded border px-2 py-1 text-mono text-[10px] transition-colors " + (nmapMode === m.k ? "border-primary/50 bg-primary/15 text-primary" : "border-divider-strong bg-background/40 text-muted-foreground hover:text-foreground")}
                                   title={m.desc}
                                 >
@@ -922,7 +1003,7 @@ function HackingToolkitPage() {
                               {NMAP_TIMINGS.map((t) => (
                                 <button
                                   key={t.k}
-                                  onClick={() => setNmapTiming(t.k)}
+                                  onClick={() => { setNmapTiming(t.k); setArgsMap((p) => { const base = p.nmap ?? NMAP_MODES.find(m => m.k === nmapMode)?.args ?? ""; return { ...p, nmap: [base, `-${t.k}`].filter(Boolean).join(" ") }; }) }}
                                   className={"rounded border px-2 py-0.5 text-mono text-[10px] transition-colors " + (nmapTiming === t.k ? "border-primary/50 bg-primary/15 text-primary" : "border-divider-strong bg-background/40 text-muted-foreground hover:text-foreground")}
                                   title={t.hint}
                                 >
@@ -957,6 +1038,14 @@ function HackingToolkitPage() {
                         >
                           {copied === "cmd" ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />} copy
                         </button>
+                        {running === activeTool.id && (
+                          <button
+                            onClick={cancelRun}
+                            className="inline-flex items-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-mono ba-text-sm font-semibold uppercase tracking-widest text-destructive transition-colors hover:bg-destructive/20"
+                          >
+                            <X className="h-3 w-3" /> cancel
+                          </button>
+                        )}
                         <button
                           onClick={run}
                           disabled={running === activeTool.id || offline}
@@ -1058,19 +1147,22 @@ function HackingToolkitPage() {
                       />
                     ) : (
                       <>
-                        <ResultBanner
-                          badge={output.status}
-                          caseId={activeTool.binary}
-                          title={`${activeTool.name} — ${output.status === "completed" ? "execution result" : output.status === "error" ? "execution failed" : "output"}`}
-                          subtitle={output.status === "completed" ? "Binary ran on the local host via BeyondLabs backend." : output.status === "error" ? "The tool returned an error or is not installed." : "The tool produced output with non-zero exit code."}
-                          metrics={[
-                            { label: "lines", value: String(output.body.split("\n").length), tone: "primary" },
-                            { label: "bytes", value: output.body.length.toLocaleString(), tone: "default" },
-                            { label: "status", value: output.status, tone: output.status === "completed" ? "success" : "warning" },
-                            { label: "tool", value: activeTool.binary, tone: "default" },
-                          ]}
-                        />
+                        <div className="pointer-events-none select-none">
+                          <ResultBanner
+                            badge={output.status}
+                            caseId={activeTool.binary}
+                            title={`${activeTool.name} — ${output.status === "completed" ? "execution result" : output.status === "error" ? "execution failed" : "output"}`}
+                            subtitle={output.status === "completed" ? "Binary ran on the local host via BeyondLabs backend." : output.status === "error" ? "The tool returned an error or is not installed." : "The tool produced output with non-zero exit code."}
+                            metrics={[
+                              { label: "lines", value: String(output.body.split("\n").length), tone: "primary" },
+                              { label: "bytes", value: output.body.length.toLocaleString(), tone: "default" },
+                              { label: "status", value: output.status, tone: output.status === "completed" ? "success" : "warning" },
+                              { label: "tool", value: activeTool.binary, tone: "default" },
+                            ]}
+                          />
+                        </div>
 
+                        <Panel icon={Terminal} title="Raw output" meta={`${output.body.split('\n').length} lines`} collapsible storageKey="ba.panel.hacking.raw" defaultCollapsed={output.body.split('\n').length > 50}>
                         <TerminalOutput
                           command={output.command}
                           body={output.body}
@@ -1078,6 +1170,7 @@ function HackingToolkitPage() {
                           onClear={() => setOutputs((p) => ({ ...p, [activeTool.id]: null }))}
                           filename={`hacking-${activeTool.id}.txt`}
                         />
+                        </Panel>
 
                         {activeTool.id === "nmap" && (
                           <div className="mt-3 space-y-3">

@@ -18,8 +18,9 @@ import { runReconNmapScan } from "@/api/backend";
 import { toast } from "sonner";
 import {
   Server, Terminal, ArrowRight, Zap, ShieldAlert, Copy, Check,
-  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2, Search, Database,
+  Gauge, FileCode2, Globe2, Crosshair, Download, Loader2, Search, Database, X,
 } from "lucide-react";
+import { ExplainThisButton } from "@/components/ExplainThis";
 
 const nmapTargetSchema = z.string().refine(
   (val) => {
@@ -159,10 +160,16 @@ function NmapPage() {
   const cache = useResultCache<Record<string, unknown>>("nmap");
   const [portChanges, setPortChanges] = useState<PortChange[]>([]);
   const [scanMeta, setScanMeta] = useState<{ startTime: number; mode: ModeKey } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const cancelScan = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
 
   const scanMutation = useMutation({
     mutationFn: ({ target, mode, confirmPermission }: { target: string; mode: string; confirmPermission: boolean }) =>
-      runReconNmapScan({ target, mode, confirmPermission }),
+      runReconNmapScan({ target, mode, confirmPermission, signal: abortRef.current?.signal ?? undefined }),
     onSuccess: (res) => {
       setScanMeta(null);
       const data = res as Record<string, unknown>;
@@ -224,6 +231,10 @@ function NmapPage() {
     if (!has) return;
     setScanMeta({ startTime: Date.now(), mode });
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     if (scanMutation.data) {
       const scanR = scanMutation.data.scan as NmapScanResult | undefined;
       if (scanR?.stdout) {
@@ -237,6 +248,11 @@ function NmapPage() {
       mode: MODES[mode].backend,
       confirmPermission: confirmed,
     });
+  }
+
+  function handleCancel() {
+    cancelScan();
+    scanMutation.reset();
   }
 
   const scanResult = scanMutation.data?.scan as NmapScanResult | undefined;
@@ -357,7 +373,16 @@ function NmapPage() {
             />
             <span className="text-mono ba-text-sm text-foreground/80">I own or have permission to scan this target</span>
           </label>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {scanMutation.isPending && (
+              <button
+                onClick={handleCancel}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20 rounded hover:bg-destructive/20 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+                cancel
+              </button>
+            )}
             <button
               onClick={handleExecute}
               disabled={!confirmed || scanMutation.isPending || !!targetError}
@@ -430,6 +455,9 @@ function NmapPage() {
               <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-mono ba-text-sm text-destructive">{scanResult.error}</div>
             </Panel>
           ) : (
+            <Panel icon={Terminal} title="Raw scan output" meta={scanResult.stdout ? `${scanResult.stdout.split('\n').length} lines` : ''}
+              actions={<ExplainThisButton kind="nmap" input={scanResult.stdout || scanResult.stderr || ""} />}
+              collapsible storageKey="ba.panel.nmap.raw" defaultCollapsed={scanResult.stdout ? scanResult.stdout.split('\n').length > 50 : false}>
             <TerminalOutput
               command={cmd}
               body={scanResult.stdout || scanResult.stderr || JSON.stringify(scanResult, null, 2)}
@@ -438,6 +466,7 @@ function NmapPage() {
               onClear={() => scanMutation.reset()}
               filename={`nmap-${target}.txt`}
             />
+            </Panel>
           )
         ) : null
       ) : (

@@ -14,8 +14,10 @@ import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI
 import { useLocker, type LockerItem } from "@/lib/locker";
 import { IocChip } from "@/components/IocChip";
 import { AttachButton } from "@/components/AttachButton";
+import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 import { usePanelNav } from "@/lib/usePanelNav";
 import { sendToCase } from "@/lib/handoff";
+import { useRecentInputs } from "@/lib/use-recent-inputs";
 
 const IOC_KIND_MAP: Record<string, string> = {
   URL: "url", Domain: "domain", IPv4: "ip", Email: "email",
@@ -262,6 +264,8 @@ function ParserPage() {
   const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
+  const [showRecent, setShowRecent] = useState(false);
+  const recentInputs = useRecentInputs("parser");
   const deepScanMutation = useMutation({
     mutationFn: async ({ inputText, hasDomains, hasIps, hasEmails }: { inputText: string; hasDomains: boolean; hasIps: boolean; hasEmails: boolean }) => {
       const r: Record<string, unknown> = {};
@@ -339,6 +343,12 @@ function ParserPage() {
       pushTimelineEvent({ source: "parser", verb: "extracted", detail: `Extracted ${result.total} IOCs from ${result.family}`, result: `${result.total} indicators` });
     }
   }, [result]);
+
+  useEffect(() => {
+    if (!input.trim()) return;
+    const timer = setTimeout(() => recentInputs.push(input), 2000);
+    return () => clearTimeout(timer);
+  }, [input]);
 
   const copy = (k: string, txt: string) => { try { navigator.clipboard.writeText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
 
@@ -496,6 +506,20 @@ function ParserPage() {
         run={{ label: "parse", icon: Zap, hint: "⌘↵", onClick: () => { /* auto-parsed */ }, disabled: !input.trim() }}
       />
 
+      {recentInputs.items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded border border-border/50 bg-card/30 px-2.5 py-1.5">
+          <span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/70">recent</span>
+          {recentInputs.items.slice(0, 8).map((item, i) => (
+            <button key={i} onClick={() => { setInput(item); recentInputs.push(item); }}
+              className="max-w-[160px] truncate rounded border border-border/40 bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              title={item}
+            >{item.slice(0, 40)}{item.length > 40 ? "…" : ""}</button>
+          ))}
+          {recentInputs.items.length > 8 && <span className="text-mono ba-text-3xs text-muted-foreground/50">+{recentInputs.items.length - 8} more</span>}
+          <button onClick={() => recentInputs.clear()} className="ml-auto text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/50 hover:text-destructive">clear</button>
+        </div>
+      )}
+
       <StatusBar
         stats={[
           { label: "Status", value: input.trim() ? "Ready" : "Idle", tone: input.trim() ? "success" : "muted" },
@@ -542,6 +566,7 @@ function ParserPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="pointer-events-none select-none">
           <ResultBanner
             badge="artifact_parsed"
             caseId={`BA-${result.primary.slice(0, 2).toUpperCase()}${result.lines}`}
@@ -554,6 +579,7 @@ function ParserPage() {
               { label: "Signals", value: result.signals.length, tone: result.signals.length >= 3 ? "destructive" : "warning" },
             ]}
           />
+          </div>
 
           {/* Summary one-liner */}
           <div className="flex items-start gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
@@ -727,19 +753,17 @@ function ParserPage() {
           })()}
 
           {/* Confidence + Signals */}
-          <div className="grid gap-4 grid-cols-[280px_minmax(0,1fr)]">
-            <Panel title="Findings & Signals" icon={AlertTriangle} meta={`${result.signals.length} total`}>
-              {result.signals.length === 0 ? (
-                <p className="text-mono ba-text-sm text-muted-foreground">No signals generated for this artifact.</p>
-              ) : (
-                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                  {result.signals.map((sig, i) => (
-                    <EvidenceCard key={i} severity={sig.severity} title={sig.title} reason={sig.reason} action={sig.action} />
-                  ))}
-                </div>
-              )}
-            </Panel>
-          </div>
+          <Panel title="Findings & Signals" icon={AlertTriangle} meta={`${result.signals.length} total`}>
+            {result.signals.length === 0 ? (
+              <p className="text-mono ba-text-sm text-muted-foreground">No signals generated for this artifact.</p>
+            ) : (
+              <div className="space-y-2">
+                {result.signals.map((sig, i) => (
+                  <EvidenceCard key={i} severity={sig.severity} title={sig.title} reason={sig.reason} action={sig.action} />
+                ))}
+              </div>
+            )}
+          </Panel>
 
           {/* Secrets + CMD analysis */}
           {result.secrets.length > 0 || result.cmds.length > 0 ? (
@@ -778,7 +802,7 @@ function ParserPage() {
               <div className="space-y-2">
                 {result.urlAnalysis.map((u: any, i: number) => (
                   <div key={i} className="flex flex-wrap items-center gap-2 rounded border border-border/50 bg-card/40 px-3 py-2">
-                    <code className="min-w-0 flex-1 truncate text-mono ba-text-sm text-foreground/90">{defang ? defang(u.value) : refang(u.value)}</code>
+                    <code className="min-w-0 flex-1 truncate text-mono ba-text-sm text-foreground/90">{defanged ? defang(u.value) : refang(u.value)}</code>
                     <div className="flex flex-wrap items-center gap-1">
                       {u.suspiciousTld && <Chip tone="warning">suspicious TLD</Chip>}
                       {u.shortener && <Chip tone="warning">shortener</Chip>}
@@ -929,9 +953,12 @@ function ParserPage() {
                             : "border-border/50 bg-card/40 hover:border-primary/40 hover:bg-card/70"
                         }`}>
                           <code className="truncate text-mono ba-text-sm text-foreground/90">{transform(it)}</code>
-                          <button onClick={() => copy(it, transform(it))} className="opacity-0 transition-opacity group-hover:opacity-100">
-                            {copied === it ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />}
-                          </button>
+                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <CopyAsDropdown value={it} label={it} />
+                            <button onClick={() => copy(it, transform(it))}>
+                              {copied === it ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />}
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -960,8 +987,8 @@ function ParserPage() {
               <button onClick={() => { const json = genJsonExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20">
                 <Download className="h-3.5 w-3.5" /> Download JSON
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(reportMd); toast.success("Report copied"); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
-                <Copy className="h-3.5 w-3.5" /> Copy Summary
+              <button onClick={() => { navigator.clipboard.writeText(reportMd); setCopied("report"); setTimeout(() => setCopied(""), 1200); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
+                {copied === "report" ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} {copied === "report" ? "Copied" : "Copy Summary"}
               </button>
               <p className="mt-2 text-[11px] text-muted-foreground">Includes all indicators, signals, secrets, and MITRE mapping.</p>
             </Panel>

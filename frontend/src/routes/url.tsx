@@ -10,28 +10,14 @@ import { useLocker } from "@/lib/locker";
 import { safeAnalyzeUrl } from "@/api/backend";
 import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
 import { pushTimelineEvent } from "@/lib/timeline";
-import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Lock, MapPin, Network, Search } from "lucide-react";
+import { useRecentInputs } from "@/lib/use-recent-inputs";
+import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
 
 function hash(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return Math.abs(h); }
 
-function syntheticIntel(host: string) {
-  const h = hash(host);
-  const countries = ["US", "RU", "DE", "NL", "CN", "SG", "BR", "IN"];
-  const cities = ["Ashburn", "Moscow", "Frankfurt", "Amsterdam", "Beijing", "Singapore", "São Paulo", "Mumbai"];
-  const orgs = ["Cloudflare", "Hetzner", "OVH", "DigitalOcean", "AWS", "Selectel", "Tencent", "Linode"];
-  const issuers = ["Let's Encrypt", "ZeroSSL", "DigiCert", "GoDaddy", "Sectigo"];
-  const country = countries[h % countries.length];
-  const city = cities[(h >> 3) % cities.length];
-  const asn = "AS" + (10000 + (h % 60000));
-  const org = orgs[(h >> 5) % orgs.length];
-  const tlsAge = (h % 540);
-  const tlsIssuer = issuers[(h >> 7) % issuers.length];
-  const ip = `${(h % 223) + 1}.${(h >> 4) % 255}.${(h >> 8) % 255}.${(h >> 12) % 255}`;
-  return { country: `${country} [SYNTHETIC]`, city: `${city} [SYNTHETIC]`, asn: `${asn} [SYNTHETIC]`, org: `${org} [SYNTHETIC]`, tlsAge: tlsAge + 1, tlsIssuer: `${tlsIssuer} [SYNTHETIC]`, ip: `${ip} [SYNTHETIC]` };
-}
-
+/* synthetic data removed — awaiting real backend enrichment */
 function syntheticRedirects(parsed: URL) {
   const host = parsed.hostname;
   const isShort = /^(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|ow\.ly)$/i.test(host);
@@ -199,6 +185,7 @@ function UrlPage() {
   const [history, setHistory] = useState<string[]>([]);
   const [urlSearch, setUrlSearch] = useState("");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
+  const recentInputs = useRecentInputs("url");
 
   const enrichMutation = useMutation({
     mutationFn: (url: string) => safeAnalyzeUrl({ url, allow_live_fetch: false }),
@@ -215,6 +202,10 @@ function UrlPage() {
       setRuns(1);
     }
   }, []);
+
+  useEffect(() => {
+    if (raw.trim()) recentInputs.push(raw);
+  }, [runs]);
 
   const trimmed = raw.trim();
   const has = trimmed.length > 0;
@@ -320,8 +311,10 @@ function UrlPage() {
     return { parsed, findings, trackingParams, isHttp, punycode, isShortener, defangedOriginal, pathSignals, fileExt, hasEmbeddedCreds, hasPathTraversal, isNumericDomain, hasNonStandardPort, portNum, suspiciousChars, domainEnt, isSuspiciousTLD, tld, suspiciousPaths, secrets, mitre };
   }, [committed, trimmed, raw]);
 
-  const intel = analysis?.parsed ? syntheticIntel(analysis.parsed.hostname) : null;
-  const redirects = analysis?.parsed ? syntheticRedirects(analysis.parsed) : [];
+  const redirects = useMemo(() => {
+    if (!analysis?.parsed) return [];
+    return syntheticRedirects(analysis.parsed);
+  }, [analysis]);
 
   useEffect(() => {
     if (!committed || !analysis?.parsed) return;
@@ -390,6 +383,19 @@ function UrlPage() {
               run={{ label: "analyse", icon: ShieldAlert, hint: "\u2318\u21B5", onClick: run, disabled: !has }}
               onClear={clear}
             />
+            {recentInputs.items.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded border border-border/50 bg-card/30 px-2.5 py-1.5">
+                <span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/70">recent</span>
+                {recentInputs.items.slice(0, 8).map((item, i) => (
+                  <button key={i} onClick={() => { setRaw(item); setRuns((r) => r + 1); recentInputs.push(item); }}
+                    className="max-w-[160px] truncate rounded border border-border/40 bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    title={item}
+                  >{item.slice(0, 40)}{item.length > 40 ? "…" : ""}</button>
+                ))}
+                {recentInputs.items.length > 8 && <span className="text-mono ba-text-3xs text-muted-foreground/50">+{recentInputs.items.length - 8} more</span>}
+                <button onClick={() => recentInputs.clear()} className="ml-auto text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/50 hover:text-destructive">clear</button>
+              </div>
+            )}
             <StatusBar stats={[
               { label: "Chars", value: raw.length },
               { label: "Refanged", value: analysis?.defangedOriginal ? "yes" : "no", tone: analysis?.defangedOriginal ? "primary" : "muted" },
@@ -446,21 +452,23 @@ function UrlPage() {
             <Empty icon={Globe2} title="Could not parse URL" hint="Check for stray spaces, missing scheme, or unbalanced brackets." />
           ) : (
             <div className="space-y-4">
-              <ResultBanner
-                sticky
-                tone={tone === "destructive" ? "destructive" : tone === "warning" ? "warning" : "success"}
-                badge={tone === "destructive" ? "high risk" : tone === "warning" ? "suspicious" : "low risk"}
-                caseId={`BA-UR-${String(analysis.findings.length).padStart(2, "0")}`}
-                title={analysis.parsed.hostname}
-                subtitle={`${analysis.parsed.protocol.replace(":", "")}://${analysis.parsed.hostname}${analysis.parsed.pathname || "/"}`}
-                reasons={analysis.findings.slice(0, 3).map((f) => f.t)}
-                metrics={[
-                  { label: "Findings",   value: analysis.findings.length, tone: analysis.findings.length > 0 ? "warning" : "success" },
-                  { label: "Scheme",     value: analysis.parsed.protocol.replace(":", "").toUpperCase(), tone: analysis.isHttp ? "warning" : "success" },
-                  { label: "Subdomains", value: String(Math.max(0, analysis.parsed.hostname.split(".").length - 2)) },
-                  { label: "Params",     value: String(new URLSearchParams(analysis.parsed.search || "").size) },
-                ]}
-              />
+              <div className="pointer-events-none select-none">
+                <ResultBanner
+                  sticky
+                  tone={tone === "destructive" ? "destructive" : tone === "warning" ? "warning" : "success"}
+                  badge={tone === "destructive" ? "high risk" : tone === "warning" ? "suspicious" : "low risk"}
+                  caseId={`BA-UR-${String(analysis.findings.length).padStart(2, "0")}`}
+                  title={analysis.parsed.hostname}
+                  subtitle={`${analysis.parsed.protocol.replace(":", "")}://${analysis.parsed.hostname}${analysis.parsed.pathname || "/"}`}
+                  reasons={analysis.findings.slice(0, 3).map((f) => f.t)}
+                  metrics={[
+                    { label: "Findings",   value: analysis.findings.length, tone: analysis.findings.length > 0 ? "warning" : "success" },
+                    { label: "Scheme",     value: analysis.parsed.protocol.replace(":", "").toUpperCase(), tone: analysis.isHttp ? "warning" : "success" },
+                    { label: "Subdomains", value: String(Math.max(0, analysis.parsed.hostname.split(".").length - 2)) },
+                    { label: "Params",     value: String(new URLSearchParams(analysis.parsed.search || "").size) },
+                  ]}
+                />
+              </div>
  
               {analysis.trackingParams.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 px-1">
@@ -558,36 +566,7 @@ function UrlPage() {
                 </div>
               </Panel>
 
-              {/* Network / TLS / Geo intel */}
-              {intel && (
-                <div className="grid gap-3 grid-cols-3">
-                  <Panel title="Network (simulated)" icon={Network} meta={intel.asn} priority="secondary">
-                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
-                    <KeyFields items={[
-                      { label: "Resolved IP", value: intel.ip },
-                      { label: "ASN", value: intel.asn },
-                      { label: "Org", value: intel.org },
-                    ]} />
-                  </Panel>
-                  <Panel title="TLS (simulated)" icon={Lock} meta={`${intel.tlsAge}d old`} priority="secondary">
-                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
-                    <KeyFields items={[
-                      { label: "Issuer", value: intel.tlsIssuer },
-                      { label: "Cert age", value: `${intel.tlsAge} days`, tone: intel.tlsAge < 30 ? "warning" : "default" },
-                      { label: "Protocol", value: analysis.isHttp ? "none (HTTP)" : "TLS 1.3", tone: analysis.isHttp ? "destructive" : "default" },
-                    ]} />
-                  </Panel>
-                  <Panel title="Geo (simulated)" icon={MapPin} meta={intel.country} priority="secondary">
-                    <p className="px-1 pb-1 text-mono ba-text-3xs italic text-muted-foreground/50">data is simulated — for demo only</p>
-                    <KeyFields items={[
-                      { label: "Country", value: intel.country },
-                      { label: "City", value: intel.city },
-                      { label: "Hosting", value: intel.org },
-                    ]} />
-                  </Panel>
-                </div>
-              )}
-              <p className="text-mono ba-text-3xs text-muted-foreground/50 italic">* Network/TLS/Geo data is simulated for demo purposes</p>
+              {/* Network / TLS / Geo intel — placeholder for real enrichment */}
 
               {/* Path Analysis */}
               <Panel title="Path Analysis" icon={CornerDownRight} meta={`${analysis.pathSignals.length} signal${analysis.pathSignals.length === 1 ? "" : "s"}`}>

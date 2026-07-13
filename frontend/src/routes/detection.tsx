@@ -249,15 +249,15 @@ const DETECTION_REF = `
 #### Related pages
 - [MITRE Coverage →](/mitre) -- track detection coverage per technique
 - [SOC Guide →](/guide) -- playbook-aligned detection context
-- [IDS Engine →](/ids) -- Suricata/Snort rule builder
+- [IDS Engine →](#ids-engine) -- Suricata/Snort rule builder
 `;
 
 function DetectionPage() {
   const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
   const [hasRun, setHasRun] = useState(false);
   const [fmt, setFmt] = useState<Format>("sigma");
-  const [rule, setRule] = useState(TEMPLATES.sigma.rule);
-  const [event, setEvent] = useState(TEMPLATES.sigma.event);
+  const [rule, setRule] = useState("");
+  const [event, setEvent] = useState("");
   const [copied, setCopied] = useState(false);
 
   const [mitreResults, setMitreResults] = useState<MitreResult | null>(null);
@@ -340,7 +340,7 @@ function DetectionPage() {
   const result = useMemo(() => tpl.matcher(event), [tpl, event]);
 
   const switchFmt = (f: Format) => { setFmt(f); setRule(TEMPLATES[f].rule); setEvent(TEMPLATES[f].event); setMitreResults(null); setMitreError(null); setGenResult(null); setGenError(null); setShowLib(false); };
-  const reset = () => { setRule(tpl.rule); setEvent(tpl.event); setHasRun(false); setMitreResults(null); };
+  const reset = () => { setRule(""); setEvent(""); setHasRun(false); setMitreResults(null); };
 
   const handleEvaluate = useCallback(async () => {
     if (mitreLoading) return;
@@ -660,6 +660,7 @@ function DetectionPage() {
               <button onClick={() => setShowAnalysis(s => !s)} className={"inline-flex items-center gap-1 rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase " + (showAnalysis ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
                 <Info className="h-3 w-3" /> analyze
               </button>
+              <button onClick={() => { setRule(TEMPLATES[fmt].rule); setEvent(TEMPLATES[fmt].event); }} className="inline-flex items-center gap-1 rounded border border-border/50 px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> load sample</button>
               <button onClick={reset} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><RotateCcw className="h-3 w-3" /> reset</button>
               <button onClick={copy} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">{copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> copy</>}</button>
             </>
@@ -920,7 +921,7 @@ function DetectionPage() {
           <pre className="max-h-48 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90">{genReport(tpl, result, rule)}</pre>
         </Panel>
 
-          {/* IDS Rule Generator (from IdsBuilder essence) */}
+          <div id="ids-engine">{/* IDS Rule Generator (from IdsBuilder essence) */}
           <Panel title="IDS Rule Generator" icon={ShieldAlert} priority="secondary" meta="Snort/Suricata" collapsible>
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -960,6 +961,7 @@ function DetectionPage() {
               )}
             </div>
           </Panel>
+          </div>
 
         <SendToRow targets={[
           { label: "MITRE Coverage", to: "/mitre", icon: ArrowRight },

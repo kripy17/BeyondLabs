@@ -28,18 +28,20 @@ export function runReconNmapScan({
   mode = "quick_tcp",
   confirmPermission = false,
   allowPrivate = false,
+  signal,
 }: {
   target: string
   mode?: string
   confirmPermission?: boolean
   allowPrivate?: boolean
+  signal?: AbortSignal
 }) {
   return postJson("/api/recon/nmap", {
     target,
     mode,
     confirm_permission: Boolean(confirmPermission),
     allow_private: Boolean(allowPrivate),
-  }, 150000)
+  }, 150000, signal)
 }
 
 export function runReconNmapCustom({

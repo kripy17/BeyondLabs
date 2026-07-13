@@ -1240,6 +1240,11 @@ body::before {
 .ba-text-base { font-size: 0.8125rem; } /* 13px */
 .ba-text-lg  { font-size: 0.9375rem; }  /* 15px */
 
+/* ── Role-based display utilities ── */
+.ba-text-display { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.ba-text-metric { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.ba-text-eyebrow { font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+
 /* Ambient animations — used by per-theme body backdrops */
 @keyframes ba-scroll-scanlines {
   from { background-position: 0 0; }

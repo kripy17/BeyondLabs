@@ -1,17 +1,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Panel } from "@/components/soc";
+import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 
 function IocCopyBtn({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
   return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
-      aria-label="Copy IOC value"
-      className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/60 opacity-0 transition-all hover:border-primary/40 hover:text-primary group-hover/ioc:opacity-100"
-    >
-      {copied ? "done" : "copy"}
-    </button>
+    <div className="opacity-0 transition-all group-hover/ioc:opacity-100">
+      <CopyAsDropdown value={value} label={value} />
+    </div>
   );
 }
 
@@ -69,7 +65,7 @@ export function IocInventory({
             ) : (
               <ul className="divide-y divide-border/40">
                 {g.items.map((v, idx) => (
-                  <li key={v} className={"group/ioc flex items-center justify-between gap-2 px-3 py-1.5 transition-colors hover:bg-primary/5 " + (idx % 2 === 1 ? "bg-background/30" : "")}>
+                  <li key={`${v}-${idx}`} className={"group/ioc flex items-center justify-between gap-2 px-3 py-1.5 transition-colors hover:bg-primary/5 " + (idx % 2 === 1 ? "bg-background/30" : "")}>
                     <div className="flex min-w-0 items-center gap-2">
                       <span className={"h-1 w-1 shrink-0 rounded-full " + dot} aria-hidden />
                       <code className="truncate text-mono ba-text-sm text-foreground/90">{v}</code>

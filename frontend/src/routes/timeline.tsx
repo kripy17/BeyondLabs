@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Panel, SectionBar, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { getTimelineEvents, clearTimeline, type TimelineEvent } from "@/lib/timeline";
-import { Trash2, Clock, Filter, X } from "lucide-react";
+import { Trash2, Clock, Filter, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/timeline")({ component: TimelinePage });
 
@@ -14,6 +14,22 @@ const SOURCE_COLORS: Record<string, "primary" | "warning" | "success" | "destruc
   url: "primary",
   phishing: "warning",
   recon: "info",
+};
+
+const SOURCE_ROUTES: Record<string, string> = {
+  nmap: "/nmap",
+  parser: "/parser",
+  url: "/url",
+  phishing: "/phishing",
+  recon: "/recon",
+  detection: "/detection",
+  "hacking-toolkit": "/hacking-toolkit",
+  case: "/case",
+  osint: "/osint",
+  mitre: "/mitre",
+  attachment: "/attachment",
+  logs: "/logs",
+  siem: "/siem",
 };
 
 function dateGroup(ts: string): string {
@@ -33,13 +49,25 @@ function formatTime(ts: string): string {
 }
 
 function TimelinePage() {
+  const navigate = useNavigate();
   const [filterSource, setFilterSource] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
   const events = useMemo(() => {
     const all = getTimelineEvents();
-    return filterSource ? all.filter((e) => e.source === filterSource) : all;
-  }, [filterSource, refreshKey]);
+    let filtered = filterSource ? all.filter((e) => e.source === filterSource) : all;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((e) =>
+        e.verb.toLowerCase().includes(q) ||
+        e.detail.toLowerCase().includes(q) ||
+        (e.target && e.target.toLowerCase().includes(q)) ||
+        (e.result && e.result.toLowerCase().includes(q))
+      );
+    }
+    return filtered;
+  }, [filterSource, searchQuery, refreshKey]);
 
   const sources = useMemo(() => {
     const s = new Set(getTimelineEvents().map((e) => e.source));
@@ -79,18 +107,29 @@ function TimelinePage() {
         ) : undefined
       }
     >
-      {sources.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 mb-4">
-          <Filter className="h-3 w-3 text-muted-foreground" />
-          <button onClick={() => setFilterSource(null)} className={"rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (!filterSource ? "border-primary bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground")}>all</button>
-          {sources.map((s) => (
-            <button key={s} onClick={() => setFilterSource(s === filterSource ? null : s)} className={"rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (filterSource === s ? "border-primary bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground")}>
-              {s}
-              {filterSource === s && <X className="ml-1 inline h-2.5 w-2.5" />}
-            </button>
-          ))}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="search events…"
+            className="w-full rounded-md border border-border bg-background/60 py-1.5 pl-8 pr-3 text-mono ba-text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/50"
+          />
         </div>
-      )}
+        {sources.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Filter className="h-3 w-3 text-muted-foreground" />
+            <button onClick={() => setFilterSource(null)} className={"rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (!filterSource ? "border-primary bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground")}>all</button>
+            {sources.map((s) => (
+              <button key={s} onClick={() => setFilterSource(s === filterSource ? null : s)} className={"rounded border px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest transition-colors " + (filterSource === s ? "border-primary bg-primary/15 text-primary" : "border-divider-strong bg-card/40 text-muted-foreground hover:text-foreground")}>
+                {s}
+                {filterSource === s && <X className="ml-1 inline h-2.5 w-2.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {events.length === 0 ? (
         <Empty icon={Clock} title="No timeline events yet" hint="Run tools across workspaces — events auto-capture here. Try Nmap, Parser, URL Analyzer, Phishing Triage, or Recon." />
@@ -105,7 +144,13 @@ function TimelinePage() {
                     <li key={e.id} className="grid grid-cols-[60px_auto_1fr] items-start gap-3 px-4 py-2.5 hover:bg-card/30">
                       <div className="text-mono ba-text-2xs text-muted-foreground tabular-nums pt-0.5">{formatTime(e.ts)}</div>
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                        <Chip tone={SOURCE_COLORS[e.source] ?? "default"}>{e.source}</Chip>
+                        {SOURCE_ROUTES[e.source] ? (
+                          <button onClick={() => navigate({ to: SOURCE_ROUTES[e.source] })} className="cursor-pointer">
+                            <Chip tone={SOURCE_COLORS[e.source] ?? "default"}>{e.source}</Chip>
+                          </button>
+                        ) : (
+                          <Chip tone={SOURCE_COLORS[e.source] ?? "default"}>{e.source}</Chip>
+                        )}
                         <span className="text-mono ba-text-sm font-semibold text-foreground/90">{e.verb}</span>
                       </div>
                       <div className="min-w-0 pt-0.5">

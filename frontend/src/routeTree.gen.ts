@@ -11,22 +11,32 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UrlRouteImport } from './routes/url'
 import { Route as TimelineRouteImport } from './routes/timeline'
+import { Route as ThreatActorsRouteImport } from './routes/threat-actors'
 import { Route as TerminalRouteImport } from './routes/terminal'
+import { Route as SnippetsRouteImport } from './routes/snippets'
+import { Route as SigmaTesterRouteImport } from './routes/sigma-tester'
 import { Route as SiemRouteImport } from './routes/siem'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RegexPlaygroundRouteImport } from './routes/regex-playground'
 import { Route as ReconRouteImport } from './routes/recon'
 import { Route as PhishingRouteImport } from './routes/phishing'
+import { Route as PcapRouteImport } from './routes/pcap'
 import { Route as ParserRouteImport } from './routes/parser'
 import { Route as OsintRouteImport } from './routes/osint'
 import { Route as NmapRouteImport } from './routes/nmap'
 import { Route as MitreRouteImport } from './routes/mitre'
 import { Route as LogsRouteImport } from './routes/logs'
+import { Route as Ja3LookupRouteImport } from './routes/ja3-lookup'
+import { Route as HashLookupRouteImport } from './routes/hash-lookup'
 import { Route as HackingToolkitRouteImport } from './routes/hacking-toolkit'
 import { Route as GuideRouteImport } from './routes/guide'
+import { Route as DiffRouteImport } from './routes/diff'
 import { Route as DetectionRouteImport } from './routes/detection'
+import { Route as CveRouteImport } from './routes/cve'
 import { Route as ChefRouteImport } from './routes/chef'
 import { Route as CaseRouteImport } from './routes/case'
 import { Route as AttachmentRouteImport } from './routes/attachment'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportCaseIdRouteImport } from './routes/report.$caseId'
 
@@ -40,9 +50,24 @@ const TimelineRoute = TimelineRouteImport.update({
   path: '/timeline',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ThreatActorsRoute = ThreatActorsRouteImport.update({
+  id: '/threat-actors',
+  path: '/threat-actors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TerminalRoute = TerminalRouteImport.update({
   id: '/terminal',
   path: '/terminal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SnippetsRoute = SnippetsRouteImport.update({
+  id: '/snippets',
+  path: '/snippets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SigmaTesterRoute = SigmaTesterRouteImport.update({
+  id: '/sigma-tester',
+  path: '/sigma-tester',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SiemRoute = SiemRouteImport.update({
@@ -55,6 +80,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegexPlaygroundRoute = RegexPlaygroundRouteImport.update({
+  id: '/regex-playground',
+  path: '/regex-playground',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReconRoute = ReconRouteImport.update({
   id: '/recon',
   path: '/recon',
@@ -63,6 +93,11 @@ const ReconRoute = ReconRouteImport.update({
 const PhishingRoute = PhishingRouteImport.update({
   id: '/phishing',
   path: '/phishing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PcapRoute = PcapRouteImport.update({
+  id: '/pcap',
+  path: '/pcap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParserRoute = ParserRouteImport.update({
@@ -90,6 +125,16 @@ const LogsRoute = LogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Ja3LookupRoute = Ja3LookupRouteImport.update({
+  id: '/ja3-lookup',
+  path: '/ja3-lookup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HashLookupRoute = HashLookupRouteImport.update({
+  id: '/hash-lookup',
+  path: '/hash-lookup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HackingToolkitRoute = HackingToolkitRouteImport.update({
   id: '/hacking-toolkit',
   path: '/hacking-toolkit',
@@ -100,9 +145,19 @@ const GuideRoute = GuideRouteImport.update({
   path: '/guide',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiffRoute = DiffRouteImport.update({
+  id: '/diff',
+  path: '/diff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DetectionRoute = DetectionRouteImport.update({
   id: '/detection',
   path: '/detection',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CveRoute = CveRouteImport.update({
+  id: '/cve',
+  path: '/cve',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChefRoute = ChefRouteImport.update({
@@ -120,6 +175,11 @@ const AttachmentRoute = AttachmentRouteImport.update({
   path: '/attachment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -133,44 +193,64 @@ const ReportCaseIdRoute = ReportCaseIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/attachment': typeof AttachmentRoute
   '/case': typeof CaseRoute
   '/chef': typeof ChefRoute
+  '/cve': typeof CveRoute
   '/detection': typeof DetectionRoute
+  '/diff': typeof DiffRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
+  '/hash-lookup': typeof HashLookupRoute
+  '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
   '/osint': typeof OsintRoute
   '/parser': typeof ParserRoute
+  '/pcap': typeof PcapRoute
   '/phishing': typeof PhishingRoute
   '/recon': typeof ReconRoute
+  '/regex-playground': typeof RegexPlaygroundRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/sigma-tester': typeof SigmaTesterRoute
+  '/snippets': typeof SnippetsRoute
   '/terminal': typeof TerminalRoute
+  '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/attachment': typeof AttachmentRoute
   '/case': typeof CaseRoute
   '/chef': typeof ChefRoute
+  '/cve': typeof CveRoute
   '/detection': typeof DetectionRoute
+  '/diff': typeof DiffRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
+  '/hash-lookup': typeof HashLookupRoute
+  '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
   '/osint': typeof OsintRoute
   '/parser': typeof ParserRoute
+  '/pcap': typeof PcapRoute
   '/phishing': typeof PhishingRoute
   '/recon': typeof ReconRoute
+  '/regex-playground': typeof RegexPlaygroundRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/sigma-tester': typeof SigmaTesterRoute
+  '/snippets': typeof SnippetsRoute
   '/terminal': typeof TerminalRoute
+  '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
@@ -178,22 +258,32 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/attachment': typeof AttachmentRoute
   '/case': typeof CaseRoute
   '/chef': typeof ChefRoute
+  '/cve': typeof CveRoute
   '/detection': typeof DetectionRoute
+  '/diff': typeof DiffRoute
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
+  '/hash-lookup': typeof HashLookupRoute
+  '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
   '/nmap': typeof NmapRoute
   '/osint': typeof OsintRoute
   '/parser': typeof ParserRoute
+  '/pcap': typeof PcapRoute
   '/phishing': typeof PhishingRoute
   '/recon': typeof ReconRoute
+  '/regex-playground': typeof RegexPlaygroundRoute
   '/settings': typeof SettingsRoute
   '/siem': typeof SiemRoute
+  '/sigma-tester': typeof SigmaTesterRoute
+  '/snippets': typeof SnippetsRoute
   '/terminal': typeof TerminalRoute
+  '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
@@ -202,66 +292,96 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
     | '/attachment'
     | '/case'
     | '/chef'
+    | '/cve'
     | '/detection'
+    | '/diff'
     | '/guide'
     | '/hacking-toolkit'
+    | '/hash-lookup'
+    | '/ja3-lookup'
     | '/logs'
     | '/mitre'
     | '/nmap'
     | '/osint'
     | '/parser'
+    | '/pcap'
     | '/phishing'
     | '/recon'
+    | '/regex-playground'
     | '/settings'
     | '/siem'
+    | '/sigma-tester'
+    | '/snippets'
     | '/terminal'
+    | '/threat-actors'
     | '/timeline'
     | '/url'
     | '/report/$caseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
     | '/attachment'
     | '/case'
     | '/chef'
+    | '/cve'
     | '/detection'
+    | '/diff'
     | '/guide'
     | '/hacking-toolkit'
+    | '/hash-lookup'
+    | '/ja3-lookup'
     | '/logs'
     | '/mitre'
     | '/nmap'
     | '/osint'
     | '/parser'
+    | '/pcap'
     | '/phishing'
     | '/recon'
+    | '/regex-playground'
     | '/settings'
     | '/siem'
+    | '/sigma-tester'
+    | '/snippets'
     | '/terminal'
+    | '/threat-actors'
     | '/timeline'
     | '/url'
     | '/report/$caseId'
   id:
     | '__root__'
     | '/'
+    | '/activity'
     | '/attachment'
     | '/case'
     | '/chef'
+    | '/cve'
     | '/detection'
+    | '/diff'
     | '/guide'
     | '/hacking-toolkit'
+    | '/hash-lookup'
+    | '/ja3-lookup'
     | '/logs'
     | '/mitre'
     | '/nmap'
     | '/osint'
     | '/parser'
+    | '/pcap'
     | '/phishing'
     | '/recon'
+    | '/regex-playground'
     | '/settings'
     | '/siem'
+    | '/sigma-tester'
+    | '/snippets'
     | '/terminal'
+    | '/threat-actors'
     | '/timeline'
     | '/url'
     | '/report/$caseId'
@@ -269,22 +389,32 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
   AttachmentRoute: typeof AttachmentRoute
   CaseRoute: typeof CaseRoute
   ChefRoute: typeof ChefRoute
+  CveRoute: typeof CveRoute
   DetectionRoute: typeof DetectionRoute
+  DiffRoute: typeof DiffRoute
   GuideRoute: typeof GuideRoute
   HackingToolkitRoute: typeof HackingToolkitRoute
+  HashLookupRoute: typeof HashLookupRoute
+  Ja3LookupRoute: typeof Ja3LookupRoute
   LogsRoute: typeof LogsRoute
   MitreRoute: typeof MitreRoute
   NmapRoute: typeof NmapRoute
   OsintRoute: typeof OsintRoute
   ParserRoute: typeof ParserRoute
+  PcapRoute: typeof PcapRoute
   PhishingRoute: typeof PhishingRoute
   ReconRoute: typeof ReconRoute
+  RegexPlaygroundRoute: typeof RegexPlaygroundRoute
   SettingsRoute: typeof SettingsRoute
   SiemRoute: typeof SiemRoute
+  SigmaTesterRoute: typeof SigmaTesterRoute
+  SnippetsRoute: typeof SnippetsRoute
   TerminalRoute: typeof TerminalRoute
+  ThreatActorsRoute: typeof ThreatActorsRoute
   TimelineRoute: typeof TimelineRoute
   UrlRoute: typeof UrlRoute
   ReportCaseIdRoute: typeof ReportCaseIdRoute
@@ -306,11 +436,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TimelineRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/threat-actors': {
+      id: '/threat-actors'
+      path: '/threat-actors'
+      fullPath: '/threat-actors'
+      preLoaderRoute: typeof ThreatActorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terminal': {
       id: '/terminal'
       path: '/terminal'
       fullPath: '/terminal'
       preLoaderRoute: typeof TerminalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/snippets': {
+      id: '/snippets'
+      path: '/snippets'
+      fullPath: '/snippets'
+      preLoaderRoute: typeof SnippetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sigma-tester': {
+      id: '/sigma-tester'
+      path: '/sigma-tester'
+      fullPath: '/sigma-tester'
+      preLoaderRoute: typeof SigmaTesterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/siem': {
@@ -327,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/regex-playground': {
+      id: '/regex-playground'
+      path: '/regex-playground'
+      fullPath: '/regex-playground'
+      preLoaderRoute: typeof RegexPlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recon': {
       id: '/recon'
       path: '/recon'
@@ -339,6 +497,13 @@ declare module '@tanstack/react-router' {
       path: '/phishing'
       fullPath: '/phishing'
       preLoaderRoute: typeof PhishingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pcap': {
+      id: '/pcap'
+      path: '/pcap'
+      fullPath: '/pcap'
+      preLoaderRoute: typeof PcapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parser': {
@@ -376,6 +541,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ja3-lookup': {
+      id: '/ja3-lookup'
+      path: '/ja3-lookup'
+      fullPath: '/ja3-lookup'
+      preLoaderRoute: typeof Ja3LookupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hash-lookup': {
+      id: '/hash-lookup'
+      path: '/hash-lookup'
+      fullPath: '/hash-lookup'
+      preLoaderRoute: typeof HashLookupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hacking-toolkit': {
       id: '/hacking-toolkit'
       path: '/hacking-toolkit'
@@ -390,11 +569,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GuideRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/diff': {
+      id: '/diff'
+      path: '/diff'
+      fullPath: '/diff'
+      preLoaderRoute: typeof DiffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/detection': {
       id: '/detection'
       path: '/detection'
       fullPath: '/detection'
       preLoaderRoute: typeof DetectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cve': {
+      id: '/cve'
+      path: '/cve'
+      fullPath: '/cve'
+      preLoaderRoute: typeof CveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chef': {
@@ -418,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AttachmentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -437,22 +637,32 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
   AttachmentRoute: AttachmentRoute,
   CaseRoute: CaseRoute,
   ChefRoute: ChefRoute,
+  CveRoute: CveRoute,
   DetectionRoute: DetectionRoute,
+  DiffRoute: DiffRoute,
   GuideRoute: GuideRoute,
   HackingToolkitRoute: HackingToolkitRoute,
+  HashLookupRoute: HashLookupRoute,
+  Ja3LookupRoute: Ja3LookupRoute,
   LogsRoute: LogsRoute,
   MitreRoute: MitreRoute,
   NmapRoute: NmapRoute,
   OsintRoute: OsintRoute,
   ParserRoute: ParserRoute,
+  PcapRoute: PcapRoute,
   PhishingRoute: PhishingRoute,
   ReconRoute: ReconRoute,
+  RegexPlaygroundRoute: RegexPlaygroundRoute,
   SettingsRoute: SettingsRoute,
   SiemRoute: SiemRoute,
+  SigmaTesterRoute: SigmaTesterRoute,
+  SnippetsRoute: SnippetsRoute,
   TerminalRoute: TerminalRoute,
+  ThreatActorsRoute: ThreatActorsRoute,
   TimelineRoute: TimelineRoute,
   UrlRoute: UrlRoute,
   ReportCaseIdRoute: ReportCaseIdRoute,

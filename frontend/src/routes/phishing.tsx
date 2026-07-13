@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { useRecentInputs } from "@/lib/use-recent-inputs";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
 import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
@@ -12,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SECRET_RX, SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
 import { useLocker, type LockerItem } from "@/lib/locker";
-import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity } from "lucide-react";
+import { Mail, ShieldAlert, ShieldCheck, Link2, Database, CheckCircle2, XCircle, MinusCircle, AlertTriangle, FileText, Hash, Crosshair, Download, Key, FlaskConical, Activity, Lightbulb } from "lucide-react";
+import { ExplainThisButton } from "@/components/ExplainThis";
 
 export const Route = createFileRoute("/phishing")({ component: PhishingPage });
 
@@ -371,6 +373,8 @@ function PhishingPage() {
   const [apiResult, setApiResult] = useState<Record<string, any> | null>(null);
   const navigate = useNavigate();
   const locker = useLocker();
+  const [iocDefanged, setIocDefanged] = useState(true);
+  const recentInputs = useRecentInputs("phishing");
   const has = input.trim().length > 0;
   const committed = runs > 0 && has;
 
@@ -380,6 +384,10 @@ function PhishingPage() {
       pendingRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (input.trim()) recentInputs.push(input);
+  }, [runs]);
 
   const flashNotice = (msg: string) => {
     setNotice(msg);
@@ -590,6 +598,19 @@ function PhishingPage() {
               placeholder="[WAITING_FOR_INPUT]\n\nPaste raw email source including headers — or drop a .eml file."
               notice={notice || undefined}
             />
+            {recentInputs.items.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded border border-border/50 bg-card/30 px-2.5 py-1.5">
+                <span className="text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/70">recent</span>
+                {recentInputs.items.slice(0, 8).map((item, i) => (
+                  <button key={i} onClick={() => { setInput(item); setRuns((r) => r + 1); recentInputs.push(item); }}
+                    className="max-w-[160px] truncate rounded border border-border/40 bg-background/40 px-1.5 py-0.5 text-mono ba-text-2xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    title={item}
+                  >{item.slice(0, 40)}{item.length > 40 ? "…" : ""}</button>
+                ))}
+                {recentInputs.items.length > 8 && <span className="text-mono ba-text-3xs text-muted-foreground/50">+{recentInputs.items.length - 8} more</span>}
+                <button onClick={() => recentInputs.clear()} className="ml-auto text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground/50 hover:text-destructive">clear</button>
+              </div>
+            )}
           </>
         }
         output={
@@ -598,21 +619,23 @@ function PhishingPage() {
           ) : (
             <div className="space-y-4">
 
-              <ResultBanner
-                sticky
-                tone={data.tone === "destructive" ? "destructive" : data.tone === "warning" ? "warning" : "default"}
-                badge={data.tone === "destructive" ? "likely phishing" : data.tone === "warning" ? "suspicious" : "inconclusive"}
-                caseId={`BA-PH-${String(data.findings.length).padStart(2, "0")}`}
-                title={data.verdict}
-                subtitle="Authentication snapshot computed from the message's Authentication-Results header."
-                reasons={data.findings.slice(0, 3).map((f: { t: string }) => f.t)}
-                metrics={[
-                  { label: "Findings", value: data.findings.length, tone: data.findings.length > 0 ? "warning" : "success" },
-                  { label: "SPF",   value: data.spf.toUpperCase(),   tone: data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : data.spf === "pass" ? "success" : "default" },
-                  { label: "DKIM",  value: data.dkim.toUpperCase(),  tone: data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : data.dkim === "pass" ? "success" : "default" },
-                  { label: "DMARC", value: data.dmarc.toUpperCase(), tone: data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : data.dmarc === "pass" ? "success" : "default" },
-                ]}
-              />
+              <div className="pointer-events-none select-none">
+                <ResultBanner
+                  sticky
+                  tone={data.tone === "destructive" ? "destructive" : data.tone === "warning" ? "warning" : "default"}
+                  badge={data.tone === "destructive" ? "likely phishing" : data.tone === "warning" ? "suspicious" : "inconclusive"}
+                  caseId={`BA-PH-${String(data.findings.length).padStart(2, "0")}`}
+                  title={data.verdict}
+                  subtitle="Authentication snapshot computed from the message's Authentication-Results header."
+                  reasons={data.findings.slice(0, 3).map((f: { t: string }) => f.t)}
+                  metrics={[
+                    { label: "Findings", value: data.findings.length, tone: data.findings.length > 0 ? "warning" : "success" },
+                    { label: "SPF",   value: data.spf.toUpperCase(),   tone: data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : data.spf === "pass" ? "success" : "default" },
+                    { label: "DKIM",  value: data.dkim.toUpperCase(),  tone: data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : data.dkim === "pass" ? "success" : "default" },
+                    { label: "DMARC", value: data.dmarc.toUpperCase(), tone: data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : data.dmarc === "pass" ? "success" : "default" },
+                  ]}
+                />
+              </div>
 
               <Panel title="Authentication detail" icon={ShieldCheck} meta="SPF \u00B7 DKIM \u00B7 DMARC" actions={<PreviewBadge />}>
                 <div className="grid gap-2 grid-cols-3">
@@ -622,12 +645,15 @@ function PhishingPage() {
                 </div>
               </Panel>
 
-              <div className="flex items-center gap-2 rounded-md border border-divider-soft bg-card/30 px-3 py-1.5">
-                <span className="mr-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground">Auth Chain</span>
-                <Chip tone={data.spf === "pass" ? "success" : data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : "default"}>SPF: {data.spf.toUpperCase()}</Chip>
-                <Chip tone={data.dkim === "pass" ? "success" : data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : "default"}>DKIM: {data.dkim.toUpperCase()}</Chip>
-                <Chip tone={data.dmarc === "pass" ? "success" : data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : "default"}>DMARC: {data.dmarc.toUpperCase()}</Chip>
-              </div>
+              <Panel title="Auth Chain" icon={ShieldCheck} meta="SPF · DKIM · DMARC chain-of-trust"
+                actions={<ExplainThisButton kind="email" input={input} />}
+              >
+                <div className="flex items-center gap-2">
+                  <Chip tone={data.spf === "pass" ? "success" : data.spf === "fail" ? "destructive" : data.spf === "softfail" ? "warning" : "default"}>SPF: {data.spf.toUpperCase()}</Chip>
+                  <Chip tone={data.dkim === "pass" ? "success" : data.dkim === "fail" ? "destructive" : data.dkim === "softfail" ? "warning" : "default"}>DKIM: {data.dkim.toUpperCase()}</Chip>
+                  <Chip tone={data.dmarc === "pass" ? "success" : data.dmarc === "fail" ? "destructive" : data.dmarc === "softfail" ? "warning" : "default"}>DMARC: {data.dmarc.toUpperCase()}</Chip>
+                </div>
+              </Panel>
 
               <Panel title="Sender Identity" icon={ShieldCheck}>
                 <KeyFields items={[
@@ -660,23 +686,60 @@ function PhishingPage() {
 
               {/* Delivery path */}
               {(() => {
-                const hops = Array.from(input.matchAll(/Received:\s*from\s+([^\s]+)\s*(?:\(([^)]+)\))?/gi)).map((m) => ({ host: m[1], detail: m[2] ?? "" }));
+                const hops = Array.from(input.matchAll(/Received:\s*from\s+(\S+)\s*(?:\(([^)]+)\))?(?:\s+by\s+(\S+))?(?:\s+with\s+(\S+))?/gi)).map((m) => ({
+                  from: m[1],
+                  ip: m[2] ?? "",
+                  by: m[3] ?? "",
+                  protocol: m[4] ?? "",
+                }));
+                const classifyHop = (host: string): { label: string; tone: "primary" | "info" | "warning" | "destructive" } => {
+                  const h = host.toLowerCase();
+                  if (h.includes("mx") || h.includes("mail")) return { label: "MX", tone: "info" };
+                  if (h.includes("edge")) return { label: "edge", tone: "warning" };
+                  if (h.includes("gateway") || h.includes("gw")) return { label: "gateway", tone: "destructive" };
+                  return { label: "relay", tone: "primary" };
+                };
+                const protoTone = (p: string): "primary" | "info" | "warning" | "success" | "destructive" => {
+                  const v = p.toLowerCase();
+                  if (v === "esmtpsa") return "warning";
+                  if (v === "esmtps") return "info";
+                  if (v === "esmtp") return "primary";
+                  return "primary";
+                };
                 return (
                   <Panel title="Delivery Path" meta={`${hops.length} hop${hops.length === 1 ? "" : "s"}`} priority="secondary" collapsible storageKey="ba.panel.phish.delivery" defaultCollapsed>
                     {hops.length === 0 ? (
                       <p className="text-mono ba-text-sm text-muted-foreground">No Received: hops found.</p>
                     ) : (
-                      <ol className="relative space-y-2 border-l border-divider-strong pl-3">
-                        {hops.map((h, i) => (
-                          <li key={i} className="relative">
-                            <span className="absolute -left-[15px] top-1 grid h-2 w-2 place-items-center rounded-full bg-primary ring-2 ring-background" />
-                            <div className="flex flex-wrap items-baseline gap-2">
-                              <Chip tone="primary">hop {hops.length - i}</Chip>
-                              <code className="text-mono ba-text-sm text-foreground/90">{h.host}</code>
-                              {h.detail && <code className="text-mono text-[10px] text-muted-foreground">{h.detail}</code>}
-                            </div>
-                          </li>
-                        ))}
+                      <ol className="relative space-y-0">
+                        {hops.map((h, i) => {
+                          const cls = classifyHop(h.from);
+                          return (
+                            <li key={i}>
+                              <div className="relative flex items-start gap-3 pb-1">
+                                {i < hops.length - 1 && (
+                                  <span className="absolute left-[7px] top-4 bottom-0 w-px bg-divider-strong" aria-hidden />
+                                )}
+                                <div className="relative flex flex-col items-center pt-0.5">
+                                  <span className="grid h-3 w-3 shrink-0 place-items-center rounded-full bg-primary ring-2 ring-background" />
+                                </div>
+                                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 py-0.5">
+                                  <Chip tone="primary">hop {hops.length - i}</Chip>
+                                  <code className="text-mono ba-text-sm text-foreground/90">{h.from}</code>
+                                  {h.ip && <span className="text-mono text-[10px] text-muted-foreground">({h.ip})</span>}
+                                  {h.protocol && <Chip tone={protoTone(h.protocol)}>{h.protocol}</Chip>}
+                                  <Chip tone={cls.tone}>{cls.label}</Chip>
+                                </div>
+                              </div>
+                              {i < hops.length - 1 && (
+                                <div className="flex items-center gap-2 pl-[7px] pb-1">
+                                  <span className="text-mono text-[10px] text-muted-foreground/40">↓</span>
+                                  <span className="h-px flex-1 bg-divider-soft" />
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ol>
                     )}
                   </Panel>
@@ -719,6 +782,18 @@ function PhishingPage() {
               {/* IOC inventory */}
               {data.iocs && (
                 <>
+                  <label className="inline-flex items-center gap-2 cursor-pointer mb-2">
+                    <input
+                      type="checkbox"
+                      checked={iocDefanged}
+                      onChange={(e) => setIocDefanged(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <span className={`relative inline-block h-5 w-9 rounded-full transition-colors ${iocDefanged ? "bg-primary" : "bg-muted-foreground/30"}`}>
+                      <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${iocDefanged ? "translate-x-4" : "translate-x-0"}`} />
+                    </span>
+                    <span className="text-mono text-[10px] uppercase tracking-widest text-muted-foreground">{iocDefanged ? "defanged" : "refanged"}</span>
+                  </label>
                   <SectionBar id="IO" label="IOC inventory" meta="urls · domains · ips · hashes · emails · cve · attack" priority="secondary" />
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {(Object.entries(data.iocs) as [string, string[]][]).filter(([, v]) => v.length > 0).map(([k, v]) => (
@@ -733,17 +808,17 @@ function PhishingPage() {
                   </div>
                   <IocInventory
                     onSendTo={(kind, value) => {
-                      const map: Record<string, string> = { urls: "/url", domains: "/osint", ips: "/osint", hashes: "/attachment", emails: "/osint", cve: "/detection", attack: "/detection" };
+                      const map: Record<string, string> = { urls: "/url", domains: "/recon", ips: "/recon", hashes: "/attachment", emails: "/recon", cve: "/detection", attack: "/detection" };
                       handoff(kind.toLowerCase(), value, map[kind.toLowerCase()] ?? "/case");
                     }}
                     groups={[
-                      { kind: "urls", items: data.iocs.urls, tone: "destructive" },
-                      { kind: "domains", items: data.iocs.domains, tone: "warning" },
-                      { kind: "ips", items: data.iocs.ips, tone: "info" },
-                      { kind: "hashes", items: data.iocs.hashes, tone: "primary" },
-                      { kind: "emails", items: data.iocs.emails, tone: "success" },
-                      ...(data.iocs.cve.length ? [{ kind: "cve" as const, items: data.iocs.cve, tone: "destructive" as const }] : []),
-                      ...(data.iocs.attack.length ? [{ kind: "attack" as const, items: data.iocs.attack, tone: "destructive" as const }] : []),
+                      { kind: "urls", items: data.iocs.urls.map(iocDefanged ? defang : refang), tone: "destructive" },
+                      { kind: "domains", items: data.iocs.domains.map(iocDefanged ? defang : refang), tone: "warning" },
+                      { kind: "ips", items: data.iocs.ips.map(iocDefanged ? defang : refang), tone: "info" },
+                      { kind: "hashes", items: data.iocs.hashes.map(iocDefanged ? defang : refang), tone: "primary" },
+                      { kind: "emails", items: data.iocs.emails.map(iocDefanged ? defang : refang), tone: "success" },
+                      ...(data.iocs.cve.length ? [{ kind: "cve" as const, items: data.iocs.cve.map(iocDefanged ? defang : refang), tone: "destructive" as const }] : []),
+                      ...(data.iocs.attack.length ? [{ kind: "attack" as const, items: data.iocs.attack.map(iocDefanged ? defang : refang), tone: "destructive" as const }] : []),
                     ]}
                   />
                 </>

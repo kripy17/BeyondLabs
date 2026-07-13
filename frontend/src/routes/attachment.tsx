@@ -132,10 +132,10 @@ function AttachmentPage() {
           </button>
           {hashInput && (
             <button
-              onClick={() => { navigator.clipboard.writeText(hashInput); toast("Hash copied to clipboard"); }}
+              onClick={() => { navigator.clipboard.writeText(hashInput); setHashCopied("hash"); setTimeout(() => setHashCopied(""), 1200); }}
               className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary"
             >
-              Copy
+              {hashCopied === "hash" ? <><Check className="h-3 w-3" /> copied</> : "Copy"}
             </button>
           )}
         </div>
@@ -301,13 +301,11 @@ function AttachmentPage() {
           {/* Strings Preview - collapsible */}
           {result.strings_preview.length > 0 && (
             <Panel title="Strings Preview" icon={Binary} meta={`${result.strings_preview.length} shown`} collapsible defaultCollapsed={result.strings_preview.length > 20}>
-              <div className="max-h-48 overflow-y-auto">
-                <ul className="space-y-0.5">
-                  {result.strings_preview.map((s, i) => (
-                    <li key={i} className="border-b border-divider-soft py-0.5 text-mono text-[10.5px] text-foreground/80">{s}</li>
-                  ))}
-                </ul>
-              </div>
+              <ul className="space-y-0.5">
+                {result.strings_preview.map((s, i) => (
+                  <li key={i} className="border-b border-divider-soft py-0.5 text-mono text-[10.5px] text-foreground/80">{s}</li>
+                ))}
+              </ul>
             </Panel>
           )}
 
