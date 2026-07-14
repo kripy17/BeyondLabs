@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocker, type LockerItem } from "@/lib/locker";
 import { getBackendUrl, setBackendUrl, pingBackend, runToolRemote, type BackendStatus } from "@/lib/backend";
+import { copyText } from "@/lib/copy";
 import { X, PackageOpen, Copy, NotebookPen, Terminal, ChevronUp, PlugZap, Plug } from "lucide-react";
 import { toast } from "sonner";
 
@@ -837,7 +838,7 @@ function LockerRow({ item, onRemove }: { item: LockerItem; onRemove: (id: string
         </div>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
-            onClick={() => { navigator.clipboard.writeText(item.value); toast("Copied"); }}
+            onClick={() => { copyText(item.value); toast("Copied"); }}
             className="grid h-6 w-6 place-items-center rounded border border-border text-muted-foreground hover:text-foreground"
             aria-label="Copy"
           >

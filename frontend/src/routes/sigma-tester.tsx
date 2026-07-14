@@ -3,8 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Panel, Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
+import { type Severity } from "@/lib/severity";
 import { Shield, CheckCircle, XCircle, TestTube, BarChart3, Copy, Check, Database, Search } from "lucide-react";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
+import { useLocker, guessType } from "@/lib/locker";
+import { sendToCase } from "@/lib/handoff";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/sigma-tester")({ component: SigmaTesterPage });
 
@@ -85,9 +90,9 @@ detection:
   },
 ];
 
-type MatchResult = { string: string; matched: boolean; category?: string; severity?: "high" | "medium" | "low" };
+type MatchResult = { string: string; matched: boolean; category?: string; severity?: Severity };
 
-const YARA_CHECKS: { label: string; rx: RegExp; category: string; severity: "high" | "medium" | "low" }[] = [
+const YARA_CHECKS: { label: string; rx: RegExp; category: string; severity: Severity }[] = [
   { label: "System.Net.WebClient", rx: /System\.Net\.WebClient/i, category: "Download Cradle", severity: "high" },
   { label: "Invoke-WebRequest / iwr", rx: /Invoke-WebRequest|iwr\b/i, category: "Download Cradle", severity: "high" },
   { label: "curl / wget presence", rx: /\bcurl\b|\bwget\b/i, category: "Download Cradle", severity: "medium" },
@@ -102,7 +107,7 @@ const YARA_CHECKS: { label: string; rx: RegExp; category: string; severity: "hig
   { label: "New-Object", rx: /New-Object\s+/i, category: "Instantiation", severity: "medium" },
 ];
 
-const SIGMA_CHECKS: { label: string; rx: RegExp; category: string; severity: "high" | "medium" | "low" }[] = [
+const SIGMA_CHECKS: { label: string; rx: RegExp; category: string; severity: Severity }[] = [
   { label: "EventID: 4688 (process creation)", rx: /EventID:\s*4688/, category: "Process Creation", severity: "medium" },
   { label: "EventID: 3 (network connection)", rx: /EventID:\s*3/, category: "Network", severity: "medium" },
   { label: "Initiated: true", rx: /Initiated:\s*true/, category: "Network", severity: "low" },
@@ -129,6 +134,7 @@ function SigmaTesterPage() {
   const [results, setResults] = useState<MatchResult[]>([]);
   const [tested, setTested] = useState(false);
   const [copied, setCopied] = useState(false);
+  const locker = useLocker();
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -198,7 +204,7 @@ function SigmaTesterPage() {
           ))}
         </div>
         {tested && (
-          <button onClick={() => { navigator.clipboard.writeText(results.map(r => `${r.matched ? "✓" : "✗"} ${r.string}`).join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+          <button onClick={() => { copyText(results.map(r => `${r.matched ? "✓" : "✗"} ${r.string}`).join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
             className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
             {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
           </button>
@@ -281,11 +287,32 @@ function SigmaTesterPage() {
       )}
 
       {tested && (
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <SendToRow targets={[
             { label: "Detection Editor", to: "/detection", icon: Search },
             { label: "Case Notebook", to: "/case", icon: Database },
           ]} />
+          <div className="flex items-center gap-2">
+            <button onClick={() => {
+              const iocs = new Set<string>();
+              const m1 = sample.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
+              const m2 = sample.match(/https?:\/\/[^\s)"']+/gi);
+              const m3 = sample.match(/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+/gi);
+              m1?.forEach(v => iocs.add(v));
+              m2?.forEach(v => iocs.add(v));
+              m3?.filter(v => v.includes(".") && !/^\d/.test(v) && !v.startsWith("http")).forEach(v => iocs.add(v));
+              iocs.forEach(v => locker.add({ value: v, type: guessType(v), source: "/sigma-tester" }));
+              toast(`Added ${iocs.size} IOCs to locker`);
+            }} className="inline-flex items-center gap-1.5 rounded border border-border/50 bg-card/40 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">
+              <Database className="h-3.5 w-3.5" /> Match results → locker
+            </button>
+            <button onClick={() => {
+              sendToCase({ body: results.map(r => `${r.matched ? "[MATCH]" : "[NO MATCH]"} ${r.string} (${r.severity || "info"})`).join("\n"), source: "/sigma-tester", kind: "evidence" });
+              toast("Sent to Case");
+            }} className="inline-flex items-center gap-1.5 rounded border border-border/50 bg-card/40 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground">
+              <Database className="h-3.5 w-3.5" /> Send to Case
+            </button>
+          </div>
         </div>
       )}
     </PageShell>

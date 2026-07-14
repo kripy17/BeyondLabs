@@ -6,6 +6,7 @@ import { Empty, EvidenceCard, MetricGrid, CollapsibleSection, TwoColumnOutput, S
 import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { toast } from "sonner";
+import { type Severity } from "@/lib/severity";
 import { uploadPcap } from "@/api/backend";
 import {
   Upload, Terminal, Globe, AlertTriangle, Network, Play, Trash2,
@@ -15,7 +16,6 @@ import {
 
 export const Route = createFileRoute("/pcap")({ component: PcapPage });
 
-type Severity = "info" | "low" | "medium" | "high";
 type Finding = { severity: Severity; title: string; detail: string; recommendation: string };
 
 interface PcapBackendResult {

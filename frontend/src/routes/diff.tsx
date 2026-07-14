@@ -7,6 +7,7 @@ import { Code2, FileText, Monitor, ScrollText, Search, ArrowUpDown, AlertTriangl
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
 
 export const Route = createFileRoute("/diff")({ component: DiffPage });
 
@@ -193,7 +194,7 @@ function DiffPage() {
             title="Diff"
             icon={Monitor}
             actions={
-              <button onClick={() => { navigator.clipboard.writeText(JSON.stringify({ added: newText, removed: oldText, stats }, null, 2)); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+              <button onClick={() => { copyText(JSON.stringify({ added: newText, removed: oldText, stats }, null, 2)); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
                 className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                 {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
               </button>

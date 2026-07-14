@@ -11,6 +11,7 @@ import { pushTimelineEvent } from "@/lib/timeline";
 import { safeAnalyzeUrl } from "@/api/backend";
 import { SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
 import { useRecentInputs } from "@/lib/use-recent-inputs";
+import { copyText } from "@/lib/copy";
 import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
@@ -523,7 +524,7 @@ function UrlPage() {
                         <span className="shrink-0 ba-text-2xs uppercase tracking-widest text-muted-foreground">{item.label}</span>
                         <code className={`truncate ${item.tone === "warning" ? "text-warning" : item.tone === "destructive" ? "text-destructive" : "text-foreground/85"}`}>{item.value}</code>
                       </div>
-                      <button onClick={() => navigator.clipboard.writeText(item.value)} className="shrink-0 rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                      <button onClick={() => copyText(item.value)} className="shrink-0 rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
                     </div>
                   ))}
                 </div>
@@ -718,7 +719,7 @@ function UrlPage() {
                         <code className="truncate text-mono ba-text-sm text-foreground/90">{item.value}</code>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => { navigator.clipboard.writeText(item.value); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
+                        <button onClick={() => { copyText(item.value); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">copy</button>
                         <button onClick={() => { locker.add({ value: item.value, type: item.label === "URL" ? "url" : "domain", source: "/url" }); }} className="rounded border border-divider-soft bg-card/30 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary">locker</button>
                       </div>
                     </div>

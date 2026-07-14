@@ -5,6 +5,7 @@ import { Panel, SectionBar, Chip, SendToRow } from "@/components/soc";
 import { Empty, MetricGrid, TwoColumnOutput, KeyFields, CollapsibleSection } from "@/components/output";
 import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
 import {
   Search, Globe, Mail, User, Phone, Copy, Check, ExternalLink,
@@ -220,7 +221,7 @@ function OsintPage() {
                     className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                     <BookMarked className="h-3 w-3" /> Add to locker
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(searchInput); setCopied("email"); setTimeout(() => setCopied(""), 1200); }}
+                  <button onClick={() => { copyText(searchInput); setCopied("email"); setTimeout(() => setCopied(""), 1200); }}
                     className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                     {copied === "email" ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> Copy email</>}
                   </button>
@@ -303,7 +304,7 @@ function OsintPage() {
               className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
               <BookMarked className="h-3 w-3" /> Add to locker
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(searchInput); toast("Copied username"); }}
+            <button onClick={() => { copyText(searchInput); toast("Copied username"); }}
               className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
               <Copy className="h-3 w-3" /> Copy
             </button>
@@ -334,7 +335,7 @@ function OsintPage() {
                 className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <BookMarked className="h-3 w-3" /> Add to locker
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(searchInput); toast("Copied"); }}
+              <button onClick={() => { copyText(searchInput); toast("Copied"); }}
                 className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <Copy className="h-3 w-3" /> Copy
               </button>
@@ -388,7 +389,7 @@ function OsintPage() {
                 className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <BookMarked className="h-3 w-3" /> Add to locker
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(searchInput); toast("Copied"); }}
+              <button onClick={() => { copyText(searchInput); toast("Copied"); }}
                 className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
                 <Copy className="h-3 w-3" /> Copy
               </button>
@@ -434,7 +435,7 @@ function OsintPage() {
               className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
               <BookMarked className="h-3 w-3" /> Add to locker
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(searchInput); toast("Copied"); }}
+            <button onClick={() => { copyText(searchInput); toast("Copied"); }}
               className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-3 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
               <Copy className="h-3 w-3" /> Copy
             </button>

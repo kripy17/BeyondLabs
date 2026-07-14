@@ -13,6 +13,7 @@ import { useStreamingNmap } from "@/lib/useStreamingNmap";
 import { computeNmapDiff, type PortChange } from "@/lib/diff";
 import { AttachButton } from "@/components/AttachButton";
 import { takePendingArtifact } from "@/lib/handoff";
+import { copyText } from "@/lib/copy";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { runReconNmapScan } from "@/api/backend";
 import { toast } from "sonner";
@@ -205,7 +206,7 @@ function NmapPage() {
   const cmd = `nmap ${MODES[mode].args} -${timing} ${has ? target : "<target>"}`;
 
   const copy = (text: string, key: string) => {
-    navigator.clipboard?.writeText(text);
+    copyText(text);
     setCopied(key);
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1100);
   };

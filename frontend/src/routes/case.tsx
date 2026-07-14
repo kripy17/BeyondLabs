@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { takePendingCaseEntry } from "@/lib/handoff";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker, guessType } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { ResultBanner, KeyFields, Empty } from "@/components/output";
@@ -158,7 +159,7 @@ function CasePage() {
   }, [active, entryFilter]);
 
   async function copyEntryBody(id: string, body: string) {
-    try { await navigator.clipboard.writeText(body); setCopiedEntryId(id); setTimeout(() => setCopiedEntryId(null), 1000); } catch { /* noop */ }
+    try { await copyText(body); setCopiedEntryId(id); setTimeout(() => setCopiedEntryId(null), 1000); } catch { /* noop */ }
   }
 
   useEffect(() => {
@@ -412,7 +413,7 @@ function CasePage() {
   }, [active]);
 
   async function copyMd() {
-    try { await navigator.clipboard.writeText(markdown); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch {/* noop */}
+    try { await copyText(markdown); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch {/* noop */}
   }
   function download() {
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
@@ -890,7 +891,7 @@ function CasePage() {
                   <>
                     <pre className="max-h-96 overflow-auto rounded bg-background/60 p-3 text-mono ba-text-sm text-foreground/90 whitespace-pre-wrap">{handoffReport}</pre>
                     <div className="mt-2 flex items-center gap-2">
-                      <button onClick={async () => { try { await navigator.clipboard.writeText(handoffReport); toast.success("Handoff report copied"); } catch {} }}
+                      <button onClick={async () => { try { await copyText(handoffReport); toast.success("Handoff report copied"); } catch {} }}
                         className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                         <Copy className="h-3 w-3" /> copy
                       </button>

@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
-
-export type Severity = "critical" | "high" | "medium" | "low" | "info";
+import { type Severity } from "@/lib/severity";
 
 const styles: Record<Severity, string> = {
   critical: "border-destructive/40 bg-destructive/15 text-destructive",

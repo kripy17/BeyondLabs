@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Copy, Eraser, Loader2, Play, Upload, type LucideIcon } from "lucide-react";
+import { copyText } from "@/lib/copy";
 import { Panel } from "@/components/soc";
 
 export type IntakeSample = { key: string; label: string; hint?: string };
@@ -73,7 +74,7 @@ export function IntakeCard({
   const handleCopy = async () => {
     if (!value) return;
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {/* noop */}

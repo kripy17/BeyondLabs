@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Copy, Check, Link2, FileCode } from "lucide-react";
+import { copyText } from "@/lib/copy";
 import { defang } from "@/lib/ioc-patterns";
 
 type CopyAsOption = "raw" | "defanged" | "markdown-link";
@@ -34,7 +35,7 @@ export function CopyAsDropdown({ value, label }: { value: string; label?: string
     if (opt === "defanged") text = defang(value);
     else if (opt === "markdown-link") text = `[${label || value}](${value.startsWith("http") ? value : `https://${value}`})`;
 
-    try { await navigator.clipboard.writeText(text); } catch {}
+    try { await copyText(text); } catch {}
     setCopied(opt);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => { setCopied(null); setOpen(false); }, 800);

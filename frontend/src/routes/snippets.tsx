@@ -6,6 +6,7 @@ import { Empty } from "@/components/output";
 import { Bookmark, Search, Plus, Copy, Check, Download, Upload, Trash2, Pencil, X, Save } from "lucide-react";
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
 
 export const Route = createFileRoute("/snippets")({ component: SnippetsPage });
 
@@ -99,7 +100,7 @@ function SnippetsPage() {
   }, [editName, editCategory, editContent, editTags, editing]);
 
   const copyText = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopied(id);
     setTimeout(() => setCopied(""), 1200);
   };

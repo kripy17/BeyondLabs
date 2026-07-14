@@ -10,8 +10,10 @@ import {
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
   Hash, ChevronDown, ChevronRight,
 } from "lucide-react";
+import { type Severity } from "@/lib/severity";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/siem")({ component: SiemPage });
@@ -19,10 +21,10 @@ export const Route = createFileRoute("/siem")({ component: SiemPage });
 type Event = {
   ts: string; min: number;
   src: string; dst: string; user: string; sig: string;
-  sev: "low" | "med" | "high" | "critical";
+  sev: Severity;
 };
 
-const SEV_TONE: Record<string, "default" | "warning" | "destructive"> = { low: "default", med: "warning", high: "destructive" };
+const SEV_TONE: Record<string, "default" | "warning" | "destructive"> = { low: "default", medium: "warning", high: "destructive" };
 
 const SAMPLE_TEXTS: Record<string, string> = {
   demo: `{"ts":"2025-01-15T10:15:01Z","src_ip":"45.33.32.156","user":"svc_db","message":"Failed password for svc_db from 45.33.32.156 port 22 ssh2"}
@@ -65,7 +67,7 @@ function backendToEvent(be: Record<string, unknown>, idx: number): Event {
     dst: String(be.dest_ip ?? be.destination_ip ?? "—"),
     user: String(be.user ?? "-"),
     sig: raw.slice(0, 120),
-    sev: (be.severity === "critical" || be.severity === "high" ? "high" : be.severity === "medium" ? "med" : "low") as Event["sev"],
+    sev: (be.severity === "critical" || be.severity === "high" ? "high" : be.severity === "medium" ? "medium" : "low") as Event["sev"],
   };
 }
 
@@ -127,7 +129,7 @@ function parsePastedEvents(raw: string, startMin: number): Event[] {
           dst: String(j.dst ?? j.dest_ip ?? j.destination ?? "—"),
           user: String(j.user ?? j.account ?? "-"),
           sig: String(j.sig ?? j.signature ?? j.alert?.signature ?? j.message ?? "—"),
-          sev: (j.sev ?? (j.severity === 1 ? "low" : j.severity === 2 ? "high" : "med")) as Event["sev"],
+          sev: (j.sev ?? (j.severity === 1 ? "low" : j.severity === 2 ? "high" : "medium")) as Event["sev"],
         });
         continue;
       } catch {}
@@ -135,7 +137,7 @@ function parsePastedEvents(raw: string, startMin: number): Event[] {
     const ips = line.match(IPV4) ?? [];
     const sigMatch = line.match(/(?:signature|alert|message)["\s:=]+([^"|,]+)/i);
     const userMatch = line.match(/(?:user|account|Account Name:)\s*([A-Za-z0-9_.-]+)/i);
-    const sev: Event["sev"] = /fail|error|alert|sqli|exploit/i.test(line) ? "high" : /warn/i.test(line) ? "med" : "low";
+    const sev: Event["sev"] = /fail|error|alert|sqli|exploit/i.test(line) ? "high" : /warn/i.test(line) ? "medium" : "low";
     out.push({
       ts: line.match(/\d{2}:\d{2}:\d{2}/)?.[0] ?? "—",
       min: m++,
@@ -170,7 +172,7 @@ function download(name: string, body: string, mime = "text/csv") {
 }
 
 function copy(val: string) {
-  navigator.clipboard?.writeText(val ?? "");
+  copyText(val ?? "");
 }
 
 /* ── Analysis engine ── */
@@ -386,16 +388,16 @@ function SiemPage() {
   }, [apiIocs, filtered]);
 
   const histo = useMemo(() => {
-    const bins = new Map<number, { min: number; high: number; med: number; low: number }>();
-    const sevKey = (s: string) => s === "critical" ? "high" : s as "high" | "med" | "low";
+    const bins = new Map<number, { min: number; high: number; medium: number; low: number }>();
+    const sevKey = (s: string): "high" | "medium" | "low" => s === "critical" ? "high" : s === "high" ? "high" : s === "medium" ? "medium" : "low";
     filtered.forEach((e) => {
-      const b = bins.get(e.min) ?? { min: e.min, high: 0, med: 0, low: 0 };
+      const b = bins.get(e.min) ?? { min: e.min, high: 0, medium: 0, low: 0 };
       b[sevKey(e.sev)]++;
       bins.set(e.min, b);
     });
     return Array.from(bins.values()).sort((a, b) => a.min - b.min);
   }, [filtered]);
-  const maxBin = Math.max(1, ...histo.map((b) => b.high + b.med + b.low));
+  const maxBin = Math.max(1, ...histo.map((b) => b.high + b.medium + b.low));
 
   const fieldSummary = useMemo(() => {
     return FIELDS.map((f) => {
@@ -453,7 +455,7 @@ function SiemPage() {
         has ? (
           <div className="flex items-center gap-1.5">
             <span className="inline-flex items-center gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-destructive">{filtered.filter((e: any) => e.sev === "high").length}</span>
-            <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-warning">{filtered.filter((e: any) => e.sev === "med" || e.sev === "medium").length}</span>
+            <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-warning">{filtered.filter((e: any) => e.sev === "medium").length}</span>
             <span className="inline-flex items-center gap-1 rounded border border-divider-strong bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground">{filtered.filter((e: any) => e.sev === "low").length}</span>
           </div>
         ) : undefined
@@ -638,13 +640,13 @@ function SiemPage() {
         ) : (
           <div className="flex items-end gap-1.5">
             {histo.map((b) => {
-              const total = b.high + b.med + b.low;
+              const total = b.high + b.medium + b.low;
               return (
                 <div key={b.min} className="flex flex-1 flex-col items-center gap-1">
                   <div className="flex h-28 w-full items-end overflow-hidden rounded border border-divider-soft bg-background/40">
                     <div className="flex w-full flex-col-reverse" style={{ height: `${(total / maxBin) * 100}%` }}>
                       {b.high > 0 && <div className="bg-destructive/80" style={{ flex: b.high }} title={`high: ${b.high}`} />}
-                      {b.med  > 0 && <div className="bg-warning/80"     style={{ flex: b.med  }} title={`med:  ${b.med}`} />}
+                      {b.medium  > 0 && <div className="bg-warning/80"     style={{ flex: b.medium  }} title={`medium:  ${b.medium}`} />}
                       {b.low  > 0 && <div className="bg-success/70"     style={{ flex: b.low  }} title={`low:  ${b.low}`} />}
                     </div>
                   </div>

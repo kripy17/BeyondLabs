@@ -7,6 +7,9 @@ import { Search, Copy, Check, Download, Hash, AlertTriangle, ExternalLink, Filte
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
+import { sendToCase } from "@/lib/handoff";
+import { usePanelNav } from "@/lib/usePanelNav";
 
 export const Route = createFileRoute("/hash-lookup")({ component: HashLookupPage });
 
@@ -114,6 +117,12 @@ function HashLookupPage() {
     return validHashes.map(mockResult);
   }, [validHashes, lookedUp]);
 
+  const items = results;
+  const { index: selectedIndex } = usePanelNav(items, {
+    onCopy: (item) => copyText(item.hash),
+    onAttach: (item) => sendToCase({ body: JSON.stringify(item), source: "/hash-lookup", kind: "evidence" }),
+  });
+
   function handleLookup() {
     if (validHashes.length === 0) return;
     setLookedUp(true);
@@ -140,7 +149,7 @@ function HashLookupPage() {
   function copyAllByVerdict(verdict: Verdict) {
     const texts = results.filter(r => r.verdict === verdict).map(r => r.hash);
     if (texts.length === 0) { toast("No hashes with this verdict"); return; }
-    navigator.clipboard.writeText(texts.join("\n"));
+    copyText(texts.join("\n"));
     setCopyAllVerdict(verdict);
     setTimeout(() => setCopyAllVerdict(null), 1200);
     toast(`Copied ${texts.length} ${verdict} hashes`);
@@ -253,8 +262,8 @@ function HashLookupPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {results.map((r, i) => (
-                    <tr key={i} className="group hover:bg-card/30">
+                    {results.map((r, i) => (
+                    <tr key={i} className={`group hover:bg-card/30${selectedIndex === i ? " bg-primary/5" : ""}`}>
                       <td className="px-3 py-2">
                         <code className="font-mono text-sm text-foreground/90">{r.hash.slice(0, 20)}…</code>
                       </td>
@@ -273,7 +282,7 @@ function HashLookupPage() {
                             className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary" title="Add to locker">
                             <Database className="h-3 w-3" />
                           </button>
-                          <button onClick={() => { navigator.clipboard.writeText(r.hash); setCopied(r.hash); setTimeout(() => setCopied(""), 1200); }}
+                          <button onClick={() => { copyText(r.hash); setCopied(r.hash); setTimeout(() => setCopied(""), 1200); }}
                             className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary">
                             {copied === r.hash ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
                           </button>

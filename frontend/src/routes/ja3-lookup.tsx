@@ -6,6 +6,9 @@ import { Search, Fingerprint, Monitor, Copy, Check, Database } from "lucide-reac
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
+import { sendToCase } from "@/lib/handoff";
+import { usePanelNav } from "@/lib/usePanelNav";
 
 export const Route = createFileRoute("/ja3-lookup")({ component: Ja3LookupPage });
 
@@ -97,6 +100,12 @@ function Ja3LookupPage() {
     if (ja3Query) pushTimelineEvent({ source: "ja3-lookup", verb: "searched", detail: `ja3: ${ja3Query}`, result: `${ja3Filtered.length} results` });
   }, [ja3Filtered]);
 
+  const items = ja3Filtered;
+  const { index: selectedIndex } = usePanelNav(items, {
+    onCopy: (item) => copyText(item.hash),
+    onAttach: (item) => sendToCase({ body: JSON.stringify(item), source: "/ja3-lookup", kind: "evidence" }),
+  });
+
   const ja3Stats = useMemo(() => ({
     total: JA3_DB.length,
     ja3: JA3_DB.filter((e) => e.type === "JA3").length,
@@ -123,7 +132,7 @@ function Ja3LookupPage() {
 
   function copyAll(entries: { hash: string }[]) {
     const text = entries.map((e) => e.hash).join("\n");
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopiedHash("__all__");
     setTimeout(() => setCopiedHash(""), 1200);
   }
@@ -174,7 +183,7 @@ function Ja3LookupPage() {
               <thead><tr className="border-b border-border text-left text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground"><th className="px-3 py-2">Hash</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Malware</th><th className="px-3 py-2">First Seen</th><th className="px-3 py-2">Last Seen</th><th className="px-3 py-2 w-10"></th><th className="px-3 py-2 w-10"></th></tr></thead>
               <tbody className="divide-y divide-border/50">
                 {ja3Filtered.map((e, i) => (
-                  <tr key={i} className="group hover:bg-card/30">
+                  <tr key={i} className={`group hover:bg-card/30${selectedIndex === i ? " bg-primary/5" : ""}`}>
                     <td className="px-3 py-2"><code className="font-mono text-[11px] text-foreground/90">{e.hash.slice(0, 32)}…</code></td>
                     <td className="px-3 py-2"><Chip tone={e.type === "JA4" ? "warning" : "primary"}>{e.type}</Chip></td>
                     <td className="px-3 py-2"><span className="font-mono text-sm text-foreground/90">{e.malware}</span></td>
@@ -187,7 +196,7 @@ function Ja3LookupPage() {
                       </button>
                     </td>
                     <td className="px-3 py-2">
-                      <button onClick={() => { navigator.clipboard.writeText(e.hash); setCopiedHash(e.hash); setTimeout(() => setCopiedHash(""), 1200); }}
+                      <button onClick={() => { copyText(e.hash); setCopiedHash(e.hash); setTimeout(() => setCopiedHash(""), 1200); }}
                         className="opacity-0 group-hover:opacity-100 grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-primary transition-all">
                         {copiedHash === e.hash ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
                       </button>

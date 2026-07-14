@@ -7,6 +7,7 @@ import { takePendingArtifact } from "@/lib/handoff";
 import { emailOsint, socialLinksFinder, usernameOsint, getLocalOsintTools, runLocalOsintTool, runMaigret, runTheHarvester } from "@/api/backend";
 import { useLocker } from "@/lib/locker";
 import { Search, ExternalLink, Globe as Globe2, ArrowRight, Zap, Database, Terminal, ShieldAlert, Award, Network, ScrollText, KeyRound, History, Copy, Check, Pin, PinOff, Hash, AtSign, Server, FileText, ShieldCheck, Download } from "lucide-react";
+import { copyText } from "@/lib/copy";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -274,7 +275,7 @@ export function OsintTools({ showSectionBars = true }: { showSectionBars?: boole
     commit(v);
   }
   function copy(text: string, key: string) {
-    navigator.clipboard?.writeText(text);
+    copyText(text);
     setCopied(key);
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1100);
   }

@@ -11,6 +11,7 @@ import { Globe as Globe2, Search, ShieldAlert, Database, ArrowRight, Zap, Server
 import { passiveRecon } from "@/api/backend";
 import { sendToCase } from "@/lib/handoff";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
 
 export const Route = createFileRoute("/recon")({ component: ReconPage });
 
@@ -333,7 +334,7 @@ function ReconPage() {
                     </div>
                   </div>
                 )}
-                <button onClick={() => navigator.clipboard.writeText((result.whois as any).raw)} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw WHOIS</button>
+                <button onClick={() => copyText((result.whois as any).raw)} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw WHOIS</button>
               </div>
             </Panel>
           )}
@@ -345,7 +346,7 @@ function ReconPage() {
                 ...((result.rdap as any).organization ? [{ label: "Organization", value: (result.rdap as any).organization }] : []),
                 ...((result.rdap as any).name ? [{ label: "Name", value: (result.rdap as any).name }] : []),
               ]} />
-              <button onClick={() => navigator.clipboard.writeText((result.rdap as any).raw)} className="mt-2 inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw RDAP</button>
+              <button onClick={() => copyText((result.rdap as any).raw)} className="mt-2 inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy raw RDAP</button>
             </Panel>
           )}
 
@@ -550,7 +551,7 @@ function ReconPage() {
                 <button
                   onClick={() => {
                     const md = genMarkdownExport(result, target, signals);
-                    try { navigator.clipboard.writeText(md); } catch {/* noop */}
+                    try { copyText(md); } catch {/* noop */}
                   }}
                   className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-2.5 py-1.5 text-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >
@@ -577,7 +578,7 @@ function ReconPage() {
           <SectionBar id="OT" label="OSINT Tool Links" meta={`${osintKind} · ${result?.target?.hostname ? "auto" : "from target"}`} priority="secondary" />
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <button onClick={() => { locker.add({ value: osintTarget, type: osintKind, source: "/recon" }); toast(`Added ${osintTarget} to locker`); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Hash className="h-3 w-3" /> locker target</button>
-            <button onClick={() => { const links = OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `${t.label}: ${t.href(osintTarget)}`).join("\n"); navigator.clipboard.writeText(links); toast("Copied all OSINT links"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy all links</button>
+            <button onClick={() => { const links = OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `${t.label}: ${t.href(osintTarget)}`).join("\n"); copyText(links); toast("Copied all OSINT links"); }} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Copy className="h-3 w-3" /> copy all links</button>
             <button onClick={() => sendToCase({ body: `OSINT pivot links for ${osintTarget}\n\n${OSINT_TOOLS.filter(t => t.supports.includes(osintKind)).map(t => `- [${t.label}](${t.href(osintTarget)})`).join("\n")}`, source: "/recon", kind: "evidence" })} className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-1 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"><Database className="h-3 w-3" /> send to case</button>
           </div>
           <Panel title="External Service Pivots" icon={ExternalLink} priority="secondary" collapsible storageKey="ba.panel.recon.osint-links">

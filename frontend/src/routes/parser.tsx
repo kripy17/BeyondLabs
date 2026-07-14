@@ -13,6 +13,7 @@ import {
 import { SUSPICIOUS_TLDS, SHORTENERS, LOLBINS, DOWNLOAD_CRADLES, AMSI_BYPASS_PATTERNS, refang, defang, entropy, scanSecrets, type Secret } from "@/lib/ioc-patterns";
 import { useLocker, type LockerItem } from "@/lib/locker";
 import { IocChip } from "@/components/IocChip";
+import { copyText } from "@/lib/copy";
 import { AttachButton } from "@/components/AttachButton";
 import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 import { usePanelNav } from "@/lib/usePanelNav";
@@ -387,7 +388,7 @@ function ParserPage() {
     return () => clearTimeout(timer);
   }, [input, pushRecent]);
 
-  const copy = (k: string, txt: string) => { try { navigator.clipboard.writeText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
+  const copy = (k: string, txt: string) => { try { copyText(txt); } catch {/* noop */} setCopied(k); setTimeout(() => setCopied(""), 1200); };
 
   const kinds = useMemo(() => result ? Object.entries(result.iocs).filter(([, v]) => v.length) : [], [result]);
   const visible = useMemo(() => result ? (tab === "ALL" ? kinds : kinds.filter(([k]) => k === tab)) : [], [result, tab, kinds]);
@@ -402,7 +403,7 @@ function ParserPage() {
   const navigate = useNavigate();
   const { selected: selectedIoc } = usePanelNav(flatIocs, {
     onCopy: (item) => {
-      navigator.clipboard.writeText(transform(item.value));
+      copyText(transform(item.value));
       toast.success("Copied");
     },
     onEnrich: (item) => {
@@ -1025,7 +1026,7 @@ function ParserPage() {
               <button onClick={() => { const json = genJsonExport(input, result.iocs, result.signals, result.total, result.family, result.primary, result.secrets, result.cmds, result.mitre); const blob = new Blob([json], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `parser-report-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/50 bg-primary/10 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/20">
                 <Download className="h-3.5 w-3.5" /> Download JSON
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(reportMd); setCopied("report"); setTimeout(() => setCopied(""), 1200); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
+              <button onClick={() => { copyText(reportMd); setCopied("report"); setTimeout(() => setCopied(""), 1200); }} className="group inline-flex w-full items-center justify-center gap-2 rounded border border-primary/30 bg-primary/5 px-4 py-2 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-all hover:bg-primary/15">
                 {copied === "report" ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} {copied === "report" ? "Copied" : "Copy Summary"}
               </button>
               <p className="mt-2 text-[11px] text-muted-foreground">Includes all indicators, signals, secrets, and MITRE mapping.</p>

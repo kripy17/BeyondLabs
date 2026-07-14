@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { copyText } from "@/lib/copy";
 import { Copy, Check, X, Download, WrapText, ArrowDownToLine } from "lucide-react";
 
 type Props = {
@@ -68,7 +69,7 @@ export function TerminalOutput({ command, body, stderr, status, onClear, filenam
 
   async function copy(key: string, text: string) {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopied(key);
       setTimeout(() => setCopied(null), 1200);
     } catch {

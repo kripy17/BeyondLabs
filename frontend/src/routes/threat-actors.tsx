@@ -6,6 +6,7 @@ import { Empty } from "@/components/output";
 import { Search, Copy, Check, Users, Download, Eye, ArrowLeft } from "lucide-react";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker, guessType } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
 
 export const Route = createFileRoute("/threat-actors")({ component: ThreatActorsPage });
 
@@ -195,7 +196,7 @@ function ThreatActorsPage() {
                 actions={
                   <div className="flex items-center gap-1">
                     <button onClick={() => exportAsMarkdown(selected)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground" title="Export as Markdown"><Download className="h-3 w-3" /> MD</button>
-                    <button onClick={() => { const json = JSON.stringify(selected, null, 2); navigator.clipboard.writeText(json); setCopied(selected.name); setTimeout(() => setCopied(""), 1200); }}
+                    <button onClick={() => { const json = JSON.stringify(selected, null, 2); copyText(json); setCopied(selected.name); setTimeout(() => setCopied(""), 1200); }}
                       className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                       {copied === selected.name ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> JSON</>}
                     </button>

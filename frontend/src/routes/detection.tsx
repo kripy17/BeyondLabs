@@ -6,9 +6,11 @@ import { KeyFields, EvidenceCard, TwoColumnOutput, VerdictBanner, MetricGrid, Co
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, Save, X, ListFilter, Info } from "lucide-react";
 import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule, translateSigma, listSigmaBackends } from "@/api/detection";
+import { type Severity } from "@/lib/severity";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
 
 const FMT_ICONS = { sigma: ScrollText, yara: FileSearch, kql: Terminal } as const;
@@ -29,7 +31,7 @@ type Tpl = {
   event: string;
   matcher: (event: string) => { hit: boolean; hits: string[] };
   technique: { id: string; name: string; tactic: string; platform: string; source: string };
-  severity: "low" | "medium" | "high" | "critical";
+  severity: Severity;
 };
 
 type MitreMatch = { technique_id: string; technique: string; tactic: string; confidence: string; matched_keywords?: string[] };
@@ -252,7 +254,7 @@ function DetectionPage() {
   const [mitreError, setMitreError] = useState<string | null>(null);
 
   const [genDescription, setGenDescription] = useState("");
-  const [genSeverity, setGenSeverity] = useState<string>("medium");
+  const [genSeverity, setGenSeverity] = useState<Severity>("medium");
   const [genLoading, setGenLoading] = useState(false);
   const [genResult, setGenResult] = useState<GenResult | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
@@ -407,7 +409,7 @@ function DetectionPage() {
     }
   };
 
-  const copy = () => { try { navigator.clipboard.writeText(rule); } catch {/* noop */} setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  const copy = () => { try { copyText(rule); } catch {/* noop */} setCopied(true); setTimeout(() => setCopied(false), 1200); };
   const clearMitre = () => setMitreResults(null);
 
   const ruleLines = rule.split("\n");
@@ -539,10 +541,10 @@ function DetectionPage() {
                   severity
                   <select
                     value={genSeverity}
-                    onChange={(e) => setGenSeverity(e.target.value)}
+                    onChange={(e) => setGenSeverity(e.target.value as Severity)}
                     className="rounded border border-border bg-background/60 px-2 py-1 text-mono ba-text-base text-foreground"
                   >
-                    <option value="informational">informational</option>
+                    <option value="info">info</option>
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
@@ -937,7 +939,7 @@ function DetectionPage() {
         {/* Report */}
         <Panel title="Report (markdown)" priority="secondary" collapsible defaultCollapsed actions={
           <div className="flex items-center gap-1">
-            <button onClick={() => { const md = genReport(tpl, result, rule); navigator.clipboard.writeText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
+            <button onClick={() => { const md = genReport(tpl, result, rule); copyText(md); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Copy className="h-3 w-3" /> copy</button>
             <button onClick={() => { const md = genReport(tpl, result, rule); const blob = new Blob([md], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `detection-${tpl.technique.id}-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url); }} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button>
           </div>
         }>
@@ -977,7 +979,7 @@ function DetectionPage() {
               {idsShowPanel && idsRule && (
                 <div className="rounded border border-border/50 bg-background/60 p-3">
                   <pre className="overflow-x-auto text-mono ba-text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{idsRule}</pre>
-                  <button onClick={() => { navigator.clipboard.writeText(idsRule); setIdsCopied(true); setTimeout(() => setIdsCopied(false), 1200); }} className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                  <button onClick={() => { copyText(idsRule); setIdsCopied(true); setTimeout(() => setIdsCopied(false), 1200); }} className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">
                     {idsCopied ? <><Check className="h-3 w-3" /> copied</> : <><Copy className="h-3 w-3" /> copy rule</>}
                   </button>
                 </div>
@@ -1022,7 +1024,7 @@ function DetectionPage() {
                         <div key={i} className="group relative rounded border border-border/50 bg-card/40 p-2.5">
                           <pre className="overflow-x-auto text-mono ba-text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap pr-8">{q}</pre>
                           <button
-                            onClick={() => { navigator.clipboard.writeText(q); setSigmaTransCopied(true); setTimeout(() => setSigmaTransCopied(false), 1200); }}
+                            onClick={() => { copyText(q); setSigmaTransCopied(true); setTimeout(() => setSigmaTransCopied(false), 1200); }}
                             className="absolute right-1.5 top-1.5 rounded border border-border/50 bg-card/60 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
                           >
                             {sigmaTransCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

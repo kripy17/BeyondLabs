@@ -8,6 +8,8 @@ import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc
 import { PreviewBadge } from "@/components/PreviewBadge";
 import { sendArtifact, takePendingArtifact } from "@/lib/handoff";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
+import { useLocker } from "@/lib/locker";
 import { toast } from "sonner";
 import { PanelSkeleton } from "@/components/Skeleton";
 import { TerminalOutput } from "@/components/soc/TerminalOutput";
@@ -409,6 +411,7 @@ function saveHistory(h: HistoryEntry[]) {
 
 function HackingToolkitPage() {
   const { filterText, setFilterText, showFilter, setShowFilter, toggleFilter } = useOutputFilter();
+  const locker = useLocker();
   const [cats, setCats] = useState<BackendCategory[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [backendError, setBackendError] = useState<string | null>(null);
@@ -665,7 +668,7 @@ function HackingToolkitPage() {
   }
 
   async function copyText(key: string, text: string) {
-    try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1200); } catch {}
+    try { await copyText(text); setCopied(key); setTimeout(() => setCopied(null), 1200); } catch {}
   }
 
   const presets = activeTool ? (PRESETS[activeTool.id] ?? []) : [];
@@ -1170,6 +1173,53 @@ function HackingToolkitPage() {
                               <Field label="presets" value={String(presets.length)} tone={presets.length ? "primary" : "muted"} />
                               <Field label="installed" value={activeTool.installed ? "yes" : "no"} tone={activeTool.installed ? "success" : "warning"} />
                               <Field label="pinned" value={pinned.has(activeTool.id) ? "yes" : "no"} tone={pinned.has(activeTool.id) ? "success" : "muted"} />
+                            </div>
+                          </Panel>
+                        </div>
+                        <div className="mt-3">
+                          <Panel title="IOC Locker" icon={Terminal} collapsible storageKey="ba.panel.hacking.iocs" defaultCollapsed>
+                            <div className="flex flex-wrap gap-2 p-3">
+                              <button
+                                onClick={() => {
+                                  const text = output?.body ?? "";
+                                  const ips = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [];
+                                  const unique = [...new Set(ips)];
+                                  unique.forEach(ip => locker.add({ value: ip, type: "ipv4", source: "/hacking-toolkit" }));
+                                  toast(`Sent ${unique.length} IPs to locker`);
+                                }}
+                                className="rounded border border-border bg-background/60 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-foreground/85 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                              >
+                                IPs → locker
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const text = output?.body ?? "";
+                                  const domains = text.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+/g) ?? [];
+                                  const unique = [...new Set(domains)];
+                                  unique.forEach(d => locker.add({ value: d, type: "domain", source: "/hacking-toolkit" }));
+                                  toast(`Sent ${unique.length} domains to locker`);
+                                }}
+                                className="rounded border border-border bg-background/60 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-foreground/85 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                              >
+                                Domains → locker
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const text = output?.body ?? "";
+                                  const ips = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [];
+                                  const domains = text.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+/g) ?? [];
+                                  const hashes = text.match(/\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b/gi) ?? [];
+                                  const all = [...new Set([...ips, ...domains, ...hashes])];
+                                  all.forEach(v => {
+                                    const type = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) ? "ipv4" : /^[a-f0-9]{32}$/i.test(v) ? "md5" : /^[a-f0-9]{40}$/i.test(v) ? "sha1" : /^[a-f0-9]{64}$/i.test(v) ? "sha256" : "domain";
+                                    locker.add({ value: v, type: type as any, source: "/hacking-toolkit" });
+                                  });
+                                  toast(`Sent ${all.length} IOCs to locker`);
+                                }}
+                                className="rounded border border-border bg-background/60 px-2.5 py-1 text-mono text-[10px] uppercase tracking-widest text-foreground/85 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                              >
+                                All IOCs → locker
+                              </button>
                             </div>
                           </Panel>
                         </div>

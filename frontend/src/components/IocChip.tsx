@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { sendArtifact, sendToCase } from "@/lib/handoff";
+import { copyText } from "@/lib/copy";
 import { Copy, ArrowRight, Radar, Globe2, ShieldAlert, Database, Terminal, Link2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
@@ -104,7 +105,7 @@ export function IocChip({ kind, value, className }: { kind: IocKind; value: stri
           <div className="px-2 py-1 text-[9px] uppercase tracking-widest text-muted-foreground">{kind} · handoff</div>
           <button
             type="button"
-            onClick={() => { navigator.clipboard.writeText(value); setOpen(false); toast("Copied"); }}
+            onClick={() => { copyText(value); setOpen(false); toast("Copied"); }}
             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-mono text-[11px] text-foreground hover:bg-accent"
           >
             <Copy className="h-3 w-3 text-muted-foreground" /> Copy

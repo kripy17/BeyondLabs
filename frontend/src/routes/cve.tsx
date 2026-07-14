@@ -7,6 +7,9 @@ import { Search, Copy, Check, ChevronLeft, ChevronRight, Database } from "lucide
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
+import { sendToCase } from "@/lib/handoff";
+import { usePanelNav } from "@/lib/usePanelNav";
 
 export const Route = createFileRoute("/cve")({ component: CvePage });
 
@@ -113,6 +116,12 @@ function CvePage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
+  const items = paged;
+  const { index: selectedIndex } = usePanelNav(items, {
+    onCopy: (item) => copyText(item.id),
+    onAttach: (item) => sendToCase({ body: JSON.stringify(item), source: "/cve", kind: "evidence" }),
+  });
+
   useEffect(() => { setPage(0); }, [query, selectedVendor, severityFilter, sortBy]);
 
   const stats = useMemo(() => ({
@@ -174,8 +183,8 @@ function CvePage() {
       </div>
 
       <div className="space-y-2">
-        {paged.map((cve) => (
-          <div key={cve.id} className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/30">
+        {paged.map((cve, i) => (
+          <div key={cve.id} className={`rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/30${selectedIndex === i ? " ring-1 ring-primary/50" : ""}`}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -184,7 +193,7 @@ function CvePage() {
                     className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Add to locker">
                     <Database className="h-3 w-3" />
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(cve.id); setCopiedId(cve.id); setTimeout(() => setCopiedId(""), 1200); }}
+                  <button onClick={() => { copyText(cve.id); setCopiedId(cve.id); setTimeout(() => setCopiedId(""), 1200); }}
                     className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Copy CVE ID">
                     {copiedId === cve.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}

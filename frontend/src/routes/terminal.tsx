@@ -10,6 +10,9 @@ import {
   Terminal as TerminalIcon, Plug, PlugZap, RefreshCw, Trash2, Download, Plus, X,
 } from "lucide-react";
 import { pushTimelineEvent } from "@/lib/timeline";
+import { useLocker } from "@/lib/locker";
+import { sendToCase } from "@/lib/handoff";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/terminal")({ component: TerminalPage });
 
@@ -258,6 +261,7 @@ function TerminalPage() {
   const [historySearch, setHistorySearch] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const locker = useLocker();
   const [backendUrl, setLocalUrl] = useState(() => getBackendUrl());
   const [status, setStatus] = useState<BackendStatus>("unknown");
 
@@ -770,11 +774,26 @@ function TerminalPage() {
           <span>Tab complete</span>
           <span>·</span>
           <span>Ctrl+L clear</span>
+          <button
+            onClick={() => {
+              const text = activeSession.lines.map(l => l.text).join("\n");
+              const ips = [...new Set(text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [])];
+              const domains = [...new Set(text.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+/g) ?? [])];
+              const hashes = [...new Set(text.match(/\b[a-fA-F0-9]{32,64}\b/g) ?? [])];
+              ips.forEach(v => locker.add({ value: v, type: "ipv4", source: "/terminal" }));
+              domains.forEach(v => locker.add({ value: v, type: "domain", source: "/terminal" }));
+              hashes.forEach(v => locker.add({ value: v, type: v.length === 64 ? "sha256" : v.length === 40 ? "sha1" : "md5", source: "/terminal" }));
+              toast(`Added ${ips.length + domains.length + hashes.length} IOCs to locker`);
+            }}
+            className="ml-auto inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-2 py-0.5 text-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:bg-card/70 hover:text-foreground"
+          >
+            send IOCs to locker
+          </button>
         </div>
       </Panel>
 
       <SendToRow targets={[
-        { label: "Case Notebook", to: `/case?note=${encodeURIComponent(`Terminal session output:\n${activeSession.lines.slice(-30).map(l => l.text).join("\n")}`)}`, icon: TerminalIcon },
+        { label: "Case Notebook", to: "/case", icon: TerminalIcon, onClick: () => sendToCase({ body: `Terminal session output:\n${activeSession.lines.slice(-30).map(l => l.text).join("\n")}`, source: "/terminal", kind: "evidence" }) },
         { label: "Hacking Toolkit", to: "/hacking-toolkit", icon: TerminalIcon },
         { label: "Logs & Alerts", to: "/logs", icon: TerminalIcon },
       ]} />

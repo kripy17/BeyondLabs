@@ -3,7 +3,9 @@ import { useMemo, useState, useEffect } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { VerdictBanner, MetricGrid } from "@/components/output";
-import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio } from "lucide-react";
+import { useLocker, guessType } from "@/lib/locker";
+import { toast } from "sonner";
+import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio, Hash } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
 
@@ -163,6 +165,7 @@ const PLAYBOOKS: Playbook[] = [
 const SEV_COLOR: Record<Severity, "destructive" | "warning" | "default"> = { P1: "destructive", P2: "warning", P3: "default" };
 
 function GuidePage() {
+  const locker = useLocker();
   const [activeId, setActiveId] = useState<string>(PLAYBOOKS[0].id);
   const [query, setQuery] = useState("");
   const [sev, setSev] = useState<Severity | "ALL">("ALL");
@@ -204,12 +207,29 @@ function GuidePage() {
   const counts: Record<Severity, number> = { P1: 0, P2: 0, P3: 0 };
   PLAYBOOKS.forEach((p) => { counts[p.severity] += 1; });
 
+  const handleExtractIocs = () => {
+    const text = PLAYBOOKS.map((p) => [p.title, p.summary, ...p.attack, ...p.steps.map((s) => s.text)].join(" ")).join(" ");
+    const ipRx = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+    const domainRx = /[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+/gi;
+    const ips = [...new Set(text.match(ipRx) ?? [])];
+    const rawDomains = [...new Set(text.match(domainRx) ?? [])];
+    const domains = rawDomains.filter((d) => !ips.includes(d) && guessType(d) === "domain");
+    ips.forEach((v) => locker.add({ value: v, type: "ipv4", source: "/guide" }));
+    domains.forEach((v) => locker.add({ value: v, type: "domain", source: "/guide" }));
+    toast(`Extracted ${ips.length + domains.length} IOCs to locker`);
+  };
+
   return (
     <PageShell
       eyebrow="DETECTION / GUIDE"
       title="SOC Playbook Guide"
       description="Bite-sized response playbooks — pick a scenario, work the steps, pivot into the right tool."
       crumbs={[{ label: "Detection" }, { label: "Guide" }]}
+      actions={
+        <button onClick={handleExtractIocs} className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20" title="Extract IOCs from playbook content">
+          <Hash className="h-3.5 w-3.5" /> extract iocs
+        </button>
+      }
     >
       {/* Verdict Banner */}
       <VerdictBanner

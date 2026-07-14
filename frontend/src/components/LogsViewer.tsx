@@ -4,6 +4,7 @@ import { StatusBar, ResultBanner, Empty, KeyFields, EvidenceCard } from "@/compo
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { BulkActionBar, useSelection } from "@/components/soc/BulkActionBar";
 import { parseLogs } from "@/api/backend";
+import { copyText } from "@/lib/copy";
 import {
   Database, FileText, ArrowRight, Zap, ShieldAlert, Activity, ListFilter,
   Download, X, Clock, Crosshair, Bug, Hash, ChevronDown, ChevronRight, Loader2,
@@ -142,7 +143,7 @@ function download(name: string, body: string, mime = "text/csv") {
 }
 
 function copy(val: string) {
-  navigator.clipboard?.writeText(val ?? "");
+  copyText(val ?? "");
 }
 
 /* ── Analysis engine ── */
@@ -648,7 +649,7 @@ export function LogsViewer({ showSectionBars = true }: { showSectionBars?: boole
             onSelectAll={() => findingSel.selectAll(findings.length)}
             onClear={findingSel.clear}
             actions={[
-              { label: "copy titles", icon: Copy, onClick: (indices) => { const txt = indices.map(i => findings[i].title).join("\n"); navigator.clipboard.writeText(txt); }, tone: "default" },
+              { label: "copy titles", icon: Copy, onClick: (indices) => { const txt = indices.map(i => findings[i].title).join("\n"); copyText(txt); }, tone: "default" },
               { label: "send to case", icon: Send, onClick: (indices) => { localStorage.setItem("beyondlabs.pendingArtifact", JSON.stringify({ type: "findings", content: indices.map(i => findings[i].title).join("\n"), source: "Logs & Alerts" })); }, tone: "primary" },
               { label: "select all", icon: Check, onClick: () => findingSel.selectAll(findings.length), tone: "default" },
             ]}

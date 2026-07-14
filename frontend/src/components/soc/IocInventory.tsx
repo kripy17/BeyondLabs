@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { copyText } from "@/lib/copy";
 import { Panel } from "@/components/soc";
 import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 
@@ -16,7 +17,7 @@ function IocBulkCopy({ values, label }: { values: string[]; label: string }) {
   return (
     <button
       onClick={() => {
-        navigator.clipboard.writeText(values.join("\n"));
+        copyText(values.join("\n"));
         setCopied(true);
         toast(`Copied ${values.length} ${label}`);
         setTimeout(() => setCopied(false), 2000);

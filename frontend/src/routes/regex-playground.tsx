@@ -6,6 +6,7 @@ import { Search, Copy, Check, Save, Trash2, Replace, Bug, Code2, Database } from
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
+import { copyText } from "@/lib/copy";
 
 export const Route = createFileRoute("/regex-playground")({ component: RegexPlaygroundPage });
 
@@ -223,7 +224,7 @@ function RegexPlaygroundPage() {
                     className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                     <Database className="h-3 w-3" /> all to locker
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(matches, null, 2)); setCopiedIdx(0); setTimeout(() => setCopiedIdx(-1), 1200); }}
+                  <button onClick={() => { copyText(JSON.stringify(matches, null, 2)); setCopiedIdx(0); setTimeout(() => setCopiedIdx(-1), 1200); }}
                     className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
                     {copiedIdx === 0 ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
                   </button>

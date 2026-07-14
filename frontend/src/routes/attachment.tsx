@@ -6,6 +6,7 @@ import { StatusBar, KeyFields, EvidenceCard, Empty, RiskScore, TwoColumnOutput, 
 import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { CopyInline } from "@/components/CopyButton";
+import { copyText } from "@/lib/copy";
 import { MailWarning as FileWarning, Hash, Database, ArrowRight, ShieldAlert, ExternalLink, Upload, Eraser, Download, Sigma, Binary, TriangleAlert as AlertTriangle, Activity, Copy, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { uploadMalwareFile } from "@/api/backend";
@@ -142,7 +143,7 @@ function AttachmentPage() {
           </button>
           {hashInput && (
             <button
-              onClick={() => { navigator.clipboard.writeText(hashInput); setHashCopied("hash"); setTimeout(() => setHashCopied(""), 1200); }}
+              onClick={() => { copyText(hashInput); setHashCopied("hash"); setTimeout(() => setHashCopied(""), 1200); }}
               className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary"
             >
               {hashCopied === "hash" ? <><Check className="h-3 w-3" /> copied</> : "Copy"}
@@ -251,7 +252,7 @@ function AttachmentPage() {
                   <code className="mt-1 block break-all rounded border border-border/50 bg-card/40 p-3 text-mono text-[12px] leading-relaxed text-foreground/90 select-all">{zoomedHash.value}</code>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => { try { navigator.clipboard.writeText(zoomedHash.value); } catch {/* noop */} setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
+                  <button onClick={() => { try { copyText(zoomedHash.value); } catch {/* noop */} setHashCopied(zoomedHash.algo); setTimeout(() => setHashCopied(""), 2000); }}
                     className="inline-flex items-center gap-1.5 rounded border border-border bg-card/60 px-3 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-foreground/80 hover:text-foreground">
                     {hashCopied === zoomedHash.algo ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {hashCopied === zoomedHash.algo ? "copied" : "copy hash"}
