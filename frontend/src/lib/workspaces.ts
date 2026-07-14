@@ -3,6 +3,7 @@ import {
   Activity, Wrench, Target, ShieldCheck, BookOpen, FileText,
   LayoutDashboard, Settings, Swords, Code2, Search, Hash,
   Fingerprint, Bug, Users, Shield, Globe, Bookmark, Clock,
+  Terminal, Network, User,
 } from "lucide-react";
 
 export type WorkspaceItem = {
@@ -24,6 +25,7 @@ export const GROUPS: WorkspaceGroup[] = [
     items: [
       { title: "Command Deck", url: "/", icon: LayoutDashboard, desc: "Workbench home", group: "Overview" },
       { title: "Activity Feed", url: "/activity", icon: Clock, desc: "Timeline of all tool runs & events", group: "Overview" },
+      { title: "Event Log", url: "/timeline", icon: Clock, desc: "Raw event log viewer", group: "Overview" },
     ],
   },
   {
@@ -38,12 +40,14 @@ export const GROUPS: WorkspaceGroup[] = [
     label: "Recon",
     items: [
       { title: "Recon & Exposure", url: "/recon", icon: Radar, desc: "Subdomains, certs, cloud surface", group: "Recon" },
+      { title: "Nmap Scanner",     url: "/nmap", icon: Network, desc: "Port scans & service discovery", group: "Recon" },
     ],
   },
   {
     label: "Investigate",
     items: [
       { title: "Smart Parser",      url: "/parser",     icon: Wand2,      desc: "Universal intake — parse & pivot IOCs", group: "Investigate" },
+      { title: "OSINT Investigation", url: "/osint",     icon: User,       desc: "Email, username, domain & phone lookups", group: "Investigate" },
       { title: "Phishing Triage",   url: "/phishing",   icon: MailWarning, desc: "Auth, headers, body verdict",           group: "Investigate" },
       { title: "URL Analyzer",      url: "/url",        icon: Link2,      desc: "Redirects, lists, reputation",          group: "Investigate" },
       { title: "Attachment Triage", url: "/attachment", icon: Paperclip,  desc: "Hashes, strings, markers",              group: "Investigate" },
@@ -65,6 +69,7 @@ export const GROUPS: WorkspaceGroup[] = [
     label: "Offensive",
     items: [
       { title: "Hacking Toolkit", url: "/hacking-toolkit", icon: Swords, desc: "Browse offensive tools & build commands", group: "Offensive" },
+      { title: "Tool Terminal", url: "/terminal", icon: Terminal, desc: "Run shell commands & tool scripts", group: "Offensive" },
     ],
   },
   {

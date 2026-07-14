@@ -775,6 +775,7 @@ function TerminalPage() {
 
       <SendToRow targets={[
         { label: "Case Notebook", to: `/case?note=${encodeURIComponent(`Terminal session output:\n${activeSession.lines.slice(-30).map(l => l.text).join("\n")}`)}`, icon: TerminalIcon },
+        { label: "Hacking Toolkit", to: "/hacking-toolkit", icon: TerminalIcon },
         { label: "Logs & Alerts", to: "/logs", icon: TerminalIcon },
       ]} />
     </PageShell>

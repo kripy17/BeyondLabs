@@ -1150,11 +1150,12 @@ function HackingToolkitPage() {
 
                         {target && (
                           <div className="mt-3">
-                            <SendToRow
+                             <SendToRow
                               targets={[
                                 { label: "OSINT Tools", to: "/osint", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                                 { label: "URL Analyzer", to: "/url", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                                 { label: "Recon", to: "/recon", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
+                                { label: "Tool Terminal", to: "/terminal", onClick: () => sendArtifact({ kind: "raw", value: target, source: "/hacking-toolkit" }) },
                               ]}
                             />
                           </div>

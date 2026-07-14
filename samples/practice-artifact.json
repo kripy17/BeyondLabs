@@ -1,0 +1,25 @@
+{
+  "title": "Suspicious JSON Artifact — Use with Smart Parser & CyberChef",
+  "description": "Base64-encoded block, embedded IPs, and suspicious URLs for parsing practice",
+  "meta": {
+    "source": "mail.security@evil-host.ru",
+    "subject": "Invoice past due — payment required",
+    "received": "2024-06-12T13:00:00Z"
+  },
+  "payload": "SFRUUC8xLjEgMjAwIE9LCkNvbnRlbnQtVHlwZTogdGV4dC9odG1sOwoKW1VSRz1odHRwOi8vMTg1LjIyMC4xMDEuNDQvZG9jcy9pbnZvaWNlLnBkZl1Eb3dubG9hZCBpbnZvaWNlWy9VUkxd",
+  "indicators": [
+    "185.220.101.44",
+    "45.33.32.156",
+    "evil-c2.example.com",
+    "update.evil-host.ru",
+    "pastebin.badrepo.org",
+    "a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8",
+    "4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
+  ],
+  "parsed_payload": {
+    "decoded": "HTTP/1.1 200 OK\nContent-Type: text/html;\n\n<a href='http://185.220.101.44/docs/invoice.pdf'>Download invoice</a>",
+    "urls": ["http://185.220.101.44/docs/invoice.pdf"],
+    "host": "185.220.101.44",
+    "ip": "185.220.101.44"
+  }
+}

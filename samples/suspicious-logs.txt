@@ -1,0 +1,35 @@
+=== PRACTICE DATA — SUSPICIOUS LOGS ===
+Use with: SIEM Workspace (/siem), Diff View (/diff), or Sigma Tester (/sigma-tester)
+
+--- Auth Logs (auth.log) ---
+Jun 12 10:15:22 web01 sshd[28471]: Failed password for root from 45.33.32.156 port 42912 ssh2
+Jun 12 10:15:23 web01 sshd[28472]: Failed password for root from 45.33.32.156 port 42918 ssh2
+Jun 12 10:15:24 web01 sshd[28473]: Failed password for admin from 45.33.32.156 port 42924 ssh2
+Jun 12 10:15:25 web01 sshd[28474]: Failed password for admin from 45.33.32.156 port 42930 ssh2
+Jun 12 10:15:26 web01 sshd[28475]: Failed password for deploy from 45.33.32.156 port 42936 ssh2
+Jun 12 10:15:27 web01 sshd[28476]: Failed password for deploy from 45.33.32.156 port 42942 ssh2
+Jun 12 10:15:28 web01 sshd[28477]: Failed password for www-data from 45.33.32.156 port 42948 ssh2
+Jun 12 10:15:29 web01 sshd[28478]: Failed password for www-data from 45.33.32.156 port 42954 ssh2
+Jun 12 10:15:30 web01 sshd[28479]: Failed password for postgres from 45.33.32.156 port 42960 ssh2
+Jun 12 10:15:31 web01 sshd[28480]: Failed password for postgres from 45.33.32.156 port 42966 ssh2
+Jun 12 10:15:32 web01 sshd[28481]: Failed password for ubuntu from 45.33.32.156 port 42972 ssh2
+Jun 12 10:15:33 web01 sshd[28482]: Failed password for ubuntu from 45.33.32.156 port 42978 ssh2
+
+--- Web Access Logs (access.log) ---
+192.168.1.50 - - [12/Jun/2024:10:20:00 +0000] "GET /wp-admin/admin-ajax.php HTTP/1.1" 200 1234 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+192.168.1.50 - - [12/Jun/2024:10:20:05 +0000] "POST /wp-login.php HTTP/1.1" 200 5678 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+192.168.1.50 - - [12/Jun/2024:10:20:10 +0000] "POST /wp-content/plugins/elementor/elementor.php HTTP/1.1" 500 234 "-" "Mozilla/5.0"
+192.168.1.50 - - [12/Jun/2024:10:20:15 +0000] "GET /wp-content/uploads/evil.php HTTP/1.1" 200 3456 "-" "Mozilla/5.0"
+192.168.1.50 - - [12/Jun/2024:10:20:20 +0000] "POST /wp-content/uploads/evil.php HTTP/1.1" 200 78 "-" "curl/7.88.1"
+
+--- Firewall Logs ---
+2024-06-12T10:25:00Z DROP IN=eth0 OUT= MAC=00:11:22:33:44:55 SRC=45.33.32.156 DST=10.0.0.5 LEN=40 TOS=0x00 TTL=117 ID=54321 DF PROTO=TCP SPT=443 DPT=4444 WINDOW=65535
+2024-06-12T10:25:01Z DROP IN=eth0 OUT= MAC=00:11:22:33:44:55 SRC=185.220.101.44 DST=10.0.0.5 LEN=52 TOS=0x00 TTL=112 ID=54322 DF PROTO=TCP SPT=8080 DPT=8443 WINDOW=65535
+2024-06-12T10:25:02Z DROP IN=eth0 OUT= MAC=00:11:22:33:44:55 SRC=45.33.32.156 DST=10.0.0.10 LEN=44 TOS=0x00 TTL=117 ID=54323 DF PROTO=TCP SPT=80 DPT=3389 WINDOW=65535
+2024-06-12T12:30:00Z ALLOW IN=eth0 OUT= MAC=00:11:22:33:44:55 SRC=10.0.0.50 DST=198.51.100.7 LEN=1400 TOS=0x00 TTL=64 ID=11111 PROTO=TCP SPT=443 DPT=4444
+
+--- DNS Logs ---
+Jun 12 10:30:00 dns-server named[1234]: client 10.0.0.50#54321: query: evil-c2.example.com IN A + (8.8.8.8)
+Jun 12 10:30:05 dns-server named[1234]: client 10.0.0.50#54322: query: pastebin.badrepo.org IN A + (8.8.8.8)
+Jun 12 10:30:10 dns-server named[1234]: client 10.0.0.50#54323: query: 185.220.101.44.in-addr.arpa IN PTR + (8.8.8.8)
+Jun 12 10:30:15 dns-server named[1234]: client 10.0.0.5#54324: query: update.evil-host.ru IN A + (8.8.8.8)
