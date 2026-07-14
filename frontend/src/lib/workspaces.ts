@@ -34,6 +34,7 @@ export const GROUPS: WorkspaceGroup[] = [
       { title: "Detection Workspace", url: "/detection", icon: ShieldCheck, desc: "Author & simulate Sigma/YARA", group: "Detection" },
       { title: "Detection & MITRE",   url: "/mitre",     icon: Target,      desc: "ATT&CK coverage & gaps",       group: "Detection" },
       { title: "SOC Guide",           url: "/guide",     icon: BookOpen,    desc: "Runbooks, playbooks",          group: "Detection" },
+      { title: "YARA/Sigma Tester",   url: "/sigma-tester", icon: Shield,  desc: "Test rules against samples",   group: "Detection" },
     ],
   },
   {
@@ -83,7 +84,6 @@ export const GROUPS: WorkspaceGroup[] = [
       { title: "Regex Playground", url: "/regex-playground", icon: Search, desc: "Build & test SOC regex patterns", group: "Tools" },
       { title: "Hash Lookup",     url: "/hash-lookup", icon: Hash, desc: "Batch hash reputation lookup", group: "Tools" },
       { title: "JA3/JA4 & UA",    url: "/ja3-lookup", icon: Fingerprint, desc: "TLS fingerprint & user-agent DB", group: "Tools" },
-      { title: "YARA/Sigma Tester", url: "/sigma-tester", icon: Shield, desc: "Test rules against samples", group: "Tools" },
       { title: "PCAP Analyzer",   url: "/pcap", icon: Globe, desc: "Quick pcap triage & CLI tools", group: "Tools" },
       { title: "Saved Snippets",  url: "/snippets", icon: Bookmark, desc: "SIEM queries, Sigma, regex & checklists", group: "Tools" },
     ],
