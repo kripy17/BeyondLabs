@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UrlRouteImport } from './routes/url'
+import { Route as TriageRouteImport } from './routes/triage'
 import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as ThreatActorsRouteImport } from './routes/threat-actors'
 import { Route as TerminalRouteImport } from './routes/terminal'
@@ -43,6 +44,11 @@ import { Route as ReportCaseIdRouteImport } from './routes/report.$caseId'
 const UrlRoute = UrlRouteImport.update({
   id: '/url',
   path: '/url',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TriageRoute = TriageRouteImport.update({
+  id: '/triage',
+  path: '/triage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TimelineRoute = TimelineRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/terminal': typeof TerminalRoute
   '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
+  '/triage': typeof TriageRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
 }
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/terminal': typeof TerminalRoute
   '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
+  '/triage': typeof TriageRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
 }
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/terminal': typeof TerminalRoute
   '/threat-actors': typeof ThreatActorsRoute
   '/timeline': typeof TimelineRoute
+  '/triage': typeof TriageRoute
   '/url': typeof UrlRoute
   '/report/$caseId': typeof ReportCaseIdRoute
 }
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/terminal'
     | '/threat-actors'
     | '/timeline'
+    | '/triage'
     | '/url'
     | '/report/$caseId'
   fileRoutesByTo: FileRoutesByTo
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/terminal'
     | '/threat-actors'
     | '/timeline'
+    | '/triage'
     | '/url'
     | '/report/$caseId'
   id:
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/terminal'
     | '/threat-actors'
     | '/timeline'
+    | '/triage'
     | '/url'
     | '/report/$caseId'
   fileRoutesById: FileRoutesById
@@ -416,6 +428,7 @@ export interface RootRouteChildren {
   TerminalRoute: typeof TerminalRoute
   ThreatActorsRoute: typeof ThreatActorsRoute
   TimelineRoute: typeof TimelineRoute
+  TriageRoute: typeof TriageRoute
   UrlRoute: typeof UrlRoute
   ReportCaseIdRoute: typeof ReportCaseIdRoute
 }
@@ -427,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/url'
       fullPath: '/url'
       preLoaderRoute: typeof UrlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/triage': {
+      id: '/triage'
+      path: '/triage'
+      fullPath: '/triage'
+      preLoaderRoute: typeof TriageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/timeline': {
@@ -664,6 +684,7 @@ const rootRouteChildren: RootRouteChildren = {
   TerminalRoute: TerminalRoute,
   ThreatActorsRoute: ThreatActorsRoute,
   TimelineRoute: TimelineRoute,
+  TriageRoute: TriageRoute,
   UrlRoute: UrlRoute,
   ReportCaseIdRoute: ReportCaseIdRoute,
 }

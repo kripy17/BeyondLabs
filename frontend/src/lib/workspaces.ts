@@ -3,7 +3,7 @@ import {
   Activity, Wrench, Target, ShieldCheck, BookOpen, FileText,
   LayoutDashboard, Settings, Swords, Code2, Search, Hash,
   Fingerprint, Bug, Users, Shield, Globe, Bookmark, Clock,
-  Terminal, Network, User,
+  Terminal, Network, User, ListChecks,
 } from "lucide-react";
 
 export type WorkspaceItem = {
@@ -63,6 +63,7 @@ export const GROUPS: WorkspaceGroup[] = [
     label: "SIEM",
     items: [
       { title: "SIEM Workspace", url: "/siem", icon: Activity, desc: "Search, correlate, pivot", group: "SIEM" },
+      { title: "Triage Queue", url: "/triage", icon: ListChecks, desc: "Review & disposition events", group: "SIEM" },
     ],
   },
   {

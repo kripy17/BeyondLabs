@@ -4,6 +4,8 @@ import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { VerdictBanner, MetricGrid } from "@/components/output";
 import { useLocker, guessType } from "@/lib/locker";
+import { pushTimelineEvent } from "@/lib/timeline";
+import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
 import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio, Hash, Download } from "lucide-react";
 
@@ -230,6 +232,7 @@ function GuidePage() {
     const domains = rawDomains.filter((d) => !ips.includes(d) && guessType(d) === "domain");
     ips.forEach((v) => locker.add({ value: v, type: "ipv4", source: "/guide" }));
     domains.forEach((v) => locker.add({ value: v, type: "domain", source: "/guide" }));
+    pushTimelineEvent({ source: "guide", verb: "extracted", detail: `Extracted ${ips.length} IPs and ${domains.length} domains from playbooks`, result: `${ips.length + domains.length} IOCs` });
     toast(`Extracted ${ips.length + domains.length} IOCs to locker`);
   };
 
