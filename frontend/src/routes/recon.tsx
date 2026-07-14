@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
 import { StatusBar, KeyFields, Empty, EvidenceCard, TwoColumnOutput, MetricGrid, CollapsibleSection } from "@/components/output";
@@ -186,6 +186,20 @@ function ReconPage() {
   const locker = useLocker();
   const [result, setResult] = useState<ReconApiResult | null>(null);
 
+  const handleClear = useCallback(() => {
+    setTarget("");
+    setResult(null);
+    setError(null);
+    toast("Cleared");
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClear]);
 
   const dns = result ? flattenDns(result.dns) : null;
   const http = result ? getHttp(result.http) : null;

@@ -4,7 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { Panel, SectionBar, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { getTimelineEvents, clearTimeline, type TimelineEvent } from "@/lib/timeline";
-import { Trash2, Clock, Filter, Search, X } from "lucide-react";
+import { Trash2, Clock, Filter, Search, X, Download } from "lucide-react";
 
 export const Route = createFileRoute("/timeline")({ component: TimelinePage });
 
@@ -99,6 +99,28 @@ function TimelinePage() {
     setRefreshKey((k) => k + 1);
   }
 
+  function handleExport() {
+    const md = [
+      "# Investigation Timeline",
+      "",
+      `**Total events:** ${events.length} · **Filter:** ${filterSource || "all"} · **Generated:** ${new Date().toISOString()}`,
+      "",
+      ...grouped.flatMap(([group, items]) => [
+        `## ${group} (${items.length} events)`,
+        "",
+        ...items.map((e) => {
+          const ts = new Date(e.ts).toLocaleString();
+          return `- **${ts}** — \`${e.source}\` **${e.verb}** — ${e.detail}${e.target ? ` \`${e.target}\`` : ""}${e.result ? ` → ${e.result}` : ""}`;
+        }),
+        "",
+      ]),
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `timeline-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="OPS / TIMELINE"
@@ -111,9 +133,14 @@ function TimelinePage() {
       ]}
       actions={
         getTimelineEvents().length > 0 ? (
-          <button onClick={handleClear} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-destructive hover:bg-destructive/20">
-            <Trash2 className="h-3 w-3" /> clear timeline
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+              <Download className="h-3 w-3" /> md
+            </button>
+            <button onClick={handleClear} className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-mono ba-text-2xs uppercase tracking-widest text-destructive hover:bg-destructive/20">
+              <Trash2 className="h-3 w-3" /> clear timeline
+            </button>
+          </div>
         ) : undefined
       }
     >

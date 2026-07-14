@@ -5,7 +5,7 @@ import { SectionBar, Chip } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { getTimelineEvents, clearTimeline, type TimelineEvent } from "@/lib/timeline";
 import { toast } from "sonner";
-import { Activity, Search, Trash2, RefreshCw } from "lucide-react";
+import { Activity, Search, Trash2, RefreshCw, Download } from "lucide-react";
 
 export const Route = createFileRoute("/activity")({ component: ActivityPage });
 
@@ -92,6 +92,28 @@ function ActivityPage() {
     return m[s] || "default";
   };
 
+  function handleExport() {
+    const md = [
+      "# Activity Feed",
+      "",
+      `**Total events:** ${stats.total} · **Sources:** ${stats.sources} · **Range:** ${stats.range}`,
+      "",
+      ...grouped.flatMap((g) => [
+        `## ${g.label} (${g.events.length} events)`,
+        "",
+        ...g.events.map((ev) => {
+          const ts = new Date(ev.ts).toLocaleString();
+          return `- **${ts}** — \`${ev.source}\` **${ev.verb}** — ${ev.detail}${ev.result ? ` → ${ev.result}` : ""}`;
+        }),
+        "",
+      ]),
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `activity-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="OPS"
@@ -124,6 +146,9 @@ function ActivityPage() {
         </select>
         <button onClick={refresh} className="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground">
           <RefreshCw className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+          <Download className="h-3 w-3" /> md
         </button>
         <button
           onClick={() => {

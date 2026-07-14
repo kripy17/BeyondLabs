@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useRecentInputs } from "@/lib/use-recent-inputs";
 import { PageShell } from "@/components/PageShell";
@@ -497,7 +497,15 @@ function PhishingPage() {
     }
   };
 
-  const clear = () => { setInput(""); setRuns(0); setNotice(""); setApiResult(null); };
+  const clear = useCallback(() => { setInput(""); setRuns(0); setNotice(""); setApiResult(null); }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clear]);
 
   return (
     <PageShell

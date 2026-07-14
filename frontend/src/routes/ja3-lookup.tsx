@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Panel, Chip, SendToRow } from "@/components/soc";
-import { Search, Fingerprint, Monitor, Copy, Check, Database } from "lucide-react";
+import { Search, Fingerprint, Monitor, Copy, Check, Database, Download } from "lucide-react";
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
@@ -137,6 +137,42 @@ function Ja3LookupPage() {
     setTimeout(() => setCopiedHash(""), 1200);
   }
 
+  function handleExport() {
+    const entries = tab === "ja3" ? ja3Filtered : uaFiltered;
+    const md = tab === "ja3"
+      ? [
+          "# JA3/JA4 Fingerprint Lookup Results",
+          "",
+          `**Showing:** ${ja3Filtered.length} of ${ja3Stats.total} entries (JA3: ${ja3Stats.ja3}, JA4: ${ja3Stats.ja4})`,
+          "",
+          ...(ja3Filtered as Ja3Entry[]).map((e) => [
+            `## ${e.hash.slice(0, 32)}...`,
+            `- **Type:** ${e.type}`,
+            `- **Malware:** ${e.malware}`,
+            `- **First Seen:** ${e.firstSeen}`,
+            `- **Last Seen:** ${e.lastSeen}`,
+            "",
+          ].join("\n")),
+        ].join("\n")
+      : [
+          "# User-Agent Lookup Results",
+          "",
+          `**Showing:** ${uaFiltered.length} of ${uaStats.total} entries`,
+          "",
+          ...(uaFiltered as UaEntry[]).map((e) => [
+            `## ${e.ua.slice(0, 80)}...`,
+            `- **Type:** ${e.type}`,
+            `- **OS:** ${e.os}`,
+            `- **Frequency:** ${e.freq}`,
+            "",
+          ].join("\n")),
+        ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `ja3-ua-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="TOOLS / FINGERPRINT LOOKUP"
@@ -245,7 +281,10 @@ function Ja3LookupPage() {
         </Panel>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4 flex items-center gap-2">
+        <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+          <Download className="h-3 w-3" /> md
+        </button>
         <SendToRow targets={[
           { label: "Detection Editor", to: "/detection", icon: Search },
           { label: "Case Notebook", to: "/case", icon: Database },

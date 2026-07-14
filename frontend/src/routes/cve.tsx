@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
-import { Search, Copy, Check, ChevronLeft, ChevronRight, Database } from "lucide-react";
+import { Search, Copy, Check, ChevronLeft, ChevronRight, Database, Download } from "lucide-react";
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
@@ -136,6 +136,31 @@ function CvePage() {
     if (query || selectedVendor || severityFilter !== "all") pushTimelineEvent({ source: "cve", verb: "searched", detail: query || `filter: ${severityFilter}${selectedVendor ? ` vendor:${selectedVendor}` : ""}`, result: `${filtered.length} results` });
   }, [filtered]);
 
+  function handleExport() {
+    const md = [
+      "# CVE Database Search Results",
+      "",
+      `**Query:** ${query || "(none)"} · **Filtered:** ${stats.filtered} of ${stats.total} · **Severity:** ${severityFilter}`,
+      "",
+      ...filtered.map((c) => [
+        `## ${c.id}`,
+        `- **CVSS:** ${c.cvss.toFixed(1)}`,
+        `- **EPSS:** ${(c.epss * 100).toFixed(0)}%`,
+        `- **KEV:** ${c.kev ? "Yes" : "No"}`,
+        `- **Vendor:** ${c.vendor}`,
+        `- **Published:** ${c.published}`,
+        `- **Affected:** ${c.affected}`,
+        `- **Description:** ${c.description}`,
+        `- **Exploits:** ${[c.exploit.metasploit && "Metasploit", c.exploit.nuclei && "Nuclei", c.exploit.exploitDb && "ExploitDB"].filter(Boolean).join(", ") || "None"}`,
+        "",
+      ].join("\n")),
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `cve-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="TOOLS / CVE"
@@ -247,7 +272,10 @@ function CvePage() {
       )}
 
       {filtered.length > 0 && stats.filtered > 0 && (
-        <div className="mt-4">
+        <div className="mt-4 flex items-center gap-2">
+          <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+            <Download className="h-3 w-3" /> md
+          </button>
           <SendToRow targets={[
             { label: "Detection Editor", to: "/detection", icon: Search },
             { label: "Case Notebook", to: "/case", icon: Database },

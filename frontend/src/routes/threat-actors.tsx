@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { Panel, Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { Search, Copy, Check, Users, Download, Eye, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker, guessType } from "@/lib/locker";
 import { copyText } from "@/lib/copy";
@@ -220,7 +221,7 @@ function ThreatActorsPage() {
                     <div className="mt-1 flex flex-wrap gap-1">{selected.targets.map((t) => <Chip key={t} tone="default">{t}</Chip>)}</div>
                   </div>
                   <div><span className="text-[10px] uppercase tracking-widest text-muted-foreground">Campaigns</span>
-                    <div className="mt-1 flex flex-wrap gap-1">{selected.campaigns.map((c) => <Chip key={c} tone="default">{c}</Chip>)}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">{selected.campaigns.map((c) => <button key={c} onClick={() => { locker.add({ value: c, type: "text", source: "/threat-actors" }); toast(`Added ${c} to locker`); }} title="Add to locker" className="rounded border border-border/50 bg-card/40 px-2 py-0.5 font-mono ba-text-2xs text-muted-foreground hover:text-foreground">{c}</button>)}</div>
                   </div>
                 </div>
               </Panel>
@@ -240,6 +241,9 @@ function ThreatActorsPage() {
                       <div className="mt-0.5 text-[11px] text-muted-foreground">{actor.aliases.slice(0, 3).join(", ")}{actor.aliases.length > 3 ? "…" : ""}</div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <button onClick={(e) => { e.stopPropagation(); locker.add({ value: actor.name, type: "text", source: "/threat-actors" }); toast(`Added ${actor.name} to locker`); }}
+                        className="rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"
+                        title="Add to locker">+</button>
                       <Chip tone="default">{actor.origin}</Chip>
                       <Chip tone={actor.motivation.includes("Financial") ? "warning" : "primary"}>{actor.motivation.split("/")[0]}</Chip>
                     </div>

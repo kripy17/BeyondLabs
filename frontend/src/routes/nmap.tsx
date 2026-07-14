@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
@@ -195,6 +195,22 @@ function NmapPage() {
       setPortChanges([]);
     },
   });
+
+  const handleClear = useCallback(() => {
+    setTarget("");
+    setTargetError(null);
+    scanMutation.reset();
+    setPortChanges([]);
+    toast("Cleared");
+  }, [scanMutation]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClear]);
 
   const stream = useStreamingNmap();
   const locker = useLocker();

@@ -303,6 +303,7 @@ function ParserPage() {
   const [focusedKind, setFocusedKind] = useState<string | null>(null);
   const [defanged, setDefanged] = useState(true);
   const [copied, setCopied] = useState<string>("");
+  const [deepScanError, setDeepScanError] = useState<string | null>(null);
   const { items: recentItems, push: pushRecent, clear: clearRecent } = useRecentInputs("parser");
   const deepScanMutation = useMutation({
     mutationFn: async ({ inputText, hasDomains, hasIps, hasEmails }: { inputText: string; hasDomains: boolean; hasIps: boolean; hasEmails: boolean }) => {
@@ -324,6 +325,7 @@ function ParserPage() {
       return r;
     },
     onSuccess: () => { toast.success("Deep scan complete"); },
+    onError: (e) => { setDeepScanError(`Deep scan failed: ${(e as Error).message}`); },
   });
   const locker = useLocker();
 
@@ -424,8 +426,24 @@ function ParserPage() {
   const hasEmails = (result?.iocs.Email.length ?? 0) > 0;
   const canDeepScan = hasIps || hasDomains || hasEmails;
 
+  const handleClear = useCallback(() => {
+    setInput("");
+    deepScanMutation.reset();
+    setFocusedKind(null);
+    toast("Cleared");
+  }, [deepScanMutation]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClear]);
+
   const handleDeepScan = useCallback(() => {
     if (!result) return;
+    setDeepScanError(null);
     deepScanMutation.mutate({
       inputText: input.trim(),
       hasDomains,
@@ -898,6 +916,9 @@ function ParserPage() {
           })()}
 
           {/* Deep Scan Results */}
+          {deepScanError && (
+            <div className="rounded border border-destructive/40 bg-destructive/5 p-3 text-mono ba-text-sm text-destructive">{deepScanError}</div>
+          )}
           {deepScanMutation.data && (
             <>
               {deepScanMutation.data.phishing && !(deepScanMutation.data.phishing as Record<string, string>).error && (

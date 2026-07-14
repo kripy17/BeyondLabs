@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { PageShell } from "@/components/PageShell";
 import { SectionBar, Panel, Chip, SendToRow } from "@/components/soc";
 import { VerdictBanner, MetricGrid } from "@/components/output";
 import { useLocker, guessType } from "@/lib/locker";
 import { toast } from "sonner";
-import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio, Hash } from "lucide-react";
+import { BookOpen, ArrowRight, Database, ShieldAlert, Search, CircleCheck as CheckCircle2, Circle, TriangleAlert as AlertTriangle, ShieldOff, Mail, MailWarning as FileWarning, Activity, KeyRound, ListFilter as Filter, ShieldCheck, ShieldX, Globe2, User, Package, Lock, Radio, Hash, Download } from "lucide-react";
 
 export const Route = createFileRoute("/guide")({ component: GuidePage });
 
@@ -207,6 +207,20 @@ function GuidePage() {
   const counts: Record<Severity, number> = { P1: 0, P2: 0, P3: 0 };
   PLAYBOOKS.forEach((p) => { counts[p.severity] += 1; });
 
+  const handleClear = useCallback(() => {
+    setQuery("");
+    setSev("ALL");
+    toast("Cleared");
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClear]);
+
   const handleExtractIocs = () => {
     const text = PLAYBOOKS.map((p) => [p.title, p.summary, ...p.attack, ...p.steps.map((s) => s.text)].join(" ")).join(" ");
     const ipRx = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
@@ -219,6 +233,26 @@ function GuidePage() {
     toast(`Extracted ${ips.length + domains.length} IOCs to locker`);
   };
 
+  function handleExport() {
+    const md = [
+      `# SOC Playbook: ${active.title}`,
+      "",
+      `**Severity:** ${active.severity} &middot; **Category:** ${active.category} &middot; **ETA:** ${active.eta}`,
+      `**MITRE:** ${active.attack.join(", ")}`,
+      "",
+      `**Summary:** ${active.summary}`,
+      "",
+      `## Steps (${activeDone.size}/${active.steps.length} done)`,
+      "",
+      ...active.steps.map((s, i) => `**${i + 1}.** ${s.text}${s.pivot ? ` &rarr; ${s.pivot.label}` : ""}`),
+      "",
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `guide-${active.id}-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="DETECTION / GUIDE"
@@ -226,9 +260,14 @@ function GuidePage() {
       description="Bite-sized response playbooks — pick a scenario, work the steps, pivot into the right tool."
       crumbs={[{ label: "Detection" }, { label: "Guide" }]}
       actions={
-        <button onClick={handleExtractIocs} className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20" title="Extract IOCs from playbook content">
-          <Hash className="h-3.5 w-3.5" /> extract iocs
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+            <Download className="h-3 w-3" /> md
+          </button>
+          <button onClick={handleExtractIocs} className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary transition-colors hover:bg-primary/20" title="Extract IOCs from playbook content">
+            <Hash className="h-3.5 w-3.5" /> extract iocs
+          </button>
+        </div>
       }
     >
       {/* Verdict Banner */}

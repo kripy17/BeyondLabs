@@ -261,6 +261,7 @@ function TerminalPage() {
   const [historySearch, setHistorySearch] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [cmdError, setCmdError] = useState<string | null>(null);
   const locker = useLocker();
   const [backendUrl, setLocalUrl] = useState(() => getBackendUrl());
   const [status, setStatus] = useState<BackendStatus>("unknown");
@@ -456,6 +457,7 @@ function TerminalPage() {
       pushTimelineEvent({ source: "terminal", verb: res.status === "completed" ? "completed" : res.status === "error" || res.status === "failed" ? "failed" : "timeout", detail: `${name} ${target ?? args ?? ""} — ${res.status} (exit ${res.return_code ?? "?"})`.trim(), target: target, result: res.status ?? "done" });
     } catch (e) {
       pushAt(idx, { kind: "err", text: `request failed: ${(e as Error).message}` });
+      setCmdError(`Command failed: ${(e as Error).message}`);
       setStatus("offline");
     } finally {
       updateAt(idx, s => ({ ...s, busy: false }));
@@ -630,6 +632,12 @@ function TerminalPage() {
         </>
       }
     >
+      {cmdError && (
+        <div className="flex items-center gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-mono ba-text-sm text-destructive mb-2">
+          <span className="flex-1">{cmdError}</span>
+          <button onClick={() => setCmdError(null)} className="text-destructive/60 hover:text-destructive" aria-label="dismiss"><X className="h-3 w-3" /></button>
+        </div>
+      )}
       <Panel title="Session" icon={TerminalIcon} meta={backendUrl} bodyClassName="p-0">
         <div className="flex items-center gap-2 border-b border-divider-strong bg-gradient-to-b from-muted/30 to-muted/10 px-3 py-2">
           <div className="flex items-center gap-1.5">

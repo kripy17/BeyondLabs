@@ -274,6 +274,7 @@ function SiemPage() {
   const { filterText, setFilterText, showFilter, setShowFilter } = useOutputFilter();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
+  const [siemError, setSiemError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ title: string; subtitle?: string; data: unknown } | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showNarrative, setShowNarrative] = useState(false);
@@ -288,6 +289,7 @@ function SiemPage() {
 
   const ingest = useCallback(async (text: string) => {
     if (!text.trim()) return;
+    setSiemError(null);
     setLoading(true);
     try {
       const result: any = await analyzeSiemText(text);
@@ -299,6 +301,7 @@ function SiemPage() {
       flash(`Ingested ${events.length} events, ${(result.detections || []).length} detections`);
     } catch {
       flash("Backend unavailable — parsed locally");
+      setSiemError("Backend unavailable — parsed locally");
       setApiEvents(parsePastedEvents(text, 0));
       setApiDetections([]);
       setApiMetrics(null);
@@ -493,6 +496,13 @@ function SiemPage() {
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           <span className="flex-1 text-mono ba-text-sm text-primary">{notice}</span>
           <button onClick={() => setNotice("")} className="text-primary/60 hover:text-primary" aria-label="dismiss"><X className="h-3 w-3" /></button>
+        </div>
+      )}
+
+      {siemError && (
+        <div className="flex items-center gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-mono ba-text-sm text-destructive">
+          <span className="flex-1">{siemError}</span>
+          <button onClick={() => setSiemError(null)} className="text-destructive/60 hover:text-destructive" aria-label="dismiss"><X className="h-3 w-3" /></button>
         </div>
       )}
 

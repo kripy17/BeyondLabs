@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
 import { getHackingtoolCategories, runHackingtoolTool } from "@/api/backend";
@@ -19,7 +19,7 @@ import {
   Swords, Search, Globe2, KeyRound, Wifi, Zap, Code2, Package,
   FileText, Cloud, Server, Image as ImageIcon, Terminal, Copy, Check,
   X, AlertTriangle, ChevronRight, Sparkles, Pin, PinOff,
-  Loader2, Bug, History, Clock, Trash2,
+  Loader2, Bug, History, Clock, Trash2, Download,
 } from "lucide-react";
 
 export const Route = createFileRoute("/hacking-toolkit")({ component: HackingToolkitPage });
@@ -444,6 +444,21 @@ function HackingToolkitPage() {
     abortRef.current = null;
   };
 
+  const handleClear = useCallback(() => {
+    setSearch("");
+    setActiveCatId("");
+    setActiveToolId("");
+    toast("Cleared");
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClear]);
+
   const NMAP_MODES = useMemo(() => [
     { k: "discovery", label: "Discovery",         args: "-sn -PE -PA80,443",                          risk: "low",    desc: "ICMP & ACK host discovery — no port probes." },
     { k: "fast",      label: "Top-100 TCP",       args: "-sS --top-ports 100 -Pn",                    risk: "medium", desc: "SYN scan of the 100 most common TCP ports." },
@@ -680,6 +695,29 @@ function HackingToolkitPage() {
     { label: "pinned", value: String(pinnedCount), tone: pinnedCount > 0 ? "success" : "default" },
   ];
 
+  function handleExport() {
+    if (!output) return;
+    const md = [
+      `# Hacking Toolkit — ${activeTool?.name ?? "Tool"} Output`,
+      "",
+      `**Command:** \`${output.command}\``,
+      `**Status:** ${output.status}`,
+      `**Target:** ${target || "(none)"}`,
+      `**Timestamp:** ${new Date().toISOString()}`,
+      "",
+      "## Output",
+      "",
+      "```",
+      output.body,
+      "```",
+      "",
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `hacking-${activeTool?.id ?? "tool"}-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const historyLc = historyFilter.trim().toLowerCase();
   const filteredHistory = historyLc
     ? history.filter(h => h.toolName.toLowerCase().includes(historyLc) || h.target.toLowerCase().includes(historyLc) || h.command.toLowerCase().includes(historyLc))
@@ -701,7 +739,7 @@ function HackingToolkitPage() {
       description="Browse 50+ offensive-security tools by category, build commands with presets, and run against locally installed binaries via the BeyondLabs backend."
       crumbs={[{ label: "Workbench", href: "/" }, { label: "Offensive" }, { label: "Hacking Toolkit" }]}
       meta={metaItems}
-      actions={<PreviewBadge label={offline ? "offline catalog" : (installed ? "live backend" : "catalog")} />}
+      actions={<div className="flex items-center gap-1.5"><button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"><Download className="h-3 w-3" /> md</button><PreviewBadge label={offline ? "offline catalog" : (installed ? "live backend" : "catalog")} /></div>}
     >
       {loading && (
         <div className="space-y-3">

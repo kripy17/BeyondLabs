@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactDiffViewer from "react-diff-viewer-continued";
 import { PageShell } from "@/components/PageShell";
 import { Panel, Chip, SendToRow } from "@/components/soc";
-import { Code2, FileText, Monitor, ScrollText, Search, ArrowUpDown, AlertTriangle, Copy, Check, Database } from "lucide-react";
+import { Code2, FileText, Monitor, ScrollText, Search, ArrowUpDown, AlertTriangle, Copy, Check, Database, Download } from "lucide-react";
 import { toast } from "sonner";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { useLocker } from "@/lib/locker";
@@ -106,6 +106,32 @@ function DiffPage() {
     return newText.split("\n").filter(l => l.toLowerCase().includes(searchQuery.toLowerCase())).join("\n");
   }, [newText, searchQuery]);
 
+  function handleExport() {
+    const md = [
+      "# Diff Comparison Report",
+      "",
+      `**Generated:** ${new Date().toISOString()}`,
+      `**Added:** ${stats?.added ?? 0} lines · **Removed:** ${stats?.removed ?? 0} lines · **Net:** ${stats ? (stats.netChange > 0 ? "+" : "") + stats.netChange : 0} bytes`,
+      "",
+      "## Original",
+      "",
+      "```",
+      oldText || "(empty)",
+      "```",
+      "",
+      "## Changed",
+      "",
+      "```",
+      newText || "(empty)",
+      "```",
+      "",
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `diff-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <PageShell
       eyebrow="TOOLS / DIFF"
@@ -120,6 +146,9 @@ function DiffPage() {
               <FileText className="h-3 w-3" /> {k}
             </button>
           ))}
+          <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+            <Download className="h-3 w-3" /> md
+          </button>
         </div>
       }
     >

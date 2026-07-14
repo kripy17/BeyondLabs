@@ -4,7 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { Panel, Chip, SendToRow } from "@/components/soc";
 import { Empty } from "@/components/output";
 import { type Severity } from "@/lib/severity";
-import { Shield, CheckCircle, XCircle, TestTube, BarChart3, Copy, Check, Database, Search } from "lucide-react";
+import { Shield, CheckCircle, XCircle, TestTube, BarChart3, Copy, Check, Database, Search, Download } from "lucide-react";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { copyText } from "@/lib/copy";
 import { useLocker, guessType } from "@/lib/locker";
@@ -164,6 +164,40 @@ function SigmaTesterPage() {
     pushTimelineEvent({ source: "sigma-tester", verb: "tested", detail: `${tab} rule`, result: `${count}/${matched.length} matched` });
   }
 
+  function handleExport() {
+    const md = [
+      `# ${tab === "yara" ? "YARA" : "Sigma"} Rule Test Report`,
+      "",
+      `**Generated:** ${new Date().toISOString()}`,
+      `**Matched:** ${matchCount}/${results.length} conditions (${pct}%)`,
+      "",
+      "## Rule",
+      "",
+      "```",
+      rule,
+      "```",
+      "",
+      "## Sample Data",
+      "",
+      "```",
+      sample,
+      "```",
+      "",
+      "## Results",
+      "",
+      ...groupedResults.flatMap(([category, items]) => [
+        `### ${category} (${items.filter(i => i.matched).length}/${items.length})`,
+        "",
+        ...items.map((r) => `- ${r.matched ? "[MATCH]" : "[NO MATCH]"} ${r.string}${r.severity ? ` (${r.severity})` : ""}`),
+        "",
+      ]),
+    ].join("\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `rule-test-${Date.now()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const matchCount = results.filter((r) => r.matched).length;
   const pct = results.length > 0 ? Math.round((matchCount / results.length) * 100) : 0;
 
@@ -204,10 +238,15 @@ function SigmaTesterPage() {
           ))}
         </div>
         {tested && (
-          <button onClick={() => { copyText(results.map(r => `${r.matched ? "✓" : "✗"} ${r.string}`).join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
-            className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
-            {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
-          </button>
+          <>
+            <button onClick={handleExport} className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+              <Download className="h-3 w-3" /> md
+            </button>
+            <button onClick={() => { copyText(results.map(r => `${r.matched ? "✓" : "✗"} ${r.string}`).join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground">
+              {copied ? <><Check className="h-3 w-3 text-success" /> copied</> : <><Copy className="h-3 w-3" /> export</>}
+            </button>
+          </>
         )}
       </div>
 
@@ -265,6 +304,9 @@ function SigmaTesterPage() {
                     {r.severity && (
                       <Chip tone={SEV_TONE[r.severity]}>{r.severity}</Chip>
                     )}
+                    <button onClick={() => { locker.add({ value: r.string, type: "text", source: "/sigma-tester" }); toast("Added to locker"); }}
+                      className="shrink-0 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"
+                      title="Add to locker">+</button>
                     <Chip tone={r.matched ? "success" : "default"}>{r.matched ? "MATCH" : "NO MATCH"}</Chip>
                   </div>
                 ))}

@@ -244,6 +244,9 @@ function OsintPage() {
                         ))}
                       </div>
                     </div>
+                    <button onClick={() => { locker.add({ value: b.name, type: "text", source: "/osint" }); toast(`Added ${b.name} to locker`); }}
+                      className="shrink-0 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-2xs uppercase text-muted-foreground hover:text-foreground"
+                      title="Add to locker">+</button>
                     <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{b.date}</span>
                   </div>
                 ))}

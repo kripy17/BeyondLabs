@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
@@ -12,6 +12,7 @@ import { safeAnalyzeUrl } from "@/api/backend";
 import { SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, domainEntropy, scanSecrets } from "@/lib/ioc-patterns";
 import { useRecentInputs } from "@/lib/use-recent-inputs";
 import { copyText } from "@/lib/copy";
+import { toast } from "sonner";
 import { Link2, Globe2, ShieldAlert, AlertTriangle, ArrowRight, Database, ChevronRight, History, CornerDownRight, Download, Key, Bug, Crosshair, Hash, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/url")({ component: UrlPage });
@@ -191,6 +192,7 @@ function UrlPage() {
       const er = data as Record<string, unknown> | null;
       if (er) pushTimelineEvent({ source: "url", verb: "enriched", detail: `Enrichment: ${er.verdict}`, result: `${er.confidence ?? "?"} confidence` });
     },
+    onError: () => { toast.error("Enrichment failed"); },
   });
 
   const er = enrichMutation.data as Record<string, unknown> | null;
@@ -209,6 +211,7 @@ function UrlPage() {
     if (runs > prevRuns.current && analysis) {
       const high = analysis.findings.filter(f => f.sev === "destructive").length;
       pushTimelineEvent({ source: "url", verb: "analyzed", detail: `Analyzed ${trimmed}`, result: `${analysis.findings.length} findings (${high} high)` });
+      toast("URL analyzed");
     }
     prevRuns.current = runs;
   }, [runs, analysis, trimmed]);
@@ -345,7 +348,15 @@ function UrlPage() {
   const tone = !analysis ? "muted" : analysis.findings.some((f) => f.sev === "destructive") ? "destructive" : analysis.findings.some((f) => f.sev === "warning") ? "warning" : "success";
 
   const run = () => setRuns((r) => r + 1);
-  const clear = () => { setRaw(""); setRuns(0); enrichMutation.reset(); };
+  const clear = useCallback(() => { setRaw(""); setRuns(0); enrichMutation.reset(); }, [enrichMutation]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clear]);
 
   return (
     <PageShell
