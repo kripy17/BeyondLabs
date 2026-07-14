@@ -5,7 +5,7 @@ import { SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/s
 import { KeyFields, EvidenceCard, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, ScrollText, FileSearch, Terminal, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, Save, X, ListFilter, Info } from "lucide-react";
-import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule } from "@/api/detection";
+import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule, translateSigma, listSigmaBackends } from "@/api/detection";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
@@ -270,6 +270,17 @@ function DetectionPage() {
   const [idsCopied, setIdsCopied] = useState(false);
   const [idsShowPanel, setIdsShowPanel] = useState(false);
 
+  /* ── Sigma → SIEM Translator ── */
+  const [sigmaBackends, setSigmaBackends] = useState<{ id: string; label: string }[]>([]);
+  const [sigmaTarget, setSigmaTarget] = useState("splunk");
+  const [sigmaTransResult, setSigmaTransResult] = useState<{ target_label: string; queries: string[]; errors: string[] } | null>(null);
+  const [sigmaTransLoading, setSigmaTransLoading] = useState(false);
+  const [sigmaTransCopied, setSigmaTransCopied] = useState(false);
+
+  useEffect(() => {
+    listSigmaBackends().then((data) => { setSigmaBackends(data as any); }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     getIdsRuleTemplates()
       .then((data) => { setIdsTemplates(data as Record<string, unknown>); const keys = Object.keys(data as Record<string, unknown>); if (keys.length) setIdsSelected(keys[0]); })
@@ -304,6 +315,20 @@ function DetectionPage() {
       toast.error(e?.message || "IDS build failed", { description: e?.suggestion });
     } finally {
       setIdsBuildLoading(false);
+    }
+  };
+
+  const handleSigmaTranslate = async () => {
+    if (!rule.trim() || fmt !== "sigma") return;
+    setSigmaTransLoading(true);
+    setSigmaTransResult(null);
+    try {
+      const res = await translateSigma(rule, sigmaTarget) as any;
+      setSigmaTransResult(res);
+    } catch (e: any) {
+      toast.error(e?.message || "Translation failed");
+    } finally {
+      setSigmaTransLoading(false);
     }
   };
 
@@ -960,6 +985,60 @@ function DetectionPage() {
             </div>
           </Panel>
           </div>
+
+          {/* Sigma → SIEM Translator */}
+          {fmt === "sigma" && (
+          <Panel title="Sigma → SIEM Translator" icon={Wand2} priority="secondary" meta="pySigma" collapsible>
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground">target</span>
+                <select
+                  value={sigmaTarget}
+                  onChange={(e) => setSigmaTarget(e.target.value)}
+                  className="rounded border border-divider-strong bg-background/60 px-2 py-1 text-mono ba-text-sm text-foreground outline-none focus:border-primary/50"
+                >
+                  {sigmaBackends.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleSigmaTranslate}
+                  disabled={sigmaTransLoading || !rule.trim()}
+                  className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-3 py-1 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
+                >
+                  {sigmaTransLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  {sigmaTransLoading ? "translating..." : "translate"}
+                </button>
+              </div>
+              {sigmaTransResult && (
+                <div className="rounded border border-border/50 bg-background/60 p-3">
+                  {sigmaTransResult.errors.length > 0 && (
+                    <div className="mb-2 rounded border border-destructive/30 bg-destructive/5 p-2 text-mono ba-text-sm text-destructive">{sigmaTransResult.errors.join("; ")}</div>
+                  )}
+                  {sigmaTransResult.queries.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-mono ba-text-2xs uppercase tracking-widest text-success">{sigmaTransResult.target_label}</div>
+                      {sigmaTransResult.queries.map((q, i) => (
+                        <div key={i} className="group relative rounded border border-border/50 bg-card/40 p-2.5">
+                          <pre className="overflow-x-auto text-mono ba-text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap pr-8">{q}</pre>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(q); setSigmaTransCopied(true); setTimeout(() => setSigmaTransCopied(false), 1200); }}
+                            className="absolute right-1.5 top-1.5 rounded border border-border/50 bg-card/60 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                          >
+                            {sigmaTransCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {sigmaTransResult.queries.length === 0 && sigmaTransResult.errors.length === 0 && (
+                    <p className="text-mono ba-text-sm text-muted-foreground">No output generated. Check the rule format.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </Panel>
+          )}
 
         <SendToRow targets={[
           { label: "MITRE Coverage", to: "/mitre", icon: ArrowRight },

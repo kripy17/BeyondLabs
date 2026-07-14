@@ -13,6 +13,7 @@ import { Toaster } from "@/components/Toaster";
 import { IocLockerTrigger, IocLockerPanel } from "@/components/IocLocker";
 import { sendToCase } from "@/lib/handoff";
 import { StickyNote, Pen } from "lucide-react";
+import { CommandPalette, ShortcutsDialog, useCommandPalette } from "@/components/CommandPalette";
 
 
 function NotFoundComponent() {
@@ -102,6 +103,7 @@ function RouteRecorder() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [lockerOpen, setLockerOpen] = useState(false);
+  const palette = useCommandPalette();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -117,6 +119,8 @@ function RootComponent() {
               <LockerUI open={lockerOpen} onOpenChange={setLockerOpen} />
               <Toaster />
             </SidebarInset>
+            <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
+            <ShortcutsDialog open={palette.shortcutsOpen} onClose={() => palette.setShortcutsOpen(false)} />
           </SidebarProvider>
           </LockerProvider>
         </PrefsProvider>

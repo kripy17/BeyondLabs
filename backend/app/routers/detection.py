@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.services.detection_engineering import build_sigma_rule, map_to_mitre
 from app.services.ids_rule_builder import build_ids_rule, explain_ids_rule, ids_rule_templates
+from app.services.sigma_translator import translate_sigma, list_backends
 
 router = APIRouter()
 
@@ -47,6 +48,11 @@ class IdsRuleExplainRequest(BaseModel):
     rule: str = Field(..., min_length=1)
 
 
+class SigmaTranslateRequest(BaseModel):
+    sigma_yaml: str = Field(..., min_length=1)
+    target: str = Field(default="splunk")
+
+
 @router.post("/mitre/map")
 def mitre_map(request: MitreMapRequest):
     return map_to_mitre(request.text)
@@ -75,3 +81,13 @@ def ids_build(request: IdsRuleBuildRequest):
 @router.post("/ids/explain")
 def ids_explain(request: IdsRuleExplainRequest):
     return explain_ids_rule(request.rule)
+
+
+@router.post("/sigma/translate")
+def sigma_translate(request: SigmaTranslateRequest):
+    return translate_sigma(sigma_yaml=request.sigma_yaml, target=request.target)
+
+
+@router.get("/sigma/backends")
+def sigma_backends():
+    return list_backends()

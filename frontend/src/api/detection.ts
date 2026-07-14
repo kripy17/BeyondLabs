@@ -18,6 +18,14 @@ export function generateSigmaRule(
   })
 }
 
+export function translateSigma(sigmaYaml: string, target: string) {
+  return postJson("/api/detection/sigma/translate", { sigma_yaml: sigmaYaml, target })
+}
+
+export function listSigmaBackends() {
+  return getJson("/api/detection/sigma/backends")
+}
+
 export function getIdsRuleTemplates() {
   return getJson("/api/detection/ids/templates")
 }

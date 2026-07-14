@@ -27,6 +27,7 @@ import { analyzeFullEmail } from "@/api/phishing";
 import { passiveRecon } from "@/api/recon";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { mapMitre } from "@/api/detection";
+import { analyzeSysmonEvtx } from "@/api/logAnalysis";
 
 import { toast } from "sonner";
 
@@ -48,6 +49,43 @@ const SAMPLES: Record<string, { label: string; text: string }> = {
   email_headers: { label: "Sample email headers", text: "From: \"Security Team\" <security@company.com>\nTo: user@example.org\nSubject: Urgent: Action required on your account\nDate: Mon, 15 Jun 2026 09:23:45 +0000\nReturn-Path: bounce@phish-target.tk\nReply-To: security-verify@phish-target.tk\nReceived: from mx.phish-target.tk (203.0.113.50) by mx.company.com with ESMTPS id ABC123\nReceived-SPF: fail (domain of phish-target.tk does not designate 203.0.113.50 as permitted sender)\nAuthentication-Results: mx.company.com; spf=fail smtp.mailfrom=phish-target.tk; dkim=none; dmarc=fail\nDKIM-Signature: v=1; a=rsa-sha256; d=phish-target.tk; s=selector1;\n bh=2bd0e4a8c9f1b3d5e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9;\nX-Priority: 1 (Highest)\nMIME-Version: 1.0\nContent-Type: text/plain; charset=\"UTF-8\"\n\nDear User,\n\nWe detected suspicious activity on your account. Please verify your identity immediately by clicking the link below:\n\nhttps://login-company.secure-phish.tk/verify?token=abc123def456\n\nFailure to verify within 24 hours will result in account suspension.\n\nThank you,\nSecurity Team" },
 
   ioc_list: { label: "Sample IOC list", text: "45.33.32.156\n185.94.188.22\n91.121.87.34\n198.51.100.23\n203.0.113.44\n51.15.0.100\nhxxps[:]//evil[.]com/setup.exe\nhxxps[:]//phish-login[.]tk/verify\nhttp://185[.]220[.]101[.]161/payload.ps1\nhxxp://malware[.]download/payload\nexample[.]net\nmalicious[.]com\nphish-target[.]tk\nevil-host[.]ru\n7e0eaa6c2a2c7a0d5c4a3d8e9f0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a\na1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2\n44d88612fea8a8f36de82e1278abb02f\nCVE-2024-1234\nCVE-2025-5678\nT1566.002\nT1059.001\nT1204\nphish@evil-host[.]ru\nadmin@malicious[.]com" },
+
+  sysmon: {
+    label: "Sysmon EVTX (XML)",
+    text: `<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+<System>
+<Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385F-C22A-43E0-BF4C-06F5698FFBD9}"/>
+<EventID>1</EventID>
+<Version>5</Version>
+<Level>4</Level>
+<Task>1</Task>
+<Opcode>0</Opcode>
+<Keywords>0x8000000000000000</Keywords>
+<TimeCreated SystemTime="2025-06-15T10:30:00.123456Z"/>
+<EventRecordID>12345</EventRecordID>
+<Computer>DC01.corp.local</Computer>
+</System>
+<EventData>
+<Data Name="UtcTime">2025-06-15 10:30:00.123</Data>
+<Data Name="ProcessGuid">{A123-B456-C789-D012}</Data>
+<Data Name="ProcessId">4523</Data>
+<Data Name="Image">C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe</Data>
+<Data Name="CommandLine">powershell.exe -nop -w hidden -enc SQBFAFgA</Data>
+<Data Name="CurrentDirectory">C:\\Users\\analyst\\</Data>
+<Data Name="User">CORP\\analyst</Data>
+<Data Name="LogonGuid">{E456-F789-A012-B345}</Data>
+<Data Name="LogonId">0x3E7</Data>
+<Data Name="TerminalSessionId">1</Data>
+<Data Name="IntegrityLevel">High</Data>
+<Data Name="Hashes">MD5=44d88612fea8a8f36de82e1278abb02f,SHA256=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2</Data>
+<Data Name="ParentProcessGuid">{B789-C012-D345-E678}</Data>
+<Data Name="ParentProcessId">1234</Data>
+<Data Name="ParentImage">C:\\Windows\\System32\\cmd.exe</Data>
+<Data Name="ParentCommandLine">cmd.exe /c start powershell</Data>
+<Data Name="ParentUser">CORP\\analyst</Data>
+</EventData>
+</Event>`,
+  },
 };
 
 const RX = {
@@ -499,6 +537,7 @@ function ParserPage() {
           { key: "notes",    label: "Analyst notes",  hint: "timeline entries" },
           { key: "email_headers", label: "Sample email headers", hint: "full headers + auth results" },
           { key: "ioc_list", label: "Sample IOC list", hint: "IPs, hashes, domains, CVEs" },
+          { key: "sysmon", label: "Sysmon EVTX", hint: "Event ID 1 process creation" },
         ]}
         onLoadSample={(k) => setInput(SAMPLES[k].text)}
         onFile={(txt) => setInput(txt)}
