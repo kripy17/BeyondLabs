@@ -3,9 +3,9 @@ import { useCallback, useState } from "react";
 const PREFIX = "ba.rc.";
 
 export function useResultCache<T>(key: string) {
-  const cached = sessionStorage.getItem(PREFIX + key);
+  const cached = (() => { try { return sessionStorage.getItem(PREFIX + key); } catch { return null; } })();
   const [data, setData] = useState<T | null>(cached ? (() => { try { return JSON.parse(cached); } catch { return null; } })() : null);
-  const [ts, setTs] = useState<number>(data ? (() => { try { return JSON.parse(sessionStorage.getItem(PREFIX + key + ".ts") ?? "0"); } catch { return 0; } })() : 0);
+  const [ts, setTs] = useState<number>(0);
 
   const save = useCallback((d: T) => {
     setData(d);

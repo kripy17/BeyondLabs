@@ -5,7 +5,8 @@ import { SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/s
 import { KeyFields, EvidenceCard, TwoColumnOutput, VerdictBanner, MetricGrid, CollapsibleSection, Empty } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
 import { ShieldAlert, Copy, ArrowRight, Database, Play, Sparkles, Crosshair, Check, RotateCcw, Download, Hash, ShieldCheck, TriangleAlert as AlertTriangle, Loader2, Plus, FileCode as FileCode2, Wand2, Search, BookMarked, Trash2, Edit3, Save, X, ListFilter, Info } from "lucide-react";
-import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule, translateSigma, listSigmaBackends } from "@/api/detection";
+import { mapMitre, generateSigmaRule, getIdsRuleTemplates, buildIdsRule } from "@/api/detection";
+import { translateSigma, listSigmaBackends } from "../api/detection";
 import { type Severity } from "@/lib/severity";
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
@@ -13,7 +14,7 @@ import { pushTimelineEvent } from "@/lib/timeline";
 import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
 import {
-  type Format, type Tpl, type MitreResult, type GenResult, type SavedRule, type ValidationMsg, type RuleField,
+  type Format, type Tpl, type MitreResult, type MitreMatch, type GenResult, type SavedRule, type ValidationMsg, type RuleField,
   FMT_ICONS, autoDetectFmt, TEMPLATES, SYNTAX, highlight, extractIocs, genReport,
   loadRules, saveRules, genId, validateRule, analyzeRule,
 } from "@/data/detection";
@@ -152,7 +153,7 @@ function DetectionPage() {
       const text = [rule, event].filter(Boolean).join("\n");
       const res = await mapMitre(text);
       setMitreResults(res as MitreResult);
-      pushTimelineEvent({ source: "detection", verb: "mapped", detail: `MITRE mapping for ${fmt} rule`, result: `${(res as MitreResult).techniques?.length ?? 0} techniques` });
+      pushTimelineEvent({ source: "detection", verb: "mapped", detail: `MITRE mapping for ${fmt} rule`, result: `${(res as MitreResult).matches?.length ?? 0} matches` });
     } catch (e: any) {
       setMitreError(e?.message || "MITRE mapping failed");
     } finally {

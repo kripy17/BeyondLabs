@@ -5,6 +5,8 @@ import { PageShell } from "@/components/PageShell";
 import { IntakeCard, SectionBar, Panel, SendToRow, Chip, IocInventory } from "@/components/soc";
 import { StatusBar, ResultBanner, Empty, EvidenceCard } from "@/components/output";
 import { useOutputFilter, OutputFilterBar, OutputFilter } from "@/components/soc/OutputFilter";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
   Database, ArrowRight, Zap, ShieldAlert, Activity, Filter,
   Download, Clock, X, ListFilter, FileText, Crosshair, Bug, Loader2,
@@ -13,6 +15,7 @@ import {
 import { sendToCase } from "@/lib/handoff";
 import { useLocker } from "@/lib/locker";
 import { toast } from "sonner";
+import { copyText } from "@/lib/copy";
 import {
   type SiemEvent, type Range, type FilterChip,
   SEV_TONE, SAMPLE_TEXTS, backendToEvent, RANGE_MIN,
@@ -162,7 +165,18 @@ function SiemPage() {
     });
     return Array.from(bins.values()).sort((a, b) => a.min - b.min);
   }, [filtered]);
-  const maxBin = Math.max(1, ...histo.map((b) => b.high + b.medium + b.low));
+  const chartConfig = {
+    high: { label: "High", color: "hsl(var(--destructive))" },
+    medium: { label: "Medium", color: "hsl(var(--warning))" },
+    low: { label: "Low", color: "hsl(var(--success))" },
+  } satisfies ChartConfig;
+
+  const chartData = histo.map((b) => ({
+    time: `t+${b.min}m`,
+    high: b.high,
+    medium: b.medium,
+    low: b.low,
+  }));
 
   const fieldSummary = useMemo(() => {
     return FIELDS.map((f) => {
@@ -397,7 +411,7 @@ function SiemPage() {
             <div className="mt-3 rounded border border-divider-strong bg-background/60 p-3">
               <pre className="whitespace-pre-wrap text-mono ba-text-sm leading-relaxed text-foreground/90">{narrative}</pre>
               <button
-                onClick={() => { copy(narrative); flash("Summary copied"); }}
+                onClick={() => { copyText(narrative); flash("Summary copied"); }}
                 className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-card/60 px-2 py-0.5 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
               >Copy Summary</button>
             </div>
@@ -410,24 +424,17 @@ function SiemPage() {
         {histo.length === 0 ? (
           <Empty title="No events in range" hint="Widen the time range or remove a filter chip." />
         ) : (
-          <div className="flex items-end gap-1.5">
-            {histo.map((b) => {
-              const total = b.high + b.medium + b.low;
-              return (
-                <div key={b.min} className="flex flex-1 flex-col items-center gap-1">
-                  <div className="flex h-28 w-full items-end overflow-hidden rounded border border-divider-soft bg-background/40">
-                    <div className="flex w-full flex-col-reverse" style={{ height: `${(total / maxBin) * 100}%` }}>
-                      {b.high > 0 && <div className="bg-destructive/80" style={{ flex: b.high }} title={`high: ${b.high}`} />}
-                      {b.medium  > 0 && <div className="bg-warning/80"     style={{ flex: b.medium  }} title={`medium:  ${b.medium}`} />}
-                      {b.low  > 0 && <div className="bg-success/70"     style={{ flex: b.low  }} title={`low:  ${b.low}`} />}
-                    </div>
-                  </div>
-                  <div className="text-mono ba-text-2xs text-muted-foreground">t+{b.min}m</div>
-                  <div className="text-mono ba-text-2xs text-foreground/80">{total}</div>
-                </div>
-              );
-            })}
-          </div>
+          <ChartContainer config={chartConfig} className="aspect-[4/1] w-full">
+            <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="time" tickLine={false} axisLine={false} fontSize={10} />
+              <YAxis tickLine={false} axisLine={false} fontSize={10} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="high" fill="var(--color-high)" stackId="a" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="medium" fill="var(--color-medium)" stackId="a" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="low" fill="var(--color-low)" stackId="a" radius={[0, 0, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
         )}
       </Panel>
 
@@ -594,7 +601,7 @@ function SiemPage() {
             </div>
             <pre className="mt-4 overflow-x-auto rounded border border-divider-strong bg-background/60 p-3 text-mono ba-text-sm leading-relaxed text-foreground/90">{JSON.stringify(modal.data, null, 2)}</pre>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => { copy(JSON.stringify(modal.data, null, 2)); flash("JSON copied"); }} className="rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy JSON</button>
+                <button onClick={() => { copyText(JSON.stringify(modal.data, null, 2)); flash("JSON copied"); }} className="rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Copy JSON</button>
               <button onClick={() => setModal(null)} className="rounded border border-border bg-card/60 px-2 py-1 text-mono ba-text-2xs uppercase tracking-widest text-muted-foreground hover:text-foreground">Close</button>
             </div>
           </div>

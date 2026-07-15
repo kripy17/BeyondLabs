@@ -38,19 +38,6 @@ fi
 . "$TOOL_INVENTORY"
 unset _R _D _X
 
-# ── Override ba_logo with correct BEYONDLABS banner ──────────────
-ba_logo() {
-  echo ""
-  echo -e "${C_CYAN}${C_BOLD}"
-  echo '  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗  █████╗ ██████╗  ██████╗██╗  ██╗'
-  echo '  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║'
-  echo '  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██║  ██║███████║██████╔╝██║     ███████║'
-  echo '  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██║  ██║██╔══██║██╔══██╗██║     ██╔══██║'
-  echo '  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝██║  ██║██║  ██║╚██████╗██║  ██║'
-  echo '  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝'
-  echo -e "${C_RESET}"
-}
-
 # ── Cleanup trap ─────────────────────────────────────────────────
 _cleanup() {
   if [[ $_INTERRUPTED -eq 1 ]]; then
@@ -371,8 +358,11 @@ record_installed_packages() {
 # ════════════════════════════════════════════════════════════════
 #   MAIN
 # ════════════════════════════════════════════════════════════════
-ba_logo
-echo -e "  ${C_DIM}Local SOC Investigation Workbench — Setup Wizard${C_RESET}"
+ba_boot \
+  "boot://env      resolving project root and dependencies" \
+  "boot://net      local-only — no external calls made" \
+  "boot://wizard   preparing setup wizard"
+ba_banner "Setup Wizard" "v0.1.0"
 echo ""
 
 # ── Preflight ────────────────────────────────────────────────────

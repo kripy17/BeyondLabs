@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   Search, Globe, Mail, User, Phone, Copy, Check, ExternalLink,
   ShieldAlert, Database, Server, Hash, AlertTriangle, BookMarked,
-  Download, Link, AtSign, Fingerprint, Linkedin, Bug,
+  Download, Link, AtSign, Fingerprint, Linkedin, Bug, Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/osint")({ component: OsintPage });
@@ -240,7 +240,7 @@ function OsintPage() {
                       <div className="mt-0.5 text-[11px] text-muted-foreground">{b.description}</div>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {b.data_classes.map((dc) => (
-                          <Chip key={dc} tone="destructive" priority="low">{dc}</Chip>
+                          <Chip key={dc} tone="destructive">{dc}</Chip>
                         ))}
                       </div>
                     </div>

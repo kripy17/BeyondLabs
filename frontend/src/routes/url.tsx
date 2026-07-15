@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { PageShell } from "@/components/PageShell";
 import { ToolShell, type ToolState } from "@/components/soc/ToolShell";
@@ -184,8 +184,6 @@ function UrlPage() {
   const [urlSearch, setUrlSearch] = useState("");
   const [enrichEnabled, setEnrichEnabled] = useState(false);
   const recentInputs = useRecentInputs("url");
-  const prevRuns = useRef(0);
-
   const enrichMutation = useMutation({
     mutationFn: (url: string) => safeAnalyzeUrl({ url, allow_live_fetch: false }),
     onSuccess: (data) => {
@@ -206,19 +204,6 @@ function UrlPage() {
       setRuns(1);
     }
   }, []);
-
-  useEffect(() => {
-    if (runs > prevRuns.current && analysis) {
-      const high = analysis.findings.filter(f => f.sev === "destructive").length;
-      pushTimelineEvent({ source: "url", verb: "analyzed", detail: `Analyzed ${trimmed}`, result: `${analysis.findings.length} findings (${high} high)` });
-      toast("URL analyzed");
-    }
-    prevRuns.current = runs;
-  }, [runs, analysis, trimmed]);
-
-  useEffect(() => {
-    if (raw.trim()) recentInputs.push(raw);
-  }, [runs, raw, recentInputs]);
 
   const trimmed = raw.trim();
   const has = trimmed.length > 0;
@@ -332,12 +317,14 @@ function UrlPage() {
   useEffect(() => {
     if (!committed || !analysis?.parsed) return;
     const entry = refang(trimmed);
+    recentInputs.push(entry);
     setHistory((prev) => {
       const next = [entry, ...prev.filter((x) => x !== entry)].slice(0, 6);
       try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
-  }, [runs, committed, analysis?.parsed, trimmed]);
+    pushTimelineEvent({ source: "url", verb: "analyzed", detail: `Analyzed ${trimmed}`, result: `${analysis.findings.length} findings (${analysis.findings.filter(f => f.sev === "destructive").length} high)` });
+  }, [runs, committed, analysis, trimmed, recentInputs]);
 
   useEffect(() => {
     if (!committed || !analysis?.parsed || !enrichEnabled) return;

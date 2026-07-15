@@ -7,7 +7,7 @@ import { useLocker } from "@/lib/locker";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { toast } from "sonner";
 import { type Severity } from "@/lib/severity";
-import { uploadPcap } from "@/api/backend";
+import { uploadPcap } from "@/api/network";
 import {
   Upload, Terminal, Globe, AlertTriangle, Network, Play, Trash2,
   FileText, CheckCircle, Download, Hash, Server, Activity,
@@ -278,7 +278,7 @@ function PcapPage() {
 
           {/* Metrics */}
           <MetricGrid
-            columns={5}
+            columns={4}
             metrics={[
               { label: "Packets", value: String(backendResult.summary.packets), tone: "primary", icon: Activity },
               { label: "Unique IPs", value: String(backendResult.summary.unique_ips), icon: Server },
@@ -306,7 +306,7 @@ function PcapPage() {
               <Panel title="Actions" icon={Send}>
                 <div className="flex flex-col gap-2">
                   <button onClick={() => {
-                    backendResult.iocs.ips.forEach((ip) => locker.add({ value: ip, type: "ip", source: "/pcap" }));
+                    backendResult.iocs.ips.forEach((ip) => locker.add({ value: ip, type: "ipv4", source: "/pcap" }));
                     backendResult.iocs.domains.forEach((d) => locker.add({ value: d, type: "domain", source: "/pcap" }));
                     toast.success(`Added ${totalIocs} IOCs to locker`);
                   }} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">
@@ -340,7 +340,7 @@ function PcapPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono text-[11px] text-muted-foreground">{t.packets} packets</span>
-                    <button onClick={() => { locker.add({ value: t.ip, type: "ip", source: "/pcap" }); toast("Added IP to locker"); }}
+                    <button onClick={() => { locker.add({ value: t.ip, type: "ipv4", source: "/pcap" }); toast("Added IP to locker"); }}
                       className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Add to locker">
                       <Database className="h-3 w-3" />
                     </button>
@@ -428,7 +428,7 @@ function PcapPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="font-mono text-[11px] text-warning">{b.packets} packets</span>
-                      <button onClick={() => { locker.add({ value: b.dst, type: "ip", source: "/pcap" }); toast("Added beacon IP to locker"); }}
+                      <button onClick={() => { locker.add({ value: b.dst, type: "ipv4", source: "/pcap" }); toast("Added beacon IP to locker"); }}
                         className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Add to locker">
                         <Database className="h-3 w-3" />
                       </button>
@@ -521,7 +521,7 @@ function PcapPage() {
                         <div>{t.packets} pkts</div>
                         <div>{t.bytes}</div>
                       </div>
-                      <button onClick={() => { locker.add({ value: t.ip, type: "ip", source: "/pcap" }); toast("Added IP to locker"); }}
+                      <button onClick={() => { locker.add({ value: t.ip, type: "ipv4", source: "/pcap" }); toast("Added IP to locker"); }}
                         className="grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity" title="Add to locker">
                         <Database className="h-3 w-3" />
                       </button>
@@ -608,7 +608,7 @@ function PcapPage() {
 
           <div className="flex items-center gap-2 mt-4">
             <button onClick={() => {
-              textAnalysis.ips.forEach((ip) => locker.add({ value: ip, type: "ip", source: "/pcap" }));
+              textAnalysis.ips.forEach((ip) => locker.add({ value: ip, type: "ipv4", source: "/pcap" }));
               textAnalysis.dnsQueries.forEach((d) => locker.add({ value: d, type: "domain", source: "/pcap" }));
               toast.success("Added " + (textAnalysis.ips.length + textAnalysis.dnsQueries.length) + " IOCs to locker");
             }} className="inline-flex items-center gap-1.5 rounded border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-mono ba-text-2xs uppercase tracking-widest text-primary hover:bg-primary/20">

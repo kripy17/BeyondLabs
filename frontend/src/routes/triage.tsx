@@ -8,6 +8,8 @@ import { sendToCase } from "@/lib/handoff";
 import { pushTimelineEvent } from "@/lib/timeline";
 import { copyText } from "@/lib/copy";
 import { toast } from "sonner";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { PieChart, Pie, Cell } from "recharts";
 import {
   AlertTriangle, CheckCircle, XCircle, Eye, ArrowUpRight,
   Trash2, Plus, MessageSquare, Download,
@@ -32,14 +34,6 @@ function TriagePage() {
   const [newDesc, setNewDesc] = useState("");
   const [newSev, setNewSev] = useState<Severity>("medium");
   const [noteDraft, setNoteDraft] = useState("");
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { setSelected(null); }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, []);
 
   const persist = useCallback((next: TriageItem[]) => {
     setItems(next);
@@ -125,6 +119,14 @@ function TriagePage() {
       toast.success("Sent to case");
     },
   });
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setIndex(-1); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [setIndex]);
 
   const counts = useMemo(() => ({
     total: items.length,
@@ -297,7 +299,45 @@ function TriagePage() {
           )}
         </div>
 
-        <div>
+        <div className="space-y-4">
+          {/* Severity distribution donut */}
+          {items.length > 0 && (() => {
+            const sevChartConfig = {
+              critical: { label: "Critical", color: "hsl(var(--destructive))" },
+              high: { label: "High", color: "hsl(0 72% 51% / 0.7)" },
+              medium: { label: "Medium", color: "hsl(var(--warning))" },
+              low: { label: "Low", color: "hsl(var(--success))" },
+              info: { label: "Info", color: "hsl(var(--muted-foreground) / 0.4)" },
+            } satisfies ChartConfig;
+            const pieData = (["critical", "high", "medium", "low", "info"] as const)
+              .map((s) => ({ name: s, value: items.filter((i) => i.severity === s).length, color: sevChartConfig[s].color }))
+              .filter((d) => d.value > 0);
+            if (pieData.length === 0) return null;
+            return (
+              <Panel title="Severity Distribution" icon={AlertTriangle} priority="secondary" collapsible>
+                <ChartContainer config={sevChartConfig} className="mx-auto aspect-square w-full max-w-[200px]">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
+                </ChartContainer>
+                <div className="mt-1 flex flex-wrap justify-center gap-2">
+                  {pieData.map((d) => (
+                    <div key={d.name} className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: d.color }} />
+                      <span className="text-mono ba-text-2xs capitalize text-muted-foreground">{d.name}</span>
+                      <span className="text-mono ba-text-sm font-medium text-foreground/90">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            );
+          })()}
+
           {selected ? (
             <Panel title="Detail" icon={AlertTriangle}>
               <div className="space-y-3">

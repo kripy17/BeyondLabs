@@ -1,3 +1,4 @@
+import os
 import time as _time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -40,9 +41,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Local dev default is the Vite dev server. In Docker (or any deployment
+# where the frontend isn't served from :5173), set BEYONDLABS_CORS_ORIGINS
+# to a comma-separated list of allowed origins — see docker-compose.yml
+# and backend/.env.example.
+_default_origins = "http://127.0.0.1:5173,http://localhost:5173"
+_cors_origins = [
+    origin.strip()
+    for origin in os.environ.get("BEYONDLABS_CORS_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

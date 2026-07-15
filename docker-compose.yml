@@ -4,7 +4,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - CORS_ORIGINS=http://localhost:5173,http://localhost
+      # Frontend container serves on :80 (default HTTP port → no port in
+      # the origin). :5173 is included too so a local `npm run dev`
+      # frontend can also talk to this dockerized backend.
+      - BEYONDLABS_CORS_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:5173,http://127.0.0.1:5173
     restart: unless-stopped
 
   frontend:

@@ -24,7 +24,7 @@ import {
   buildArgsFromSchema, defaultFieldValues, getTargetFromSchema,
   loadHistory, saveHistory, loadCachedCatalog,
   genId, CACHE_KEY, CACHE_TTL, PIN_KEY, HISTORY_KEY, MAX_HISTORY,
-  type ToolSchema, type BackendTool, type BackendCategory, type HistoryEntry,
+  type ToolInputField, type ToolSchema, type BackendTool, type BackendCategory, type HistoryEntry,
 } from "@/data/hacking-toolkit";
 
 export const Route = createFileRoute("/hacking-toolkit")({ component: HackingToolkitPage });
@@ -371,7 +371,7 @@ function HackingToolkitPage() {
     }
   }
 
-  async function copyText(key: string, text: string) {
+  async function copyToolOutput(key: string, text: string) {
     try { await copyText(text); setCopied(key); setTimeout(() => setCopied(null), 1200); } catch {}
   }
 
@@ -727,7 +727,7 @@ function HackingToolkitPage() {
                           <span className="text-primary/70">$</span> {cmd || activeTool.binary}
                         </code>
                         <button
-                          onClick={() => copyText("cmd", cmd || activeTool.binary)}
+                          onClick={() => copyToolOutput("cmd", cmd || activeTool.binary)}
                           className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/50 hover:text-primary"
                           title="Copy command"
                         >
@@ -824,7 +824,7 @@ function HackingToolkitPage() {
                                 </div>
                                 <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                                   <button onClick={() => replayHistory(h)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-3xs uppercase text-muted-foreground hover:text-primary" title="Replay">replay</button>
-                                  <button onClick={() => copyText(h.id, h.body)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-3xs uppercase text-muted-foreground hover:text-primary" title="Copy output">{copied === h.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}</button>
+                                  <button onClick={() => copyToolOutput(h.id, h.body)} className="rounded border border-border px-1.5 py-0.5 text-mono ba-text-3xs uppercase text-muted-foreground hover:text-primary" title="Copy output">{copied === h.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}</button>
                                 </div>
                               </div>
                             ))}

@@ -32,19 +32,6 @@ fi
 . "$TOOL_INVENTORY"
 unset _R _D _X
 
-# ── Override ba_logo with correct BEYONDLABS banner ──────────────
-ba_logo() {
-  echo ""
-  echo -e "${C_CYAN}${C_BOLD}"
-  echo '  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗  █████╗ ██████╗  ██████╗██╗  ██╗'
-  echo '  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║'
-  echo '  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██║  ██║███████║██████╔╝██║     ███████║'
-  echo '  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██║  ██║██╔══██║██╔══██╗██║     ██╔══██║'
-  echo '  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝██║  ██║██║  ██║╚██████╗██║  ██║'
-  echo '  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝'
-  echo -e "${C_RESET}"
-}
-
 # ── Cleanup ──────────────────────────────────────────────────────
 _cleanup() { rm -f "$_LINT_LOG" "$_BUILD_LOG" 2>/dev/null || true; }
 trap _cleanup EXIT
@@ -75,8 +62,10 @@ port_listening() {
 # ════════════════════════════════════════════════════════════════
 #   MAIN
 # ════════════════════════════════════════════════════════════════
-ba_logo
-echo -e "  ${C_DIM}System Health Dashboard  —  $(date '+%Y-%m-%d %H:%M:%S')${C_RESET}"
+ba_boot \
+  "boot://scan     enumerating project layout and runtimes" \
+  "boot://probe    checking live services on :8000 / :5173"
+ba_banner "System Health Dashboard" "$(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 
 # ── 01: Project layout ───────────────────────────────────────────

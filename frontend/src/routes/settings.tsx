@@ -753,7 +753,7 @@ function SettingsPage() {
         <div className="mt-3">
           <Label>note</Label>
           <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
-            BeyondArch keeps everything in your browser's localStorage. No data is sent to any server,
+            BeyondLabs keeps everything in your browser's localStorage. No data is sent to any server,
             uploaded to the cloud, or shared with third parties. Clearing data is immediate and irreversible.
           </p>
         </div>

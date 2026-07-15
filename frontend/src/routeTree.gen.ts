@@ -28,6 +28,7 @@ import { Route as NmapRouteImport } from './routes/nmap'
 import { Route as MitreRouteImport } from './routes/mitre'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as Ja3LookupRouteImport } from './routes/ja3-lookup'
+import { Route as IntelRouteImport } from './routes/intel'
 import { Route as HashLookupRouteImport } from './routes/hash-lookup'
 import { Route as HackingToolkitRouteImport } from './routes/hacking-toolkit'
 import { Route as GuideRouteImport } from './routes/guide'
@@ -136,6 +137,11 @@ const Ja3LookupRoute = Ja3LookupRouteImport.update({
   path: '/ja3-lookup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntelRoute = IntelRouteImport.update({
+  id: '/intel',
+  path: '/intel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HashLookupRoute = HashLookupRouteImport.update({
   id: '/hash-lookup',
   path: '/hash-lookup',
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
   '/hash-lookup': typeof HashLookupRoute
+  '/intel': typeof IntelRoute
   '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
   '/hash-lookup': typeof HashLookupRoute
+  '/intel': typeof IntelRoute
   '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
@@ -276,6 +284,7 @@ export interface FileRoutesById {
   '/guide': typeof GuideRoute
   '/hacking-toolkit': typeof HackingToolkitRoute
   '/hash-lookup': typeof HashLookupRoute
+  '/intel': typeof IntelRoute
   '/ja3-lookup': typeof Ja3LookupRoute
   '/logs': typeof LogsRoute
   '/mitre': typeof MitreRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/hacking-toolkit'
     | '/hash-lookup'
+    | '/intel'
     | '/ja3-lookup'
     | '/logs'
     | '/mitre'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/hacking-toolkit'
     | '/hash-lookup'
+    | '/intel'
     | '/ja3-lookup'
     | '/logs'
     | '/mitre'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/hacking-toolkit'
     | '/hash-lookup'
+    | '/intel'
     | '/ja3-lookup'
     | '/logs'
     | '/mitre'
@@ -411,6 +423,7 @@ export interface RootRouteChildren {
   GuideRoute: typeof GuideRoute
   HackingToolkitRoute: typeof HackingToolkitRoute
   HashLookupRoute: typeof HashLookupRoute
+  IntelRoute: typeof IntelRoute
   Ja3LookupRoute: typeof Ja3LookupRoute
   LogsRoute: typeof LogsRoute
   MitreRoute: typeof MitreRoute
@@ -568,6 +581,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Ja3LookupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intel': {
+      id: '/intel'
+      path: '/intel'
+      fullPath: '/intel'
+      preLoaderRoute: typeof IntelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hash-lookup': {
       id: '/hash-lookup'
       path: '/hash-lookup'
@@ -667,6 +687,7 @@ const rootRouteChildren: RootRouteChildren = {
   GuideRoute: GuideRoute,
   HackingToolkitRoute: HackingToolkitRoute,
   HashLookupRoute: HashLookupRoute,
+  IntelRoute: IntelRoute,
   Ja3LookupRoute: Ja3LookupRoute,
   LogsRoute: LogsRoute,
   MitreRoute: MitreRoute,

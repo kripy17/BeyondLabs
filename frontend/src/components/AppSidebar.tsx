@@ -70,8 +70,12 @@ function GroupBlock({
 }: {
   label: string; count: number; collapsed: boolean; defaultOpen: boolean; children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
+  const storageKey = `ba.sidebar.group.${label}`;
+  const [open, setOpen] = useState(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+    return saved !== null ? saved === "true" : defaultOpen;
+  });
+  useEffect(() => { localStorage.setItem(storageKey, String(open)); }, [open, storageKey]);
   if (collapsed) return <div className="px-1.5 py-1">{children}</div>;
   return (
     <div className="px-1.5 py-1">
@@ -146,7 +150,7 @@ export function AppSidebar() {
 
         {ordered.map((g) => {
           return (
-            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={true}>
+            <GroupBlock key={g.label} label={g.label} count={g.items.length} collapsed={collapsed} defaultOpen={g.label === "Dashboard" || g.label === "SIEM"}>
               {g.items.map((item) => (
                 <Row
                   key={item.url}

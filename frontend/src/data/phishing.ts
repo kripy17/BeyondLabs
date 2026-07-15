@@ -1,5 +1,5 @@
 import { SUSPICIOUS_TLDS, SHORTENERS, refang, defang, entropy, scanSecrets } from "@/lib/ioc-patterns";
-import { CheckCircle2, XCircle, AlertTriangle, MinusCircle, FileText, Download, Copy, Check, FlaskConical, Activity, Panel } from "lucide-react"; // prettier-ignore
+import { CheckCircle2, XCircle, AlertTriangle, MinusCircle, FileText, Download, Copy, Check, FlaskConical, Activity } from "lucide-react"; // prettier-ignore
 
 export const SAMPLES: Record<string, string> = {
   lure: `From: Security Team <security-alert@example-login.com>

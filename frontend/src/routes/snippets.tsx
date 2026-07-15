@@ -99,7 +99,7 @@ function SnippetsPage() {
     setEditing(null);
   }, [editName, editCategory, editContent, editTags, editing]);
 
-  const copyText = (id: string, text: string) => {
+  const copySnippet = (id: string, text: string) => {
     copyText(text);
     setCopied(id);
     setTimeout(() => setCopied(""), 1200);
@@ -231,7 +231,7 @@ function SnippetsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => copyText(sn.id, sn.content)} className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-card/60" title="Copy">
+                  <button onClick={() => copySnippet(sn.id, sn.content)} className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:text-foreground hover:bg-card/60" title="Copy">
                     {copied === sn.id ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
                   </button>
                   {!sn.id.startsWith("seed-") && (

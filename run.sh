@@ -21,18 +21,29 @@ for arg in "$@"; do
   esac
 done
 
-# ── Colors ──────────────────────────────────────────────────────
-C_RESET='\033[0m'; C_BOLD='\033[1m'; C_DIM='\033[2m'
-C_CYAN='\033[0;36m'; C_GREEN='\033[0;32m'
-C_YELLOW='\033[0;33m'; C_RED='\033[0;31m'
-C_WHITE='\033[0;37m'
-
-# ── Helpers ─────────────────────────────────────────────────────
-info()  { echo -e "  ${C_CYAN}◆${C_RESET}  $*"; }
-ok()    { echo -e "  ${C_GREEN}✔${C_RESET}  $*"; }
-warn()  { echo -e "  ${C_YELLOW}▲${C_RESET}  $*"; }
+# ── Visual toolkit ────────────────────────────────────────────────
+# Shared with install.sh / doctor.sh — one palette, one logo, no drift.
+UI_HELPER="$ROOT_DIR/scripts/terminal-ui.sh"
+if [[ -f "$UI_HELPER" ]]; then
+  . "$UI_HELPER"
+else
+  # Minimal inline fallback if scripts/terminal-ui.sh isn't present.
+  C_RESET='\033[0m'; C_BOLD='\033[1m'; C_DIM='\033[2m'
+  C_CYAN='\033[38;5;214m'; C_GREEN='\033[38;5;108m'
+  C_YELLOW='\033[38;5;179m'; C_RED='\033[38;5;203m'
+  ba_ok()   { echo -e "  ${C_GREEN}●${C_RESET}  $*"; }
+  ba_info() { echo -e "  ${C_CYAN}◆${C_RESET}  $*"; }
+  ba_warn() { echo -e "  ${C_YELLOW}▲${C_RESET}  $*"; }
+  ba_hr()   { echo -e "  ${C_DIM}────────────────────────────────────────────────${C_RESET}"; }
+  ba_boot() { for l in "$@"; do echo -e "  ${C_DIM}$l${C_RESET}"; done; }
+  ba_banner() { echo -e "  ${C_CYAN}${C_BOLD}BeyondLabs${C_RESET}"; }
+fi
+C_WHITE='\033[38;5;253m'
+info()  { ba_info "$*"; }
+ok()    { ba_ok "$*"; }
+warn()  { ba_warn "$*"; }
 die()   { echo -e "\n  ${C_RED}✖${C_RESET}  $*\n" >&2; exit 1; }
-sep()   { echo -e "  ${C_DIM}────────────────────────────────────────────────${C_RESET}"; }
+sep()   { ba_hr; }
 
 # ── Cleanup ─────────────────────────────────────────────────────
 cleanup() {
@@ -54,16 +65,10 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 # ── Banner ──────────────────────────────────────────────────────
-echo ""
-echo -e "${C_CYAN}${C_BOLD}"
-echo '  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗  █████╗ ██████╗  ██████╗██╗  ██╗'
-echo '  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║'
-echo '  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██║  ██║███████║██████╔╝██║     ███████║'
-echo '  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██║  ██║██╔══██║██╔══██╗██║     ██╔══██║'
-echo '  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝██║  ██║██║  ██║╚██████╗██║  ██║'
-echo '  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝'
-echo -e "${C_RESET}"
-echo -e "  ${C_WHITE}${C_BOLD}Local SOC Investigation Workbench${C_RESET}  ${C_DIM}v0.1.0${C_RESET}"
+ba_boot \
+  "boot://env      resolving backend + frontend targets" \
+  "boot://launch   starting local services"
+ba_banner
 sep
 echo ""
 
@@ -75,6 +80,17 @@ if [[ ! -f "$BACKEND/.env" ]]; then
   else
     warn "No ${C_DIM}.env${C_RESET} or ${C_DIM}.env.example${C_RESET} found in backend — proceeding anyway"
   fi
+fi
+
+# ── Load backend host/port from .env (falls back to safe defaults) ──
+BACKEND_HOST="127.0.0.1"
+BACKEND_PORT="8000"
+if [[ -f "$BACKEND/.env" ]]; then
+  _env_host="$(grep -E '^BEYONDLABS_BACKEND_HOST=' "$BACKEND/.env" | tail -1 | cut -d= -f2- | tr -d '\r')"
+  _env_port="$(grep -E '^BEYONDLABS_BACKEND_PORT=' "$BACKEND/.env" | tail -1 | cut -d= -f2- | tr -d '\r')"
+  [[ -n "$_env_host" ]] && BACKEND_HOST="$_env_host"
+  [[ -n "$_env_port" ]] && BACKEND_PORT="$_env_port"
+  unset _env_host _env_port
 fi
 
 # ── Preflight ───────────────────────────────────────────────────
@@ -110,8 +126,8 @@ if $RUN_BACKEND; then
   info "Starting backend…"
   cd "$BACKEND"
   .venv/bin/uvicorn app.main:app \
-    --host 127.0.0.1 \
-    --port 8000 \
+    --host "$BACKEND_HOST" \
+    --port "$BACKEND_PORT" \
     --reload \
     --log-level warning \
     2>&1 | sed "s/^/  ${C_DIM}[backend]${C_RESET} /" &
@@ -123,7 +139,7 @@ if $RUN_BACKEND; then
   info "Waiting for backend to become ready…"
   READY=0
   for i in $(seq 1 20); do
-    if curl -sf http://127.0.0.1:8000/docs >/dev/null 2>&1; then
+    if curl -sf "http://${BACKEND_HOST}:${BACKEND_PORT}/docs" >/dev/null 2>&1; then
       READY=1; break
     fi
     sleep 0.5
@@ -159,8 +175,8 @@ echo ""
 echo -e "  ${C_CYAN}${C_BOLD}◈  Access Points${C_RESET}"
 echo ""
 $RUN_FRONTEND && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Frontend${C_RESET}   ${C_GREEN}http://localhost:5173${C_RESET}"
-$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Backend ${C_RESET}   ${C_GREEN}http://localhost:8000${C_RESET}"
-$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}API Docs${C_RESET}   ${C_DIM}http://localhost:8000/docs${C_RESET}"
+$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}Backend ${C_RESET}   ${C_GREEN}http://${BACKEND_HOST}:${BACKEND_PORT}${C_RESET}"
+$RUN_BACKEND  && echo -e "  ${C_CYAN}┃${C_RESET}  ${C_BOLD}API Docs${C_RESET}   ${C_DIM}http://${BACKEND_HOST}:${BACKEND_PORT}/docs${C_RESET}"
 echo ""
 sep
 echo ""

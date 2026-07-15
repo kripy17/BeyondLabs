@@ -11,20 +11,14 @@ $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $StateDir = Join-Path $RootDir ".beyondlabs"
 
 # ── Visual toolkit ──────────────────────────────────────────────
-$C_Cyan = "Cyan"; $C_Green = "Green"; $C_Yellow = "Yellow"
-$C_Red = "Red"; $C_Gray = "DarkGray"
-
-function Mark-Ok($M)   { Write-Host ("  ● {0}" -f $M) -ForegroundColor $C_Green }
-function Mark-Info($M) { Write-Host ("  ◆ {0}" -f $M) -ForegroundColor $C_Cyan }
-function Mark-Warn($M) { Write-Host ("  ▲ {0}" -f $M) -ForegroundColor $C_Yellow }
-function Hr()          { Write-Host ("  " + ("─" * 44)) -ForegroundColor $C_Gray }
-
-function Write-Section($T) {
-  Write-Host ""
-  Write-Host ("  [{0}] {1}" -f $script:sectionNum, $T) -ForegroundColor $C_Cyan
-  Hr(); $script:sectionNum = [int]$script:sectionNum + 1
-  if ($script:sectionNum -lt 10) { $script:sectionNum = "0$($script:sectionNum)" }
+# Shared with run.ps1 / install.ps1 / doctor.ps1 — defined once in
+# scripts/terminal-ui.ps1.
+$UiHelper = Join-Path $RootDir "scripts\terminal-ui.ps1"
+if (-not (Test-Path $UiHelper)) {
+  Write-Host "  ■  Missing scripts\terminal-ui.ps1" -ForegroundColor Red
+  exit 1
 }
+. $UiHelper
 
 function Add-Target($Targets, $Path) {
   if (Test-Path $Path) { [void]$Targets.Add($Path) }
@@ -42,19 +36,12 @@ if ($Help) {
 }
 
 # ── Logo ────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ " -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝" -ForegroundColor $C_Cyan
-Write-Host "  Local State Cleanup — Windows" -ForegroundColor $C_Gray
-Write-Host ""
+Show-Boot @(
+  "boot://scan     enumerating local dependency and cache paths"
+)
+Show-Banner "Local State Cleanup — Windows" "v0.1.0"
 Mark-Warn "Removes local dependency and cache files only."
 Mark-Info "Source code and .git are never touched."
-
-$sectionNum = "01"
 $Targets = New-Object System.Collections.Generic.List[string]
 
 Add-Target $Targets (Join-Path $RootDir "backend\.venv")

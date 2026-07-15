@@ -9,20 +9,15 @@ $BackendDir = Join-Path $RootDir "backend"
 $FrontendDir = Join-Path $RootDir "frontend"
 
 # ── Visual toolkit ──────────────────────────────────────────────
-$C_Cyan = "Cyan"; $C_Green = "Green"; $C_Yellow = "Yellow"
-$C_Red = "Red"; $C_Gray = "DarkGray"
-
-function Mark-Ok($M)   { Write-Host ("  ● {0}" -f $M) -ForegroundColor $C_Green }
-function Mark-Info($M) { Write-Host ("  ◆ {0}" -f $M) -ForegroundColor $C_Cyan }
-function Mark-Err($M)  { Write-Host ("  ■ {0}" -f $M) -ForegroundColor $C_Red }
-function Hr()          { Write-Host ("  " + ("─" * 44)) -ForegroundColor $C_Gray }
-
-function Write-Section($T) {
-  Write-Host ""
-  Write-Host ("  [{0}] {1}" -f $script:sectionNum, $T) -ForegroundColor $C_Cyan
-  Hr(); $script:sectionNum = [int]$script:sectionNum + 1
-  if ($script:sectionNum -lt 10) { $script:sectionNum = "0$($script:sectionNum)" }
+# Shared with run.ps1 / doctor.ps1 / uninstall.ps1 — one palette, one
+# logo, defined once in scripts/terminal-ui.ps1.
+$UiHelper = Join-Path $RootDir "scripts\terminal-ui.ps1"
+if (-not (Test-Path $UiHelper)) {
+  Write-Host "  ■  Missing scripts\terminal-ui.ps1" -ForegroundColor Red
+  Write-Host "     Run this script from the BeyondLabs project root." -ForegroundColor DarkGray
+  exit 1
 }
+. $UiHelper
 
 function Write-Step($Label, $File, $Arguments, $WorkingDirectory = $RootDir) {
   Write-Host ("  ⡿ {0}" -f $Label) -ForegroundColor $C_Cyan
@@ -42,17 +37,12 @@ function Find-Python {
 if ($Help) { Write-Host "Usage: .\install.ps1 [-Yes]"; exit 0 }
 
 # ── Logo ────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ " -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝" -ForegroundColor $C_Cyan
-Write-Host "  Windows Setup Wizard" -ForegroundColor $C_Gray
-Write-Host ""
-
-$sectionNum = "01"
+Show-Boot @(
+  "boot://env      resolving project root and dependencies",
+  "boot://net      local-only — no external calls made",
+  "boot://wizard   preparing Windows setup wizard"
+)
+Show-Banner "Windows Setup Wizard" "v0.1.0"
 
 # ── Preflight ───────────────────────────────────────────────────
 Write-Section "Preflight"

@@ -3,9 +3,11 @@ import { type ReactNode } from "react";
 export function Chip({
   children,
   tone = "default",
+  actions,
 }: {
   children: ReactNode;
   tone?: "default" | "primary" | "accent" | "success" | "warning" | "destructive" | "info";
+  actions?: ReactNode;
 }) {
   const cls =
     tone === "primary" ? "border-primary/40 bg-primary/10 text-primary" :
@@ -18,6 +20,7 @@ export function Chip({
   return (
     <span className={"inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-mono ba-text-2xs uppercase tracking-widest " + cls}>
       {children}
+      {actions && <span className="ml-auto">{actions}</span>}
     </span>
   );
 }

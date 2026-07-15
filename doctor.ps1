@@ -6,16 +6,22 @@ $BackendDir = Join-Path $RootDir "backend"
 $FrontendDir = Join-Path $RootDir "frontend"
 
 # ── Visual toolkit ──────────────────────────────────────────────
-$C_Cyan = "Cyan"; $C_Green = "Green"; $C_Yellow = "Yellow"
-$C_Red = "Red"; $C_Gray = "DarkGray"
-$Pass = 0; $Warn = 0; $Fail = 0
+# Shared with run.ps1 / install.ps1 / uninstall.ps1 — defined once in
+# scripts/terminal-ui.ps1.
+$UiHelper = Join-Path $RootDir "scripts\terminal-ui.ps1"
+if (-not (Test-Path $UiHelper)) {
+  Write-Host "  ■  Missing scripts\terminal-ui.ps1" -ForegroundColor Red
+  exit 1
+}
+. $UiHelper
 
-function OK($M)   { $script:Pass++; Write-Host ("  ● {0}" -f $M) -ForegroundColor $C_Green }
-function WARN($M) { $script:Warn++; Write-Host ("  ▲ {0}" -f $M) -ForegroundColor $C_Yellow }
-function ERR($M)  { $script:Fail++; Write-Host ("  ■ {0}" -f $M) -ForegroundColor $C_Red }
-function INFO($M) { Write-Host ("  ◆ {0}" -f $M) -ForegroundColor $C_Cyan }
-function HR()     { Write-Host ("  " + ("─" * 44)) -ForegroundColor $C_Gray }
-function Section($T) { Write-Host ""; Write-Host ("  [{0}] {1}" -f $script:sectionNum, $T) -ForegroundColor $C_Cyan; HR(); $script:sectionNum = [int]$script:sectionNum + 1; if ($script:sectionNum -lt 10) { $script:sectionNum = "0$($script:sectionNum)" } }
+$Pass = 0; $Warn = 0; $Fail = 0
+function OK($M)   { $script:Pass++; Mark-Ok $M }
+function WARN($M) { $script:Warn++; Mark-Warn $M }
+function ERR($M)  { $script:Fail++; Mark-Err $M }
+function INFO($M) { Mark-Info $M }
+function HR()     { Hr }
+function Section($T) { Write-Section $T }
 
 function Test-Python {
   $candidates = @("py -3", "python", "python3")
@@ -29,17 +35,11 @@ function Test-Python {
 if ($Help) { Write-Host "Usage: .\doctor.ps1"; exit 0 }
 
 # ── Logo ────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ " -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝" -ForegroundColor $C_Cyan
-Write-Host "  System Health Dashboard — Windows" -ForegroundColor $C_Gray
-Write-Host ""
-
-$sectionNum = "01"
+Show-Boot @(
+  "boot://scan     enumerating project layout and runtimes",
+  "boot://probe    checking live services on :8000 / :5173"
+)
+Show-Banner "System Health Dashboard — Windows" (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
 Section "Project layout"
 if (Test-Path $BackendDir) { OK "backend\" } else { ERR "backend\ missing" }

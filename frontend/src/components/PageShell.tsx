@@ -25,7 +25,7 @@ export function PageShell({
   description?: string;
   actions?: ReactNode;
   crumbs?: Crumb[];
-  meta?: { label: string; value: string; tone?: "default" | "primary" | "warning" | "destructive" | "success" | "muted" }[];
+  meta?: { label: string; value: string; tone?: "default" | "primary" | "warning" | "destructive" | "success" | "info" | "accent" | "muted" }[];
   jumps?: JumpLink[];
   children: ReactNode;
 }) {

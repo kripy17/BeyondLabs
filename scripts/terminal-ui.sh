@@ -1,16 +1,25 @@
-# BeyondLabs terminal UI helpers — visual toolkit
+# BeyondLabs terminal UI toolkit — signature visual identity
 # Source with: . scripts/terminal-ui.sh
+#
+# One shared palette + one shared logo. Every entry script (install.sh,
+# run.sh, doctor.sh, reset-workspace.sh, demo-workflow.sh) sources this file
+# instead of redefining its own colors or banner — that duplication is how
+# the old rebrand drifted out of sync in the first place.
 
 C_RESET='\033[0m'
 C_BOLD='\033[1m'
 C_DIM='\033[2m'
 C_ITALIC='\033[3m'
-C_CYAN='\033[0;36m'
-C_GREEN='\033[0;32m'
-C_YELLOW='\033[0;33m'
-C_RED='\033[0;31m'
-C_MAGENTA='\033[0;35m'
-C_BLUE='\033[0;34m'
+
+# Signature accent: amber, not the cyan every other CLI tool defaults to.
+# Kept under the old variable names so nothing else has to change.
+C_CYAN='\033[38;5;214m'      # signature amber accent
+C_BLUE='\033[38;5;214m'      # alias, same accent
+C_YELLOW='\033[38;5;179m'    # warm gold — warnings
+C_GREEN='\033[38;5;108m'     # muted sage — success
+C_RED='\033[38;5;203m'       # coral — errors
+C_MAGENTA='\033[38;5;138m'   # muted rose — used sparingly
+C_GREY='\033[38;5;245m'
 
 BA_RESET="$C_RESET"
 BA_BOLD="$C_BOLD"
@@ -23,19 +32,44 @@ BA_BLUE="$C_CYAN"
 BA_MAGENTA="$C_MAGENTA"
 
 # ── Dividers ──────────────────────────────────────────────────
-ba_hr()     { echo -e "  ${C_DIM}──────────────────────────────────────────────${C_RESET}"; }
-ba_hr_thin(){ echo -e "  ${C_DIM}･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･${C_RESET}"; }
+ba_hr()      { echo -e "  ${C_DIM}──────────────────────────────────────────────${C_RESET}"; }
+ba_hr_bold() { echo -e "  ${C_CYAN}══════════════════════════════════════════════${C_RESET}"; }
+ba_hr_thin() { echo -e "  ${C_DIM}･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･ ･${C_RESET}"; }
+
+# ── Boot sequence ─────────────────────────────────────────────
+# A handful of faux system lines with timestamps before the logo, echoing
+# the boot-sequence intro already used on the BeyondLabs web frontend.
+# Silent (skips animation) when not attached to a real terminal.
+ba_boot() {
+  local line
+  for line in "$@"; do
+    echo -e "  ${C_DIM}$(date +%H:%M:%S)${C_RESET}  ${C_GREY}${line}${C_RESET}"
+    [[ -t 1 ]] && sleep 0.05
+  done
+}
 
 # ── Header / Logo ──────────────────────────────────────────────
+# Single canonical logo. Do NOT redefine ba_logo() in individual scripts —
+# that's exactly how the old banner went stale in three different places.
 ba_logo() {
-  echo -e "${C_CYAN}"
-  echo '  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ '
-  echo '  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗'
-  echo '  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██████╔╝'
-  echo '  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██╔══██╗'
-  echo '  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝'
-  echo '  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝ '
+  echo ""
+  echo -e "${C_CYAN}${C_BOLD}"
+  echo '  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ ██╗      █████╗ ██████╗ ███████╗'
+  echo '  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗██║     ██╔══██╗██╔══██╗██╔════╝'
+  echo '  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██║  ██║██║     ███████║██████╔╝███████╗'
+  echo '  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██║  ██║██║     ██╔══██║██╔══██╗╚════██║'
+  echo '  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝███████╗██║  ██║██████╔╝███████║'
+  echo '  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝ ╚══════╝'
   echo -e "${C_RESET}"
+}
+
+# Logo + tagline strip, framed with dotted scan marks instead of a plain
+# subtitle line. Pass a tagline (defaults to the standard one) and version.
+ba_banner() {
+  local tagline="${1:-Local SOC Investigation Workbench}"
+  local version="${2:-v0.1.0}"
+  ba_logo
+  echo -e "  ${C_GREY}┈┈┈${C_RESET} ${C_BOLD}${tagline}${C_RESET} ${C_GREY}┈┈┈${C_RESET} ${C_DIM}${version}${C_RESET}"
 }
 
 ba_header() {
@@ -130,9 +164,9 @@ ba_box() {
   local width=46
   local pad=$(( (width - ${#title} - 2) / 2 ))
   printf '\n'
-  printf '  %s┌%s┐%s\n' "${C_CYAN}" "$(printf '─%.0s' $(seq 1 $width))" "${C_RESET}"
+  printf '  %s╭%s╮%s\n' "${C_CYAN}" "$(printf '─%.0s' $(seq 1 $width))" "${C_RESET}"
   printf '  %s│%s%s%s│%s\n' "${C_CYAN}" "$(printf ' %.0s' $(seq 1 $pad))" "${C_BOLD}${title}${C_RESET}${C_CYAN}" "$(printf ' %.0s' $(seq 1 $((width - pad - ${#title}))))" "${C_RESET}"
-  printf '  %s└%s┘%s\n' "${C_CYAN}" "$(printf '─%.0s' $(seq 1 $width))" "${C_RESET}"
+  printf '  %s╰%s╯%s\n' "${C_CYAN}" "$(printf '─%.0s' $(seq 1 $width))" "${C_RESET}"
 }
 
 ba_subbox() {

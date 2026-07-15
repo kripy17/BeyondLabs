@@ -12,6 +12,7 @@ import { CopyAsDropdown } from "@/components/CopyAsDropdown";
 import {
   Notebook, Plus, Copy, Download, Trash2, FileText, Tag, X,
   ArrowRight, Database, Pencil, Check, FolderOpen, ClipboardList, MessageSquare,
+  Search, ShieldAlert, Siren,
 } from "lucide-react";
 import {
   type Case, type Entry, type EntryKind, type TemplateDef,
@@ -603,7 +604,7 @@ function CasePage() {
               {/* IOC extraction summary */}
               {active.entries.some(e => e.kind === "ioc") && (
                 <Panel title="Extracted IOCs" icon={Siren} priority="secondary"
-                  headerAction={
+                  actions={
                     <button onClick={() => { active.entries.filter(e => e.kind === "ioc").forEach(e => locker.add({ value: e.body, type: guessType(e.body), source: "/case" })); toast("All IOCs added to locker"); }}
                       className="inline-flex items-center gap-1 rounded border border-border/50 bg-card/40 px-1.5 py-0.5 text-mono ba-text-3xs uppercase tracking-widest text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /> all to locker</button>
                   }>

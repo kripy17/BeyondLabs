@@ -209,9 +209,9 @@ function DiffPage() {
                 <AlertTriangle className="h-3 w-3" /> New IOCs in changed version
               </div>
               <div className="flex flex-wrap gap-2">
-                {newIps.slice(0, 5).map(ip => <Chip key={ip} tone="destructive" actions={<button onClick={() => { locker.add({ value: ip, type: "ip", source: "/diff" }); toast("Added IP to locker"); }} className="grid h-3.5 w-3.5 place-items-center text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /></button>}>{ip}</Chip>)}
+                {newIps.slice(0, 5).map(ip => <Chip key={ip} tone="destructive" actions={<button onClick={() => { locker.add({ value: ip, type: "ipv4", source: "/diff" }); toast("Added IP to locker"); }} className="grid h-3.5 w-3.5 place-items-center text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /></button>}>{ip}</Chip>)}
                 {newDomains.slice(0, 5).map(d => <Chip key={d} tone="warning" actions={<button onClick={() => { locker.add({ value: d, type: "domain", source: "/diff" }); toast("Added domain to locker"); }} className="grid h-3.5 w-3.5 place-items-center text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /></button>}>{d}</Chip>)}
-                {newHashes.slice(0, 3).map(h => <Chip key={h} tone="destructive" actions={<button onClick={() => { locker.add({ value: h, type: "hash", source: "/diff" }); toast("Added hash to locker"); }} className="grid h-3.5 w-3.5 place-items-center text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /></button>}>{h.slice(0, 16)}…</Chip>)}
+                {newHashes.slice(0, 3).map(h => <Chip key={h} tone="destructive" actions={<button onClick={() => { const ht = h.length === 64 ? "sha256" : h.length === 40 ? "sha1" : "md5"; locker.add({ value: h, type: ht, source: "/diff" }); toast("Added hash to locker"); }} className="grid h-3.5 w-3.5 place-items-center text-muted-foreground hover:text-primary"><Database className="h-3 w-3" /></button>}>{h.slice(0, 16)}…</Chip>)}
                 {(newIps.length + newDomains.length + newHashes.length) > 13 && (
                   <Chip tone="default">+{newIps.length + newDomains.length + newHashes.length - 13} more</Chip>
                 )}

@@ -14,25 +14,27 @@ $BackendDir = Join-Path $RootDir "backend"
 $FrontendDir = Join-Path $RootDir "frontend"
 
 # ── Visual toolkit ──────────────────────────────────────────────
-$C_Cyan = "Cyan"; $C_Green = "Green"; $C_Yellow = "Yellow"
-$C_Red = "Red"; $C_Gray = "DarkGray"; $C_White = "White"
+# Shared with install.ps1 / doctor.ps1 / uninstall.ps1 — one palette,
+# one logo, defined once in scripts/terminal-ui.ps1.
+$UiHelper = Join-Path $RootDir "scripts\terminal-ui.ps1"
+if (Test-Path $UiHelper) {
+  . $UiHelper
+} else {
+  $C_Cyan = "DarkYellow"; $C_Green = "Green"; $C_Yellow = "Yellow"; $C_Red = "Red"; $C_Gray = "DarkGray"
+  function Mark-Ok   { param($M) Write-Host ("  ● {0}" -f $M) -ForegroundColor $C_Green }
+  function Mark-Info { param($M) Write-Host ("  ◆ {0}" -f $M) -ForegroundColor $C_Cyan }
+  function Mark-Err  { param($M) Write-Host ("  ■ {0}" -f $M) -ForegroundColor $C_Red }
+  function Mark-Warn { param($M) Write-Host ("  ▲ {0}" -f $M) -ForegroundColor $C_Yellow }
+  function Hr        { Write-Host ("  " + ("─" * 44)) -ForegroundColor $C_Gray }
+  function Show-Boot   { param([string[]]$Lines) }
+  function Show-Banner { param([string]$Tagline, [string]$Version) }
+}
 
-function Mark-Ok($M)   { Write-Host ("  ● {0}" -f $M) -ForegroundColor $C_Green }
-function Mark-Info($M) { Write-Host ("  ◆ {0}" -f $M) -ForegroundColor $C_Cyan }
-function Mark-Err($M)  { Write-Host ("  ■ {0}" -f $M) -ForegroundColor $C_Red }
-function Mark-Warn($M) { Write-Host ("  ▲ {0}" -f $M) -ForegroundColor $C_Yellow }
-function Hr()          { Write-Host ("  " + ("─" * 44)) -ForegroundColor $C_Gray }
-
-# ── Logo ────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "  ██████╗ ███████╗██╗   ██╗ ██████╗ ███╗   ██╗██████╗ " -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔════╝╚██╗ ██╔╝██╔═══██╗████╗  ██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝█████╗   ╚████╔╝ ██║   ██║██╔██╗ ██║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ██╔══██╗██╔══╝    ╚██╔╝  ██║   ██║██║╚██╗██║██╔══██╗" -ForegroundColor $C_Cyan
-Write-Host "  ██████╔╝███████╗   ██║   ╚██████╔╝██║ ╚████║██████╔╝" -ForegroundColor $C_Cyan
-Write-Host "  ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═════╝" -ForegroundColor $C_Cyan
-Write-Host "  Local SOC Analyst Toolkit" -ForegroundColor $C_Gray
-Write-Host ""
+Show-Boot @(
+  "boot://env      resolving backend + frontend targets",
+  "boot://launch   starting local services"
+)
+Show-Banner "Local SOC Investigation Workbench" "v0.1.0"
 
 if ($Help) {
   Write-Host "  Usage: .\run.ps1 [options]" -ForegroundColor $C_Gray
@@ -54,6 +56,20 @@ $BackendEnvExample = Join-Path $BackendDir ".env.example"
 if (-not (Test-Path $BackendEnv) -and (Test-Path $BackendEnvExample)) {
   Copy-Item $BackendEnvExample $BackendEnv
   Mark-Ok "Created backend\.env from example"
+}
+
+# Fall back to backend\.env for host/port, but never override an explicit
+# -HostName / -BackendPort flag the user passed on the command line.
+if (Test-Path $BackendEnv) {
+  $envLines = Get-Content $BackendEnv -ErrorAction SilentlyContinue
+  if (-not $PSBoundParameters.ContainsKey("HostName")) {
+    $envHost = (($envLines | Where-Object { $_ -match '^BEYONDLABS_BACKEND_HOST=' } | Select-Object -Last 1) -replace '^BEYONDLABS_BACKEND_HOST=', '').Trim()
+    if ($envHost) { $HostName = $envHost }
+  }
+  if (-not $PSBoundParameters.ContainsKey("BackendPort")) {
+    $envPort = (($envLines | Where-Object { $_ -match '^BEYONDLABS_BACKEND_PORT=' } | Select-Object -Last 1) -replace '^BEYONDLABS_BACKEND_PORT=', '').Trim()
+    if ($envPort) { $BackendPort = [int]$envPort }
+  }
 }
 
 # ── Preflight ───────────────────────────────────────────────────

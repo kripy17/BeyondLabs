@@ -6,7 +6,7 @@ const STORAGE_KEY = "ba.locker.v1";
 export type LockerItem = {
   id: string;
   value: string;
-  type: "ipv4" | "ipv6" | "domain" | "url" | "sha256" | "sha1" | "md5" | "email" | "file" | "unknown";
+  type: "ipv4" | "ipv6" | "domain" | "url" | "sha256" | "sha1" | "md5" | "email" | "file" | "cve" | "ja3" | "ua" | "text" | "unknown";
   source: string;
   note?: string;
   ts: number;
